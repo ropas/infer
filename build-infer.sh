@@ -11,6 +11,9 @@
 
 set -e
 
+echo "cp -rf facebook-clang-plugins-release/* facebook-clang-plugins/"
+cp -rf facebook-clang-plugins-release/* facebook-clang-plugins/
+
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 INFER_ROOT="$SCRIPT_DIR/../"
 PLATFORM="$(uname)"
