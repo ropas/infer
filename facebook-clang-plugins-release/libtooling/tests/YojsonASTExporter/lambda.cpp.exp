@@ -1,0 +1,4118 @@
+<"TranslationUnitDecl" : (
+  {
+    "pointer" : 1,
+    "source_range" : (
+      {
+      },
+      {
+      }
+    )
+  },
+  [
+    <"TypedefDecl" : (
+      {
+        "pointer" : 2,
+        "source_range" : (
+          {
+          },
+          {
+          }
+        ),
+        "is_implicit" : true
+      },
+      {
+        "name" : "__int128_t",
+        "qual_name" : [
+          "__int128_t"
+        ]
+      },
+      <"NoType">,
+      0,
+      {
+      }
+    )>,
+    <"TypedefDecl" : (
+      {
+        "pointer" : 3,
+        "source_range" : (
+          {
+          },
+          {
+          }
+        ),
+        "is_implicit" : true
+      },
+      {
+        "name" : "__uint128_t",
+        "qual_name" : [
+          "__uint128_t"
+        ]
+      },
+      <"NoType">,
+      0,
+      {
+      }
+    )>,
+    <"TypedefDecl" : (
+      {
+        "pointer" : 4,
+        "source_range" : (
+          {
+          },
+          {
+          }
+        ),
+        "is_implicit" : true
+      },
+      {
+        "name" : "__NSConstantString",
+        "qual_name" : [
+          "__NSConstantString"
+        ]
+      },
+      <"NoType">,
+      0,
+      {
+      }
+    )>,
+    <"TypedefDecl" : (
+      {
+        "pointer" : 5,
+        "source_range" : (
+          {
+          },
+          {
+          }
+        ),
+        "is_implicit" : true
+      },
+      {
+        "name" : "__builtin_ms_va_list",
+        "qual_name" : [
+          "__builtin_ms_va_list"
+        ]
+      },
+      <"NoType">,
+      0,
+      {
+      }
+    )>,
+    <"TypedefDecl" : (
+      {
+        "pointer" : 6,
+        "source_range" : (
+          {
+          },
+          {
+          }
+        ),
+        "is_implicit" : true
+      },
+      {
+        "name" : "__builtin_va_list",
+        "qual_name" : [
+          "__builtin_va_list"
+        ]
+      },
+      <"NoType">,
+      0,
+      {
+      }
+    )>,
+    <"FunctionDecl" : (
+      {
+        "pointer" : 7,
+        "source_range" : (
+          {
+            "file" : "tests/lambda.cpp",
+            "line" : 1,
+            "column" : 1
+          },
+          {
+            "line" : 9,
+            "column" : 1
+          }
+        )
+      },
+      {
+        "name" : "main",
+        "qual_name" : [
+          "main"
+        ]
+      },
+      {
+        "type_ptr" : 8
+      },
+      {
+        "decl_ptr_with_body" : 7,
+        "body" : <"CompoundStmt" : (
+          {
+            "pointer" : 9,
+            "source_range" : (
+              {
+                "line" : 1,
+                "column" : 12
+              },
+              {
+                "line" : 9,
+                "column" : 1
+              }
+            )
+          },
+          [
+            <"DeclStmt" : (
+              {
+                "pointer" : 10,
+                "source_range" : (
+                  {
+                    "line" : 2,
+                    "column" : 1
+                  },
+                  {
+                    "column" : 8
+                  }
+                )
+              },
+              [
+              ],
+              [
+                <"VarDecl" : (
+                  {
+                    "pointer" : 11,
+                    "source_range" : (
+                      {
+                        "column" : 1
+                      },
+                      {
+                        "column" : 5
+                      }
+                    ),
+                    "is_used" : true,
+                    "is_this_declaration_referenced" : true
+                  },
+                  {
+                    "name" : "m",
+                    "qual_name" : [
+                      "m"
+                    ]
+                  },
+                  {
+                    "type_ptr" : 12
+                  },
+                  {
+                  }
+                )>,
+                <"VarDecl" : (
+                  {
+                    "pointer" : 13,
+                    "source_range" : (
+                      {
+                        "column" : 1
+                      },
+                      {
+                        "column" : 7
+                      }
+                    ),
+                    "is_used" : true,
+                    "is_this_declaration_referenced" : true
+                  },
+                  {
+                    "name" : "n",
+                    "qual_name" : [
+                      "n"
+                    ]
+                  },
+                  {
+                    "type_ptr" : 12
+                  },
+                  {
+                  }
+                )>
+              ]
+            )>,
+            <"DeclStmt" : (
+              {
+                "pointer" : 14,
+                "source_range" : (
+                  {
+                    "line" : 4,
+                    "column" : 1
+                  },
+                  {
+                    "column" : 25
+                  }
+                )
+              },
+              [
+                <"ExprWithCleanups" : (
+                  {
+                    "pointer" : 15,
+                    "source_range" : (
+                      {
+                        "column" : 10
+                      },
+                      {
+                        "column" : 24
+                      }
+                    )
+                  },
+                  [
+                    <"CXXConstructExpr" : (
+                      {
+                        "pointer" : 16,
+                        "source_range" : (
+                          {
+                            "column" : 10
+                          },
+                          {
+                            "column" : 24
+                          }
+                        )
+                      },
+                      [
+                        <"MaterializeTemporaryExpr" : (
+                          {
+                            "pointer" : 17,
+                            "source_range" : (
+                              {
+                                "column" : 10
+                              },
+                              {
+                                "column" : 24
+                              }
+                            )
+                          },
+                          [
+                            <"LambdaExpr" : (
+                              {
+                                "pointer" : 18,
+                                "source_range" : (
+                                  {
+                                    "column" : 10
+                                  },
+                                  {
+                                    "column" : 24
+                                  }
+                                )
+                              },
+                              [
+                                <"CompoundStmt" : (
+                                  {
+                                    "pointer" : 19,
+                                    "source_range" : (
+                                      {
+                                        "column" : 14
+                                      },
+                                      {
+                                        "column" : 24
+                                      }
+                                    )
+                                  },
+                                  [
+                                    <"ReturnStmt" : (
+                                      {
+                                        "pointer" : 20,
+                                        "source_range" : (
+                                          {
+                                            "column" : 15
+                                          },
+                                          {
+                                            "column" : 22
+                                          }
+                                        )
+                                      },
+                                      [
+                                        <"IntegerLiteral" : (
+                                          {
+                                            "pointer" : 21,
+                                            "source_range" : (
+                                              {
+                                                "column" : 22
+                                              },
+                                              {
+                                                "column" : 22
+                                              }
+                                            )
+                                          },
+                                          [
+                                          ],
+                                          {
+                                            "type_ptr" : 12
+                                          },
+                                          {
+                                            "is_signed" : true,
+                                            "bitwidth" : 32,
+                                            "value" : "1"
+                                          }
+                                        )>
+                                      ]
+                                    )>
+                                  ]
+                                )>
+                              ],
+                              {
+                                "type_ptr" : 22
+                              },
+                              {
+                                "lambda_decl" : <"CXXRecordDecl" : (
+                                  {
+                                    "pointer" : 23,
+                                    "source_range" : (
+                                      {
+                                        "column" : 10
+                                      },
+                                      {
+                                        "column" : 10
+                                      }
+                                    ),
+                                    "is_implicit" : true
+                                  },
+                                  {
+                                    "name" : "",
+                                    "qual_name" : [
+                                      "lambda_tests/lambda.cpp:4:10",
+                                      "main"
+                                    ]
+                                  },
+                                  <"Type" : "class (lambda at tests/lambda.cpp:4:10)">,
+                                  22,
+                                  [
+                                    <"CXXMethodDecl" : (
+                                      {
+                                        "pointer" : 24,
+                                        "parent_pointer" : 23,
+                                        "source_range" : (
+                                          {
+                                            "column" : 13
+                                          },
+                                          {
+                                            "column" : 24
+                                          }
+                                        )
+                                      },
+                                      {
+                                        "name" : "operator()",
+                                        "qual_name" : [
+                                          "operator()",
+                                          "lambda_tests/lambda.cpp:4:10",
+                                          "main"
+                                        ]
+                                      },
+                                      {
+                                        "type_ptr" : 25
+                                      },
+                                      {
+                                        "mangled_name" : "_ZZ4mainENK3$_0clEv",
+                                        "is_inline" : true,
+                                        "decl_ptr_with_body" : 24,
+                                        "body" : <"CompoundStmt" : (
+                                          {
+                                            "pointer" : 19,
+                                            "source_range" : (
+                                              {
+                                                "column" : 14
+                                              },
+                                              {
+                                                "column" : 24
+                                              }
+                                            )
+                                          },
+                                          [
+                                            <"ReturnStmt" : (
+                                              {
+                                                "pointer" : 20,
+                                                "source_range" : (
+                                                  {
+                                                    "column" : 15
+                                                  },
+                                                  {
+                                                    "column" : 22
+                                                  }
+                                                )
+                                              },
+                                              [
+                                                <"IntegerLiteral" : (
+                                                  {
+                                                    "pointer" : 21,
+                                                    "source_range" : (
+                                                      {
+                                                        "column" : 22
+                                                      },
+                                                      {
+                                                        "column" : 22
+                                                      }
+                                                    )
+                                                  },
+                                                  [
+                                                  ],
+                                                  {
+                                                    "type_ptr" : 12
+                                                  },
+                                                  {
+                                                    "is_signed" : true,
+                                                    "bitwidth" : 32,
+                                                    "value" : "1"
+                                                  }
+                                                )>
+                                              ]
+                                            )>
+                                          ]
+                                        )>
+                                      },
+                                      {
+                                      }
+                                    )>,
+                                    <"CXXConversionDecl" : (
+                                      {
+                                        "pointer" : 26,
+                                        "parent_pointer" : 23,
+                                        "source_range" : (
+                                          {
+                                            "column" : 10
+                                          },
+                                          {
+                                            "column" : 24
+                                          }
+                                        ),
+                                        "is_implicit" : true
+                                      },
+                                      {
+                                        "name" : "operator int (*)()",
+                                        "qual_name" : [
+                                          "operator int (*)()",
+                                          "lambda_tests/lambda.cpp:4:10",
+                                          "main"
+                                        ]
+                                      },
+                                      {
+                                        "type_ptr" : 27
+                                      },
+                                      {
+                                        "mangled_name" : "_ZZ4mainENK3$_0cvPFivEEv",
+                                        "is_inline" : true
+                                      },
+                                      {
+                                      }
+                                    )>,
+                                    <"CXXMethodDecl" : (
+                                      {
+                                        "pointer" : 28,
+                                        "parent_pointer" : 23,
+                                        "source_range" : (
+                                          {
+                                            "column" : 10
+                                          },
+                                          {
+                                            "column" : 24
+                                          }
+                                        ),
+                                        "is_implicit" : true
+                                      },
+                                      {
+                                        "name" : "__invoke",
+                                        "qual_name" : [
+                                          "__invoke",
+                                          "lambda_tests/lambda.cpp:4:10",
+                                          "main"
+                                        ]
+                                      },
+                                      {
+                                        "type_ptr" : 8
+                                      },
+                                      {
+                                        "mangled_name" : "_ZZ4mainEN3$_08__invokeEv",
+                                        "storage_class" : "static",
+                                        "is_inline" : true
+                                      },
+                                      {
+                                        "is_static" : true
+                                      }
+                                    )>,
+                                    <"CXXDestructorDecl" : (
+                                      {
+                                        "pointer" : 29,
+                                        "parent_pointer" : 23,
+                                        "source_range" : (
+                                          {
+                                            "column" : 10
+                                          },
+                                          {
+                                            "column" : 10
+                                          }
+                                        ),
+                                        "is_implicit" : true,
+                                        "is_this_declaration_referenced" : true
+                                      },
+                                      {
+                                        "name" : "~",
+                                        "qual_name" : [
+                                          "~",
+                                          "lambda_tests/lambda.cpp:4:10",
+                                          "main"
+                                        ]
+                                      },
+                                      {
+                                        "type_ptr" : 30
+                                      },
+                                      {
+                                        "mangled_name" : "_ZZ4mainEN3$_0D0Ev",
+                                        "is_inline" : true
+                                      },
+                                      {
+                                      }
+                                    )>,
+                                    <"CXXConstructorDecl" : (
+                                      {
+                                        "pointer" : 31,
+                                        "parent_pointer" : 23,
+                                        "source_range" : (
+                                          {
+                                            "column" : 10
+                                          },
+                                          {
+                                            "column" : 10
+                                          }
+                                        ),
+                                        "is_implicit" : true
+                                      },
+                                      {
+                                        "name" : "",
+                                        "qual_name" : [
+                                          "",
+                                          "lambda_tests/lambda.cpp:4:10",
+                                          "main"
+                                        ]
+                                      },
+                                      {
+                                        "type_ptr" : 32
+                                      },
+                                      {
+                                        "mangled_name" : "_ZZ4mainEN3$_0C1ERKS_",
+                                        "is_inline" : true,
+                                        "parameters" : [
+                                          <"ParmVarDecl" : (
+                                            {
+                                              "pointer" : 33,
+                                              "source_range" : (
+                                                {
+                                                  "column" : 10
+                                                },
+                                                {
+                                                  "column" : 10
+                                                }
+                                              )
+                                            },
+                                            {
+                                              "name" : "",
+                                              "qual_name" : [
+                                                ""
+                                              ]
+                                            },
+                                            {
+                                              "type_ptr" : 34
+                                            },
+                                            {
+                                              "parm_index_in_function" : 0
+                                            }
+                                          )>
+                                        ]
+                                      },
+                                      {
+                                      }
+                                    )>,
+                                    <"CXXConstructorDecl" : (
+                                      {
+                                        "pointer" : 35,
+                                        "parent_pointer" : 23,
+                                        "source_range" : (
+                                          {
+                                            "column" : 10
+                                          },
+                                          {
+                                            "column" : 10
+                                          }
+                                        ),
+                                        "is_implicit" : true,
+                                        "is_used" : true,
+                                        "is_this_declaration_referenced" : true
+                                      },
+                                      {
+                                        "name" : "",
+                                        "qual_name" : [
+                                          "",
+                                          "lambda_tests/lambda.cpp:4:10",
+                                          "main"
+                                        ]
+                                      },
+                                      {
+                                        "type_ptr" : 36
+                                      },
+                                      {
+                                        "mangled_name" : "_ZZ4mainEN3$_0C1EOS_",
+                                        "is_inline" : true,
+                                        "parameters" : [
+                                          <"ParmVarDecl" : (
+                                            {
+                                              "pointer" : 37,
+                                              "source_range" : (
+                                                {
+                                                  "column" : 10
+                                                },
+                                                {
+                                                  "column" : 10
+                                                }
+                                              )
+                                            },
+                                            {
+                                              "name" : "",
+                                              "qual_name" : [
+                                                ""
+                                              ]
+                                            },
+                                            {
+                                              "type_ptr" : 38
+                                            },
+                                            {
+                                              "parm_index_in_function" : 0
+                                            }
+                                          )>
+                                        ],
+                                        "decl_ptr_with_body" : 35,
+                                        "body" : <"CompoundStmt" : (
+                                          {
+                                            "pointer" : 39,
+                                            "source_range" : (
+                                              {
+                                                "column" : 10
+                                              },
+                                              {
+                                                "column" : 10
+                                              }
+                                            )
+                                          },
+                                          [
+                                          ]
+                                        )>
+                                      },
+                                      {
+                                      }
+                                    )>
+                                  ],
+                                  {
+                                  },
+                                  {
+                                    "is_complete_definition" : true
+                                  },
+                                  {
+                                    "destructor" : {
+                                      "kind" : <"CXXDestructor">,
+                                      "decl_pointer" : 29,
+                                      "name" : {
+                                        "name" : "~",
+                                        "qual_name" : [
+                                          "~",
+                                          "lambda_tests/lambda.cpp:4:10",
+                                          "main"
+                                        ]
+                                      },
+                                      "type_ptr" : 30
+                                    },
+                                    "lambda_call_operator" : {
+                                      "kind" : <"CXXMethod">,
+                                      "decl_pointer" : 24,
+                                      "name" : {
+                                        "name" : "operator()",
+                                        "qual_name" : [
+                                          "operator()",
+                                          "lambda_tests/lambda.cpp:4:10",
+                                          "main"
+                                        ]
+                                      },
+                                      "type_ptr" : 25
+                                    }
+                                  }
+                                )>
+                              }
+                            )>
+                          ],
+                          {
+                            "type_ptr" : 22,
+                            "value_kind" : <"XValue">
+                          },
+                          {
+                          }
+                        )>
+                      ],
+                      {
+                        "type_ptr" : 40
+                      },
+                      {
+                        "decl_ref" : {
+                          "kind" : <"CXXConstructor">,
+                          "decl_pointer" : 35,
+                          "name" : {
+                            "name" : "",
+                            "qual_name" : [
+                              "",
+                              "lambda_tests/lambda.cpp:4:10",
+                              "main"
+                            ]
+                          },
+                          "type_ptr" : 36
+                        },
+                        "is_elidable" : true
+                      }
+                    )>
+                  ],
+                  {
+                    "type_ptr" : 40
+                  },
+                  {
+                  }
+                )>
+              ],
+              [
+                <"VarDecl" : (
+                  {
+                    "pointer" : 41,
+                    "source_range" : (
+                      {
+                        "column" : 1
+                      },
+                      {
+                        "column" : 24
+                      }
+                    )
+                  },
+                  {
+                    "name" : "f",
+                    "qual_name" : [
+                      "f"
+                    ]
+                  },
+                  {
+                    "type_ptr" : 40
+                  },
+                  {
+                    "init_expr" : <"ExprWithCleanups" : (
+                      {
+                        "pointer" : 15,
+                        "source_range" : (
+                          {
+                            "column" : 10
+                          },
+                          {
+                            "column" : 24
+                          }
+                        )
+                      },
+                      [
+                        <"CXXConstructExpr" : (
+                          {
+                            "pointer" : 16,
+                            "source_range" : (
+                              {
+                                "column" : 10
+                              },
+                              {
+                                "column" : 24
+                              }
+                            )
+                          },
+                          [
+                            <"MaterializeTemporaryExpr" : (
+                              {
+                                "pointer" : 17,
+                                "source_range" : (
+                                  {
+                                    "column" : 10
+                                  },
+                                  {
+                                    "column" : 24
+                                  }
+                                )
+                              },
+                              [
+                                <"LambdaExpr" : (
+                                  {
+                                    "pointer" : 18,
+                                    "source_range" : (
+                                      {
+                                        "column" : 10
+                                      },
+                                      {
+                                        "column" : 24
+                                      }
+                                    )
+                                  },
+                                  [
+                                    <"CompoundStmt" : (
+                                      {
+                                        "pointer" : 19,
+                                        "source_range" : (
+                                          {
+                                            "column" : 14
+                                          },
+                                          {
+                                            "column" : 24
+                                          }
+                                        )
+                                      },
+                                      [
+                                        <"ReturnStmt" : (
+                                          {
+                                            "pointer" : 20,
+                                            "source_range" : (
+                                              {
+                                                "column" : 15
+                                              },
+                                              {
+                                                "column" : 22
+                                              }
+                                            )
+                                          },
+                                          [
+                                            <"IntegerLiteral" : (
+                                              {
+                                                "pointer" : 21,
+                                                "source_range" : (
+                                                  {
+                                                    "column" : 22
+                                                  },
+                                                  {
+                                                    "column" : 22
+                                                  }
+                                                )
+                                              },
+                                              [
+                                              ],
+                                              {
+                                                "type_ptr" : 12
+                                              },
+                                              {
+                                                "is_signed" : true,
+                                                "bitwidth" : 32,
+                                                "value" : "1"
+                                              }
+                                            )>
+                                          ]
+                                        )>
+                                      ]
+                                    )>
+                                  ],
+                                  {
+                                    "type_ptr" : 22
+                                  },
+                                  {
+                                    "lambda_decl" : <"CXXRecordDecl" : (
+                                      {
+                                        "pointer" : 23,
+                                        "source_range" : (
+                                          {
+                                            "column" : 10
+                                          },
+                                          {
+                                            "column" : 10
+                                          }
+                                        ),
+                                        "is_implicit" : true
+                                      },
+                                      {
+                                        "name" : "",
+                                        "qual_name" : [
+                                          "lambda_tests/lambda.cpp:4:10",
+                                          "main"
+                                        ]
+                                      },
+                                      <"Type" : "class (lambda at tests/lambda.cpp:4:10)">,
+                                      22,
+                                      [
+                                        <"CXXMethodDecl" : (
+                                          {
+                                            "pointer" : 24,
+                                            "parent_pointer" : 23,
+                                            "source_range" : (
+                                              {
+                                                "column" : 13
+                                              },
+                                              {
+                                                "column" : 24
+                                              }
+                                            )
+                                          },
+                                          {
+                                            "name" : "operator()",
+                                            "qual_name" : [
+                                              "operator()",
+                                              "lambda_tests/lambda.cpp:4:10",
+                                              "main"
+                                            ]
+                                          },
+                                          {
+                                            "type_ptr" : 25
+                                          },
+                                          {
+                                            "mangled_name" : "_ZZ4mainENK3$_0clEv",
+                                            "is_inline" : true,
+                                            "decl_ptr_with_body" : 24,
+                                            "body" : <"CompoundStmt" : (
+                                              {
+                                                "pointer" : 19,
+                                                "source_range" : (
+                                                  {
+                                                    "column" : 14
+                                                  },
+                                                  {
+                                                    "column" : 24
+                                                  }
+                                                )
+                                              },
+                                              [
+                                                <"ReturnStmt" : (
+                                                  {
+                                                    "pointer" : 20,
+                                                    "source_range" : (
+                                                      {
+                                                        "column" : 15
+                                                      },
+                                                      {
+                                                        "column" : 22
+                                                      }
+                                                    )
+                                                  },
+                                                  [
+                                                    <"IntegerLiteral" : (
+                                                      {
+                                                        "pointer" : 21,
+                                                        "source_range" : (
+                                                          {
+                                                            "column" : 22
+                                                          },
+                                                          {
+                                                            "column" : 22
+                                                          }
+                                                        )
+                                                      },
+                                                      [
+                                                      ],
+                                                      {
+                                                        "type_ptr" : 12
+                                                      },
+                                                      {
+                                                        "is_signed" : true,
+                                                        "bitwidth" : 32,
+                                                        "value" : "1"
+                                                      }
+                                                    )>
+                                                  ]
+                                                )>
+                                              ]
+                                            )>
+                                          },
+                                          {
+                                          }
+                                        )>,
+                                        <"CXXConversionDecl" : (
+                                          {
+                                            "pointer" : 26,
+                                            "parent_pointer" : 23,
+                                            "source_range" : (
+                                              {
+                                                "column" : 10
+                                              },
+                                              {
+                                                "column" : 24
+                                              }
+                                            ),
+                                            "is_implicit" : true
+                                          },
+                                          {
+                                            "name" : "operator int (*)()",
+                                            "qual_name" : [
+                                              "operator int (*)()",
+                                              "lambda_tests/lambda.cpp:4:10",
+                                              "main"
+                                            ]
+                                          },
+                                          {
+                                            "type_ptr" : 27
+                                          },
+                                          {
+                                            "mangled_name" : "_ZZ4mainENK3$_0cvPFivEEv",
+                                            "is_inline" : true
+                                          },
+                                          {
+                                          }
+                                        )>,
+                                        <"CXXMethodDecl" : (
+                                          {
+                                            "pointer" : 28,
+                                            "parent_pointer" : 23,
+                                            "source_range" : (
+                                              {
+                                                "column" : 10
+                                              },
+                                              {
+                                                "column" : 24
+                                              }
+                                            ),
+                                            "is_implicit" : true
+                                          },
+                                          {
+                                            "name" : "__invoke",
+                                            "qual_name" : [
+                                              "__invoke",
+                                              "lambda_tests/lambda.cpp:4:10",
+                                              "main"
+                                            ]
+                                          },
+                                          {
+                                            "type_ptr" : 8
+                                          },
+                                          {
+                                            "mangled_name" : "_ZZ4mainEN3$_08__invokeEv",
+                                            "storage_class" : "static",
+                                            "is_inline" : true
+                                          },
+                                          {
+                                            "is_static" : true
+                                          }
+                                        )>,
+                                        <"CXXDestructorDecl" : (
+                                          {
+                                            "pointer" : 29,
+                                            "parent_pointer" : 23,
+                                            "source_range" : (
+                                              {
+                                                "column" : 10
+                                              },
+                                              {
+                                                "column" : 10
+                                              }
+                                            ),
+                                            "is_implicit" : true,
+                                            "is_this_declaration_referenced" : true
+                                          },
+                                          {
+                                            "name" : "~",
+                                            "qual_name" : [
+                                              "~",
+                                              "lambda_tests/lambda.cpp:4:10",
+                                              "main"
+                                            ]
+                                          },
+                                          {
+                                            "type_ptr" : 30
+                                          },
+                                          {
+                                            "mangled_name" : "_ZZ4mainEN3$_0D0Ev",
+                                            "is_inline" : true
+                                          },
+                                          {
+                                          }
+                                        )>,
+                                        <"CXXConstructorDecl" : (
+                                          {
+                                            "pointer" : 31,
+                                            "parent_pointer" : 23,
+                                            "source_range" : (
+                                              {
+                                                "column" : 10
+                                              },
+                                              {
+                                                "column" : 10
+                                              }
+                                            ),
+                                            "is_implicit" : true
+                                          },
+                                          {
+                                            "name" : "",
+                                            "qual_name" : [
+                                              "",
+                                              "lambda_tests/lambda.cpp:4:10",
+                                              "main"
+                                            ]
+                                          },
+                                          {
+                                            "type_ptr" : 32
+                                          },
+                                          {
+                                            "mangled_name" : "_ZZ4mainEN3$_0C1ERKS_",
+                                            "is_inline" : true,
+                                            "parameters" : [
+                                              <"ParmVarDecl" : (
+                                                {
+                                                  "pointer" : 33,
+                                                  "source_range" : (
+                                                    {
+                                                      "column" : 10
+                                                    },
+                                                    {
+                                                      "column" : 10
+                                                    }
+                                                  )
+                                                },
+                                                {
+                                                  "name" : "",
+                                                  "qual_name" : [
+                                                    ""
+                                                  ]
+                                                },
+                                                {
+                                                  "type_ptr" : 34
+                                                },
+                                                {
+                                                  "parm_index_in_function" : 0
+                                                }
+                                              )>
+                                            ]
+                                          },
+                                          {
+                                          }
+                                        )>,
+                                        <"CXXConstructorDecl" : (
+                                          {
+                                            "pointer" : 35,
+                                            "parent_pointer" : 23,
+                                            "source_range" : (
+                                              {
+                                                "column" : 10
+                                              },
+                                              {
+                                                "column" : 10
+                                              }
+                                            ),
+                                            "is_implicit" : true,
+                                            "is_used" : true,
+                                            "is_this_declaration_referenced" : true
+                                          },
+                                          {
+                                            "name" : "",
+                                            "qual_name" : [
+                                              "",
+                                              "lambda_tests/lambda.cpp:4:10",
+                                              "main"
+                                            ]
+                                          },
+                                          {
+                                            "type_ptr" : 36
+                                          },
+                                          {
+                                            "mangled_name" : "_ZZ4mainEN3$_0C1EOS_",
+                                            "is_inline" : true,
+                                            "parameters" : [
+                                              <"ParmVarDecl" : (
+                                                {
+                                                  "pointer" : 37,
+                                                  "source_range" : (
+                                                    {
+                                                      "column" : 10
+                                                    },
+                                                    {
+                                                      "column" : 10
+                                                    }
+                                                  )
+                                                },
+                                                {
+                                                  "name" : "",
+                                                  "qual_name" : [
+                                                    ""
+                                                  ]
+                                                },
+                                                {
+                                                  "type_ptr" : 38
+                                                },
+                                                {
+                                                  "parm_index_in_function" : 0
+                                                }
+                                              )>
+                                            ],
+                                            "decl_ptr_with_body" : 35,
+                                            "body" : <"CompoundStmt" : (
+                                              {
+                                                "pointer" : 39,
+                                                "source_range" : (
+                                                  {
+                                                    "column" : 10
+                                                  },
+                                                  {
+                                                    "column" : 10
+                                                  }
+                                                )
+                                              },
+                                              [
+                                              ]
+                                            )>
+                                          },
+                                          {
+                                          }
+                                        )>
+                                      ],
+                                      {
+                                      },
+                                      {
+                                        "is_complete_definition" : true
+                                      },
+                                      {
+                                        "destructor" : {
+                                          "kind" : <"CXXDestructor">,
+                                          "decl_pointer" : 29,
+                                          "name" : {
+                                            "name" : "~",
+                                            "qual_name" : [
+                                              "~",
+                                              "lambda_tests/lambda.cpp:4:10",
+                                              "main"
+                                            ]
+                                          },
+                                          "type_ptr" : 30
+                                        },
+                                        "lambda_call_operator" : {
+                                          "kind" : <"CXXMethod">,
+                                          "decl_pointer" : 24,
+                                          "name" : {
+                                            "name" : "operator()",
+                                            "qual_name" : [
+                                              "operator()",
+                                              "lambda_tests/lambda.cpp:4:10",
+                                              "main"
+                                            ]
+                                          },
+                                          "type_ptr" : 25
+                                        }
+                                      }
+                                    )>
+                                  }
+                                )>
+                              ],
+                              {
+                                "type_ptr" : 22,
+                                "value_kind" : <"XValue">
+                              },
+                              {
+                              }
+                            )>
+                          ],
+                          {
+                            "type_ptr" : 40
+                          },
+                          {
+                            "decl_ref" : {
+                              "kind" : <"CXXConstructor">,
+                              "decl_pointer" : 35,
+                              "name" : {
+                                "name" : "",
+                                "qual_name" : [
+                                  "",
+                                  "lambda_tests/lambda.cpp:4:10",
+                                  "main"
+                                ]
+                              },
+                              "type_ptr" : 36
+                            },
+                            "is_elidable" : true
+                          }
+                        )>
+                      ],
+                      {
+                        "type_ptr" : 40
+                      },
+                      {
+                      }
+                    )>
+                  }
+                )>
+              ]
+            )>,
+            <"DeclStmt" : (
+              {
+                "pointer" : 42,
+                "source_range" : (
+                  {
+                    "line" : 6,
+                    "column" : 5
+                  },
+                  {
+                    "column" : 45
+                  }
+                )
+              },
+              [
+                <"ExprWithCleanups" : (
+                  {
+                    "pointer" : 43,
+                    "source_range" : (
+                      {
+                        "column" : 16
+                      },
+                      {
+                        "column" : 44
+                      }
+                    )
+                  },
+                  [
+                    <"CXXConstructExpr" : (
+                      {
+                        "pointer" : 44,
+                        "source_range" : (
+                          {
+                            "column" : 16
+                          },
+                          {
+                            "column" : 44
+                          }
+                        )
+                      },
+                      [
+                        <"MaterializeTemporaryExpr" : (
+                          {
+                            "pointer" : 45,
+                            "source_range" : (
+                              {
+                                "column" : 16
+                              },
+                              {
+                                "column" : 44
+                              }
+                            )
+                          },
+                          [
+                            <"LambdaExpr" : (
+                              {
+                                "pointer" : 46,
+                                "source_range" : (
+                                  {
+                                    "column" : 16
+                                  },
+                                  {
+                                    "column" : 44
+                                  }
+                                )
+                              },
+                              [
+                                <"DeclRefExpr" : (
+                                  {
+                                    "pointer" : 47,
+                                    "source_range" : (
+                                      {
+                                        "column" : 18
+                                      },
+                                      {
+                                        "column" : 18
+                                      }
+                                    )
+                                  },
+                                  [
+                                  ],
+                                  {
+                                    "type_ptr" : 12,
+                                    "value_kind" : <"LValue">
+                                  },
+                                  {
+                                    "decl_ref" : {
+                                      "kind" : <"Var">,
+                                      "decl_pointer" : 11,
+                                      "name" : {
+                                        "name" : "m",
+                                        "qual_name" : [
+                                          "m"
+                                        ]
+                                      },
+                                      "type_ptr" : 12
+                                    }
+                                  }
+                                )>,
+                                <"ImplicitCastExpr" : (
+                                  {
+                                    "pointer" : 48,
+                                    "source_range" : (
+                                      {
+                                        "column" : 21
+                                      },
+                                      {
+                                        "column" : 21
+                                      }
+                                    )
+                                  },
+                                  [
+                                    <"DeclRefExpr" : (
+                                      {
+                                        "pointer" : 49,
+                                        "source_range" : (
+                                          {
+                                            "column" : 21
+                                          },
+                                          {
+                                            "column" : 21
+                                          }
+                                        )
+                                      },
+                                      [
+                                      ],
+                                      {
+                                        "type_ptr" : 12,
+                                        "value_kind" : <"LValue">
+                                      },
+                                      {
+                                        "decl_ref" : {
+                                          "kind" : <"Var">,
+                                          "decl_pointer" : 13,
+                                          "name" : {
+                                            "name" : "n",
+                                            "qual_name" : [
+                                              "n"
+                                            ]
+                                          },
+                                          "type_ptr" : 12
+                                        }
+                                      }
+                                    )>
+                                  ],
+                                  {
+                                    "type_ptr" : 12
+                                  },
+                                  {
+                                    "cast_kind" : <"LValueToRValue">,
+                                    "base_path" : [
+                                    ]
+                                  }
+                                )>,
+                                <"CompoundStmt" : (
+                                  {
+                                    "pointer" : 50,
+                                    "source_range" : (
+                                      {
+                                        "column" : 32
+                                      },
+                                      {
+                                        "column" : 44
+                                      }
+                                    )
+                                  },
+                                  [
+                                    <"ReturnStmt" : (
+                                      {
+                                        "pointer" : 51,
+                                        "source_range" : (
+                                          {
+                                            "column" : 34
+                                          },
+                                          {
+                                            "column" : 41
+                                          }
+                                        )
+                                      },
+                                      [
+                                        <"ImplicitCastExpr" : (
+                                          {
+                                            "pointer" : 52,
+                                            "source_range" : (
+                                              {
+                                                "column" : 41
+                                              },
+                                              {
+                                                "column" : 41
+                                              }
+                                            )
+                                          },
+                                          [
+                                            <"DeclRefExpr" : (
+                                              {
+                                                "pointer" : 53,
+                                                "source_range" : (
+                                                  {
+                                                    "column" : 41
+                                                  },
+                                                  {
+                                                    "column" : 41
+                                                  }
+                                                )
+                                              },
+                                              [
+                                              ],
+                                              {
+                                                "type_ptr" : 12,
+                                                "value_kind" : <"LValue">
+                                              },
+                                              {
+                                                "decl_ref" : {
+                                                  "kind" : <"Var">,
+                                                  "decl_pointer" : 11,
+                                                  "name" : {
+                                                    "name" : "m",
+                                                    "qual_name" : [
+                                                      "m"
+                                                    ]
+                                                  },
+                                                  "type_ptr" : 12
+                                                }
+                                              }
+                                            )>
+                                          ],
+                                          {
+                                            "type_ptr" : 12
+                                          },
+                                          {
+                                            "cast_kind" : <"LValueToRValue">,
+                                            "base_path" : [
+                                            ]
+                                          }
+                                        )>
+                                      ]
+                                    )>
+                                  ]
+                                )>
+                              ],
+                              {
+                                "type_ptr" : 54
+                              },
+                              {
+                                "captures" : [
+                                  {
+                                    "capture_kind" : <"LCK_ByRef">,
+                                    "capture_variable" : true,
+                                    "captured_var" : {
+                                      "kind" : <"Var">,
+                                      "decl_pointer" : 11,
+                                      "name" : {
+                                        "name" : "m",
+                                        "qual_name" : [
+                                          "m"
+                                        ]
+                                      },
+                                      "type_ptr" : 12
+                                    },
+                                    "location" : (
+                                      {
+                                        "column" : 18
+                                      },
+                                      {
+                                        "column" : 18
+                                      }
+                                    )
+                                  },
+                                  {
+                                    "capture_kind" : <"LCK_ByCopy">,
+                                    "capture_variable" : true,
+                                    "captured_var" : {
+                                      "kind" : <"Var">,
+                                      "decl_pointer" : 13,
+                                      "name" : {
+                                        "name" : "n",
+                                        "qual_name" : [
+                                          "n"
+                                        ]
+                                      },
+                                      "type_ptr" : 12
+                                    },
+                                    "location" : (
+                                      {
+                                        "column" : 21
+                                      },
+                                      {
+                                        "column" : 21
+                                      }
+                                    )
+                                  }
+                                ],
+                                "lambda_decl" : <"CXXRecordDecl" : (
+                                  {
+                                    "pointer" : 55,
+                                    "source_range" : (
+                                      {
+                                        "column" : 16
+                                      },
+                                      {
+                                        "column" : 16
+                                      }
+                                    ),
+                                    "is_implicit" : true
+                                  },
+                                  {
+                                    "name" : "",
+                                    "qual_name" : [
+                                      "lambda_tests/lambda.cpp:6:16",
+                                      "main"
+                                    ]
+                                  },
+                                  <"Type" : "class (lambda at tests/lambda.cpp:6:16)">,
+                                  54,
+                                  [
+                                    <"FieldDecl" : (
+                                      {
+                                        "pointer" : 56,
+                                        "source_range" : (
+                                          {
+                                            "column" : 18
+                                          },
+                                          {
+                                            "column" : 18
+                                          }
+                                        ),
+                                        "is_implicit" : true,
+                                        "is_this_declaration_referenced" : true
+                                      },
+                                      {
+                                        "name" : "",
+                                        "qual_name" : [
+                                          "",
+                                          "lambda_tests/lambda.cpp:6:16",
+                                          "main"
+                                        ]
+                                      },
+                                      {
+                                        "type_ptr" : 57
+                                      },
+                                      {
+                                      }
+                                    )>,
+                                    <"FieldDecl" : (
+                                      {
+                                        "pointer" : 58,
+                                        "source_range" : (
+                                          {
+                                            "column" : 21
+                                          },
+                                          {
+                                            "column" : 21
+                                          }
+                                        ),
+                                        "is_implicit" : true,
+                                        "is_this_declaration_referenced" : true
+                                      },
+                                      {
+                                        "name" : "",
+                                        "qual_name" : [
+                                          "",
+                                          "lambda_tests/lambda.cpp:6:16",
+                                          "main"
+                                        ]
+                                      },
+                                      {
+                                        "type_ptr" : 12
+                                      },
+                                      {
+                                      }
+                                    )>,
+                                    <"CXXMethodDecl" : (
+                                      {
+                                        "pointer" : 59,
+                                        "parent_pointer" : 55,
+                                        "source_range" : (
+                                          {
+                                            "column" : 30
+                                          },
+                                          {
+                                            "column" : 44
+                                          }
+                                        )
+                                      },
+                                      {
+                                        "name" : "operator()",
+                                        "qual_name" : [
+                                          "operator()",
+                                          "lambda_tests/lambda.cpp:6:16",
+                                          "main"
+                                        ]
+                                      },
+                                      {
+                                        "type_ptr" : 60
+                                      },
+                                      {
+                                        "mangled_name" : "_ZZ4mainENK3$_1clEi",
+                                        "is_inline" : true,
+                                        "parameters" : [
+                                          <"ParmVarDecl" : (
+                                            {
+                                              "pointer" : 61,
+                                              "source_range" : (
+                                                {
+                                                  "column" : 25
+                                                },
+                                                {
+                                                  "column" : 29
+                                                }
+                                              )
+                                            },
+                                            {
+                                              "name" : "a",
+                                              "qual_name" : [
+                                                "a"
+                                              ]
+                                            },
+                                            {
+                                              "type_ptr" : 12
+                                            },
+                                            {
+                                              "parm_index_in_function" : 0
+                                            }
+                                          )>
+                                        ],
+                                        "decl_ptr_with_body" : 59,
+                                        "body" : <"CompoundStmt" : (
+                                          {
+                                            "pointer" : 50,
+                                            "source_range" : (
+                                              {
+                                                "column" : 32
+                                              },
+                                              {
+                                                "column" : 44
+                                              }
+                                            )
+                                          },
+                                          [
+                                            <"ReturnStmt" : (
+                                              {
+                                                "pointer" : 51,
+                                                "source_range" : (
+                                                  {
+                                                    "column" : 34
+                                                  },
+                                                  {
+                                                    "column" : 41
+                                                  }
+                                                )
+                                              },
+                                              [
+                                                <"ImplicitCastExpr" : (
+                                                  {
+                                                    "pointer" : 52,
+                                                    "source_range" : (
+                                                      {
+                                                        "column" : 41
+                                                      },
+                                                      {
+                                                        "column" : 41
+                                                      }
+                                                    )
+                                                  },
+                                                  [
+                                                    <"DeclRefExpr" : (
+                                                      {
+                                                        "pointer" : 53,
+                                                        "source_range" : (
+                                                          {
+                                                            "column" : 41
+                                                          },
+                                                          {
+                                                            "column" : 41
+                                                          }
+                                                        )
+                                                      },
+                                                      [
+                                                      ],
+                                                      {
+                                                        "type_ptr" : 12,
+                                                        "value_kind" : <"LValue">
+                                                      },
+                                                      {
+                                                        "decl_ref" : {
+                                                          "kind" : <"Var">,
+                                                          "decl_pointer" : 11,
+                                                          "name" : {
+                                                            "name" : "m",
+                                                            "qual_name" : [
+                                                              "m"
+                                                            ]
+                                                          },
+                                                          "type_ptr" : 12
+                                                        }
+                                                      }
+                                                    )>
+                                                  ],
+                                                  {
+                                                    "type_ptr" : 12
+                                                  },
+                                                  {
+                                                    "cast_kind" : <"LValueToRValue">,
+                                                    "base_path" : [
+                                                    ]
+                                                  }
+                                                )>
+                                              ]
+                                            )>
+                                          ]
+                                        )>
+                                      },
+                                      {
+                                      }
+                                    )>,
+                                    <"CXXDestructorDecl" : (
+                                      {
+                                        "pointer" : 62,
+                                        "parent_pointer" : 55,
+                                        "source_range" : (
+                                          {
+                                            "column" : 16
+                                          },
+                                          {
+                                            "column" : 16
+                                          }
+                                        ),
+                                        "is_implicit" : true,
+                                        "is_this_declaration_referenced" : true
+                                      },
+                                      {
+                                        "name" : "~",
+                                        "qual_name" : [
+                                          "~",
+                                          "lambda_tests/lambda.cpp:6:16",
+                                          "main"
+                                        ]
+                                      },
+                                      {
+                                        "type_ptr" : 63
+                                      },
+                                      {
+                                        "mangled_name" : "_ZZ4mainEN3$_1D0Ev",
+                                        "is_inline" : true
+                                      },
+                                      {
+                                      }
+                                    )>,
+                                    <"CXXConstructorDecl" : (
+                                      {
+                                        "pointer" : 64,
+                                        "parent_pointer" : 55,
+                                        "source_range" : (
+                                          {
+                                            "column" : 16
+                                          },
+                                          {
+                                            "column" : 16
+                                          }
+                                        ),
+                                        "is_implicit" : true
+                                      },
+                                      {
+                                        "name" : "",
+                                        "qual_name" : [
+                                          "",
+                                          "lambda_tests/lambda.cpp:6:16",
+                                          "main"
+                                        ]
+                                      },
+                                      {
+                                        "type_ptr" : 65
+                                      },
+                                      {
+                                        "mangled_name" : "_ZZ4mainEN3$_1C1ERKS_",
+                                        "is_inline" : true,
+                                        "parameters" : [
+                                          <"ParmVarDecl" : (
+                                            {
+                                              "pointer" : 66,
+                                              "source_range" : (
+                                                {
+                                                  "column" : 16
+                                                },
+                                                {
+                                                  "column" : 16
+                                                }
+                                              )
+                                            },
+                                            {
+                                              "name" : "",
+                                              "qual_name" : [
+                                                ""
+                                              ]
+                                            },
+                                            {
+                                              "type_ptr" : 67
+                                            },
+                                            {
+                                              "parm_index_in_function" : 0
+                                            }
+                                          )>
+                                        ]
+                                      },
+                                      {
+                                      }
+                                    )>,
+                                    <"CXXConstructorDecl" : (
+                                      {
+                                        "pointer" : 68,
+                                        "parent_pointer" : 55,
+                                        "source_range" : (
+                                          {
+                                            "column" : 16
+                                          },
+                                          {
+                                            "column" : 16
+                                          }
+                                        ),
+                                        "is_implicit" : true,
+                                        "is_used" : true,
+                                        "is_this_declaration_referenced" : true
+                                      },
+                                      {
+                                        "name" : "",
+                                        "qual_name" : [
+                                          "",
+                                          "lambda_tests/lambda.cpp:6:16",
+                                          "main"
+                                        ]
+                                      },
+                                      {
+                                        "type_ptr" : 69
+                                      },
+                                      {
+                                        "mangled_name" : "_ZZ4mainEN3$_1C1EOS_",
+                                        "is_inline" : true,
+                                        "parameters" : [
+                                          <"ParmVarDecl" : (
+                                            {
+                                              "pointer" : 70,
+                                              "source_range" : (
+                                                {
+                                                  "column" : 16
+                                                },
+                                                {
+                                                  "column" : 16
+                                                }
+                                              ),
+                                              "is_used" : true,
+                                              "is_this_declaration_referenced" : true
+                                            },
+                                            {
+                                              "name" : "",
+                                              "qual_name" : [
+                                                ""
+                                              ]
+                                            },
+                                            {
+                                              "type_ptr" : 71
+                                            },
+                                            {
+                                              "parm_index_in_function" : 0
+                                            }
+                                          )>
+                                        ],
+                                        "decl_ptr_with_body" : 68,
+                                        "body" : <"CompoundStmt" : (
+                                          {
+                                            "pointer" : 72,
+                                            "source_range" : (
+                                              {
+                                                "column" : 16
+                                              },
+                                              {
+                                                "column" : 16
+                                              }
+                                            )
+                                          },
+                                          [
+                                          ]
+                                        )>
+                                      },
+                                      {
+                                        "cxx_ctor_initializers" : [
+                                          {
+                                            "subject" : <"Member" : {
+                                              "kind" : <"Field">,
+                                              "decl_pointer" : 56,
+                                              "name" : {
+                                                "name" : "",
+                                                "qual_name" : [
+                                                  "",
+                                                  "lambda_tests/lambda.cpp:6:16",
+                                                  "main"
+                                                ]
+                                              },
+                                              "type_ptr" : 57
+                                            }>,
+                                            "source_range" : (
+                                              {
+                                                "column" : 16
+                                              },
+                                              {
+                                                "column" : 16
+                                              }
+                                            ),
+                                            "init_expr" : <"MemberExpr" : (
+                                              {
+                                                "pointer" : 73,
+                                                "source_range" : (
+                                                  {
+                                                    "column" : 16
+                                                  },
+                                                  {
+                                                    "column" : 16
+                                                  }
+                                                )
+                                              },
+                                              [
+                                                <"CXXStaticCastExpr" : (
+                                                  {
+                                                    "pointer" : 74,
+                                                    "source_range" : (
+                                                      {
+                                                        "column" : 16
+                                                      },
+                                                      {
+                                                        "column" : 16
+                                                      }
+                                                    )
+                                                  },
+                                                  [
+                                                    <"DeclRefExpr" : (
+                                                      {
+                                                        "pointer" : 75,
+                                                        "source_range" : (
+                                                          {
+                                                            "column" : 16
+                                                          },
+                                                          {
+                                                            "column" : 16
+                                                          }
+                                                        )
+                                                      },
+                                                      [
+                                                      ],
+                                                      {
+                                                        "type_ptr" : 54,
+                                                        "value_kind" : <"LValue">
+                                                      },
+                                                      {
+                                                        "decl_ref" : {
+                                                          "kind" : <"ParmVar">,
+                                                          "decl_pointer" : 70,
+                                                          "name" : {
+                                                            "name" : "",
+                                                            "qual_name" : [
+                                                              ""
+                                                            ]
+                                                          },
+                                                          "type_ptr" : 71
+                                                        }
+                                                      }
+                                                    )>
+                                                  ],
+                                                  {
+                                                    "type_ptr" : 54,
+                                                    "value_kind" : <"XValue">
+                                                  },
+                                                  {
+                                                    "cast_kind" : <"NoOp">,
+                                                    "base_path" : [
+                                                    ]
+                                                  },
+                                                  71,
+                                                  "static_cast"
+                                                )>
+                                              ],
+                                              {
+                                                "type_ptr" : 12,
+                                                "value_kind" : <"LValue">
+                                              },
+                                              {
+                                                "performs_virtual_dispatch" : true,
+                                                "name" : {
+                                                  "name" : "",
+                                                  "qual_name" : [
+                                                    "",
+                                                    "lambda_tests/lambda.cpp:6:16",
+                                                    "main"
+                                                  ]
+                                                },
+                                                "decl_ref" : {
+                                                  "kind" : <"Field">,
+                                                  "decl_pointer" : 56,
+                                                  "name" : {
+                                                    "name" : "",
+                                                    "qual_name" : [
+                                                      "",
+                                                      "lambda_tests/lambda.cpp:6:16",
+                                                      "main"
+                                                    ]
+                                                  },
+                                                  "type_ptr" : 57
+                                                }
+                                              }
+                                            )>
+                                          },
+                                          {
+                                            "subject" : <"Member" : {
+                                              "kind" : <"Field">,
+                                              "decl_pointer" : 58,
+                                              "name" : {
+                                                "name" : "",
+                                                "qual_name" : [
+                                                  "",
+                                                  "lambda_tests/lambda.cpp:6:16",
+                                                  "main"
+                                                ]
+                                              },
+                                              "type_ptr" : 12
+                                            }>,
+                                            "source_range" : (
+                                              {
+                                                "column" : 16
+                                              },
+                                              {
+                                                "column" : 16
+                                              }
+                                            ),
+                                            "init_expr" : <"ImplicitCastExpr" : (
+                                              {
+                                                "pointer" : 76,
+                                                "source_range" : (
+                                                  {
+                                                    "column" : 16
+                                                  },
+                                                  {
+                                                    "column" : 16
+                                                  }
+                                                )
+                                              },
+                                              [
+                                                <"MemberExpr" : (
+                                                  {
+                                                    "pointer" : 77,
+                                                    "source_range" : (
+                                                      {
+                                                        "column" : 16
+                                                      },
+                                                      {
+                                                        "column" : 16
+                                                      }
+                                                    )
+                                                  },
+                                                  [
+                                                    <"CXXStaticCastExpr" : (
+                                                      {
+                                                        "pointer" : 78,
+                                                        "source_range" : (
+                                                          {
+                                                            "column" : 16
+                                                          },
+                                                          {
+                                                            "column" : 16
+                                                          }
+                                                        )
+                                                      },
+                                                      [
+                                                        <"DeclRefExpr" : (
+                                                          {
+                                                            "pointer" : 79,
+                                                            "source_range" : (
+                                                              {
+                                                                "column" : 16
+                                                              },
+                                                              {
+                                                                "column" : 16
+                                                              }
+                                                            )
+                                                          },
+                                                          [
+                                                          ],
+                                                          {
+                                                            "type_ptr" : 54,
+                                                            "value_kind" : <"LValue">
+                                                          },
+                                                          {
+                                                            "decl_ref" : {
+                                                              "kind" : <"ParmVar">,
+                                                              "decl_pointer" : 70,
+                                                              "name" : {
+                                                                "name" : "",
+                                                                "qual_name" : [
+                                                                  ""
+                                                                ]
+                                                              },
+                                                              "type_ptr" : 71
+                                                            }
+                                                          }
+                                                        )>
+                                                      ],
+                                                      {
+                                                        "type_ptr" : 54,
+                                                        "value_kind" : <"XValue">
+                                                      },
+                                                      {
+                                                        "cast_kind" : <"NoOp">,
+                                                        "base_path" : [
+                                                        ]
+                                                      },
+                                                      71,
+                                                      "static_cast"
+                                                    )>
+                                                  ],
+                                                  {
+                                                    "type_ptr" : 12,
+                                                    "value_kind" : <"XValue">
+                                                  },
+                                                  {
+                                                    "performs_virtual_dispatch" : true,
+                                                    "name" : {
+                                                      "name" : "",
+                                                      "qual_name" : [
+                                                        "",
+                                                        "lambda_tests/lambda.cpp:6:16",
+                                                        "main"
+                                                      ]
+                                                    },
+                                                    "decl_ref" : {
+                                                      "kind" : <"Field">,
+                                                      "decl_pointer" : 58,
+                                                      "name" : {
+                                                        "name" : "",
+                                                        "qual_name" : [
+                                                          "",
+                                                          "lambda_tests/lambda.cpp:6:16",
+                                                          "main"
+                                                        ]
+                                                      },
+                                                      "type_ptr" : 12
+                                                    }
+                                                  }
+                                                )>
+                                              ],
+                                              {
+                                                "type_ptr" : 12
+                                              },
+                                              {
+                                                "cast_kind" : <"LValueToRValue">,
+                                                "base_path" : [
+                                                ]
+                                              }
+                                            )>
+                                          }
+                                        ]
+                                      }
+                                    )>
+                                  ],
+                                  {
+                                  },
+                                  {
+                                    "is_complete_definition" : true
+                                  },
+                                  {
+                                    "destructor" : {
+                                      "kind" : <"CXXDestructor">,
+                                      "decl_pointer" : 62,
+                                      "name" : {
+                                        "name" : "~",
+                                        "qual_name" : [
+                                          "~",
+                                          "lambda_tests/lambda.cpp:6:16",
+                                          "main"
+                                        ]
+                                      },
+                                      "type_ptr" : 63
+                                    },
+                                    "lambda_call_operator" : {
+                                      "kind" : <"CXXMethod">,
+                                      "decl_pointer" : 59,
+                                      "name" : {
+                                        "name" : "operator()",
+                                        "qual_name" : [
+                                          "operator()",
+                                          "lambda_tests/lambda.cpp:6:16",
+                                          "main"
+                                        ]
+                                      },
+                                      "type_ptr" : 60
+                                    }
+                                  }
+                                )>
+                              }
+                            )>
+                          ],
+                          {
+                            "type_ptr" : 54,
+                            "value_kind" : <"XValue">
+                          },
+                          {
+                          }
+                        )>
+                      ],
+                      {
+                        "type_ptr" : 80
+                      },
+                      {
+                        "decl_ref" : {
+                          "kind" : <"CXXConstructor">,
+                          "decl_pointer" : 68,
+                          "name" : {
+                            "name" : "",
+                            "qual_name" : [
+                              "",
+                              "lambda_tests/lambda.cpp:6:16",
+                              "main"
+                            ]
+                          },
+                          "type_ptr" : 69
+                        },
+                        "is_elidable" : true
+                      }
+                    )>
+                  ],
+                  {
+                    "type_ptr" : 80
+                  },
+                  {
+                  }
+                )>
+              ],
+              [
+                <"VarDecl" : (
+                  {
+                    "pointer" : 81,
+                    "source_range" : (
+                      {
+                        "column" : 5
+                      },
+                      {
+                        "column" : 44
+                      }
+                    )
+                  },
+                  {
+                    "name" : "bar",
+                    "qual_name" : [
+                      "bar"
+                    ]
+                  },
+                  {
+                    "type_ptr" : 80
+                  },
+                  {
+                    "init_expr" : <"ExprWithCleanups" : (
+                      {
+                        "pointer" : 43,
+                        "source_range" : (
+                          {
+                            "column" : 16
+                          },
+                          {
+                            "column" : 44
+                          }
+                        )
+                      },
+                      [
+                        <"CXXConstructExpr" : (
+                          {
+                            "pointer" : 44,
+                            "source_range" : (
+                              {
+                                "column" : 16
+                              },
+                              {
+                                "column" : 44
+                              }
+                            )
+                          },
+                          [
+                            <"MaterializeTemporaryExpr" : (
+                              {
+                                "pointer" : 45,
+                                "source_range" : (
+                                  {
+                                    "column" : 16
+                                  },
+                                  {
+                                    "column" : 44
+                                  }
+                                )
+                              },
+                              [
+                                <"LambdaExpr" : (
+                                  {
+                                    "pointer" : 46,
+                                    "source_range" : (
+                                      {
+                                        "column" : 16
+                                      },
+                                      {
+                                        "column" : 44
+                                      }
+                                    )
+                                  },
+                                  [
+                                    <"DeclRefExpr" : (
+                                      {
+                                        "pointer" : 47,
+                                        "source_range" : (
+                                          {
+                                            "column" : 18
+                                          },
+                                          {
+                                            "column" : 18
+                                          }
+                                        )
+                                      },
+                                      [
+                                      ],
+                                      {
+                                        "type_ptr" : 12,
+                                        "value_kind" : <"LValue">
+                                      },
+                                      {
+                                        "decl_ref" : {
+                                          "kind" : <"Var">,
+                                          "decl_pointer" : 11,
+                                          "name" : {
+                                            "name" : "m",
+                                            "qual_name" : [
+                                              "m"
+                                            ]
+                                          },
+                                          "type_ptr" : 12
+                                        }
+                                      }
+                                    )>,
+                                    <"ImplicitCastExpr" : (
+                                      {
+                                        "pointer" : 48,
+                                        "source_range" : (
+                                          {
+                                            "column" : 21
+                                          },
+                                          {
+                                            "column" : 21
+                                          }
+                                        )
+                                      },
+                                      [
+                                        <"DeclRefExpr" : (
+                                          {
+                                            "pointer" : 49,
+                                            "source_range" : (
+                                              {
+                                                "column" : 21
+                                              },
+                                              {
+                                                "column" : 21
+                                              }
+                                            )
+                                          },
+                                          [
+                                          ],
+                                          {
+                                            "type_ptr" : 12,
+                                            "value_kind" : <"LValue">
+                                          },
+                                          {
+                                            "decl_ref" : {
+                                              "kind" : <"Var">,
+                                              "decl_pointer" : 13,
+                                              "name" : {
+                                                "name" : "n",
+                                                "qual_name" : [
+                                                  "n"
+                                                ]
+                                              },
+                                              "type_ptr" : 12
+                                            }
+                                          }
+                                        )>
+                                      ],
+                                      {
+                                        "type_ptr" : 12
+                                      },
+                                      {
+                                        "cast_kind" : <"LValueToRValue">,
+                                        "base_path" : [
+                                        ]
+                                      }
+                                    )>,
+                                    <"CompoundStmt" : (
+                                      {
+                                        "pointer" : 50,
+                                        "source_range" : (
+                                          {
+                                            "column" : 32
+                                          },
+                                          {
+                                            "column" : 44
+                                          }
+                                        )
+                                      },
+                                      [
+                                        <"ReturnStmt" : (
+                                          {
+                                            "pointer" : 51,
+                                            "source_range" : (
+                                              {
+                                                "column" : 34
+                                              },
+                                              {
+                                                "column" : 41
+                                              }
+                                            )
+                                          },
+                                          [
+                                            <"ImplicitCastExpr" : (
+                                              {
+                                                "pointer" : 52,
+                                                "source_range" : (
+                                                  {
+                                                    "column" : 41
+                                                  },
+                                                  {
+                                                    "column" : 41
+                                                  }
+                                                )
+                                              },
+                                              [
+                                                <"DeclRefExpr" : (
+                                                  {
+                                                    "pointer" : 53,
+                                                    "source_range" : (
+                                                      {
+                                                        "column" : 41
+                                                      },
+                                                      {
+                                                        "column" : 41
+                                                      }
+                                                    )
+                                                  },
+                                                  [
+                                                  ],
+                                                  {
+                                                    "type_ptr" : 12,
+                                                    "value_kind" : <"LValue">
+                                                  },
+                                                  {
+                                                    "decl_ref" : {
+                                                      "kind" : <"Var">,
+                                                      "decl_pointer" : 11,
+                                                      "name" : {
+                                                        "name" : "m",
+                                                        "qual_name" : [
+                                                          "m"
+                                                        ]
+                                                      },
+                                                      "type_ptr" : 12
+                                                    }
+                                                  }
+                                                )>
+                                              ],
+                                              {
+                                                "type_ptr" : 12
+                                              },
+                                              {
+                                                "cast_kind" : <"LValueToRValue">,
+                                                "base_path" : [
+                                                ]
+                                              }
+                                            )>
+                                          ]
+                                        )>
+                                      ]
+                                    )>
+                                  ],
+                                  {
+                                    "type_ptr" : 54
+                                  },
+                                  {
+                                    "captures" : [
+                                      {
+                                        "capture_kind" : <"LCK_ByRef">,
+                                        "capture_variable" : true,
+                                        "captured_var" : {
+                                          "kind" : <"Var">,
+                                          "decl_pointer" : 11,
+                                          "name" : {
+                                            "name" : "m",
+                                            "qual_name" : [
+                                              "m"
+                                            ]
+                                          },
+                                          "type_ptr" : 12
+                                        },
+                                        "location" : (
+                                          {
+                                            "column" : 18
+                                          },
+                                          {
+                                            "column" : 18
+                                          }
+                                        )
+                                      },
+                                      {
+                                        "capture_kind" : <"LCK_ByCopy">,
+                                        "capture_variable" : true,
+                                        "captured_var" : {
+                                          "kind" : <"Var">,
+                                          "decl_pointer" : 13,
+                                          "name" : {
+                                            "name" : "n",
+                                            "qual_name" : [
+                                              "n"
+                                            ]
+                                          },
+                                          "type_ptr" : 12
+                                        },
+                                        "location" : (
+                                          {
+                                            "column" : 21
+                                          },
+                                          {
+                                            "column" : 21
+                                          }
+                                        )
+                                      }
+                                    ],
+                                    "lambda_decl" : <"CXXRecordDecl" : (
+                                      {
+                                        "pointer" : 55,
+                                        "source_range" : (
+                                          {
+                                            "column" : 16
+                                          },
+                                          {
+                                            "column" : 16
+                                          }
+                                        ),
+                                        "is_implicit" : true
+                                      },
+                                      {
+                                        "name" : "",
+                                        "qual_name" : [
+                                          "lambda_tests/lambda.cpp:6:16",
+                                          "main"
+                                        ]
+                                      },
+                                      <"Type" : "class (lambda at tests/lambda.cpp:6:16)">,
+                                      54,
+                                      [
+                                        <"FieldDecl" : (
+                                          {
+                                            "pointer" : 56,
+                                            "source_range" : (
+                                              {
+                                                "column" : 18
+                                              },
+                                              {
+                                                "column" : 18
+                                              }
+                                            ),
+                                            "is_implicit" : true,
+                                            "is_this_declaration_referenced" : true
+                                          },
+                                          {
+                                            "name" : "",
+                                            "qual_name" : [
+                                              "",
+                                              "lambda_tests/lambda.cpp:6:16",
+                                              "main"
+                                            ]
+                                          },
+                                          {
+                                            "type_ptr" : 57
+                                          },
+                                          {
+                                          }
+                                        )>,
+                                        <"FieldDecl" : (
+                                          {
+                                            "pointer" : 58,
+                                            "source_range" : (
+                                              {
+                                                "column" : 21
+                                              },
+                                              {
+                                                "column" : 21
+                                              }
+                                            ),
+                                            "is_implicit" : true,
+                                            "is_this_declaration_referenced" : true
+                                          },
+                                          {
+                                            "name" : "",
+                                            "qual_name" : [
+                                              "",
+                                              "lambda_tests/lambda.cpp:6:16",
+                                              "main"
+                                            ]
+                                          },
+                                          {
+                                            "type_ptr" : 12
+                                          },
+                                          {
+                                          }
+                                        )>,
+                                        <"CXXMethodDecl" : (
+                                          {
+                                            "pointer" : 59,
+                                            "parent_pointer" : 55,
+                                            "source_range" : (
+                                              {
+                                                "column" : 30
+                                              },
+                                              {
+                                                "column" : 44
+                                              }
+                                            )
+                                          },
+                                          {
+                                            "name" : "operator()",
+                                            "qual_name" : [
+                                              "operator()",
+                                              "lambda_tests/lambda.cpp:6:16",
+                                              "main"
+                                            ]
+                                          },
+                                          {
+                                            "type_ptr" : 60
+                                          },
+                                          {
+                                            "mangled_name" : "_ZZ4mainENK3$_1clEi",
+                                            "is_inline" : true,
+                                            "parameters" : [
+                                              <"ParmVarDecl" : (
+                                                {
+                                                  "pointer" : 61,
+                                                  "source_range" : (
+                                                    {
+                                                      "column" : 25
+                                                    },
+                                                    {
+                                                      "column" : 29
+                                                    }
+                                                  )
+                                                },
+                                                {
+                                                  "name" : "a",
+                                                  "qual_name" : [
+                                                    "a"
+                                                  ]
+                                                },
+                                                {
+                                                  "type_ptr" : 12
+                                                },
+                                                {
+                                                  "parm_index_in_function" : 0
+                                                }
+                                              )>
+                                            ],
+                                            "decl_ptr_with_body" : 59,
+                                            "body" : <"CompoundStmt" : (
+                                              {
+                                                "pointer" : 50,
+                                                "source_range" : (
+                                                  {
+                                                    "column" : 32
+                                                  },
+                                                  {
+                                                    "column" : 44
+                                                  }
+                                                )
+                                              },
+                                              [
+                                                <"ReturnStmt" : (
+                                                  {
+                                                    "pointer" : 51,
+                                                    "source_range" : (
+                                                      {
+                                                        "column" : 34
+                                                      },
+                                                      {
+                                                        "column" : 41
+                                                      }
+                                                    )
+                                                  },
+                                                  [
+                                                    <"ImplicitCastExpr" : (
+                                                      {
+                                                        "pointer" : 52,
+                                                        "source_range" : (
+                                                          {
+                                                            "column" : 41
+                                                          },
+                                                          {
+                                                            "column" : 41
+                                                          }
+                                                        )
+                                                      },
+                                                      [
+                                                        <"DeclRefExpr" : (
+                                                          {
+                                                            "pointer" : 53,
+                                                            "source_range" : (
+                                                              {
+                                                                "column" : 41
+                                                              },
+                                                              {
+                                                                "column" : 41
+                                                              }
+                                                            )
+                                                          },
+                                                          [
+                                                          ],
+                                                          {
+                                                            "type_ptr" : 12,
+                                                            "value_kind" : <"LValue">
+                                                          },
+                                                          {
+                                                            "decl_ref" : {
+                                                              "kind" : <"Var">,
+                                                              "decl_pointer" : 11,
+                                                              "name" : {
+                                                                "name" : "m",
+                                                                "qual_name" : [
+                                                                  "m"
+                                                                ]
+                                                              },
+                                                              "type_ptr" : 12
+                                                            }
+                                                          }
+                                                        )>
+                                                      ],
+                                                      {
+                                                        "type_ptr" : 12
+                                                      },
+                                                      {
+                                                        "cast_kind" : <"LValueToRValue">,
+                                                        "base_path" : [
+                                                        ]
+                                                      }
+                                                    )>
+                                                  ]
+                                                )>
+                                              ]
+                                            )>
+                                          },
+                                          {
+                                          }
+                                        )>,
+                                        <"CXXDestructorDecl" : (
+                                          {
+                                            "pointer" : 62,
+                                            "parent_pointer" : 55,
+                                            "source_range" : (
+                                              {
+                                                "column" : 16
+                                              },
+                                              {
+                                                "column" : 16
+                                              }
+                                            ),
+                                            "is_implicit" : true,
+                                            "is_this_declaration_referenced" : true
+                                          },
+                                          {
+                                            "name" : "~",
+                                            "qual_name" : [
+                                              "~",
+                                              "lambda_tests/lambda.cpp:6:16",
+                                              "main"
+                                            ]
+                                          },
+                                          {
+                                            "type_ptr" : 63
+                                          },
+                                          {
+                                            "mangled_name" : "_ZZ4mainEN3$_1D0Ev",
+                                            "is_inline" : true
+                                          },
+                                          {
+                                          }
+                                        )>,
+                                        <"CXXConstructorDecl" : (
+                                          {
+                                            "pointer" : 64,
+                                            "parent_pointer" : 55,
+                                            "source_range" : (
+                                              {
+                                                "column" : 16
+                                              },
+                                              {
+                                                "column" : 16
+                                              }
+                                            ),
+                                            "is_implicit" : true
+                                          },
+                                          {
+                                            "name" : "",
+                                            "qual_name" : [
+                                              "",
+                                              "lambda_tests/lambda.cpp:6:16",
+                                              "main"
+                                            ]
+                                          },
+                                          {
+                                            "type_ptr" : 65
+                                          },
+                                          {
+                                            "mangled_name" : "_ZZ4mainEN3$_1C1ERKS_",
+                                            "is_inline" : true,
+                                            "parameters" : [
+                                              <"ParmVarDecl" : (
+                                                {
+                                                  "pointer" : 66,
+                                                  "source_range" : (
+                                                    {
+                                                      "column" : 16
+                                                    },
+                                                    {
+                                                      "column" : 16
+                                                    }
+                                                  )
+                                                },
+                                                {
+                                                  "name" : "",
+                                                  "qual_name" : [
+                                                    ""
+                                                  ]
+                                                },
+                                                {
+                                                  "type_ptr" : 67
+                                                },
+                                                {
+                                                  "parm_index_in_function" : 0
+                                                }
+                                              )>
+                                            ]
+                                          },
+                                          {
+                                          }
+                                        )>,
+                                        <"CXXConstructorDecl" : (
+                                          {
+                                            "pointer" : 68,
+                                            "parent_pointer" : 55,
+                                            "source_range" : (
+                                              {
+                                                "column" : 16
+                                              },
+                                              {
+                                                "column" : 16
+                                              }
+                                            ),
+                                            "is_implicit" : true,
+                                            "is_used" : true,
+                                            "is_this_declaration_referenced" : true
+                                          },
+                                          {
+                                            "name" : "",
+                                            "qual_name" : [
+                                              "",
+                                              "lambda_tests/lambda.cpp:6:16",
+                                              "main"
+                                            ]
+                                          },
+                                          {
+                                            "type_ptr" : 69
+                                          },
+                                          {
+                                            "mangled_name" : "_ZZ4mainEN3$_1C1EOS_",
+                                            "is_inline" : true,
+                                            "parameters" : [
+                                              <"ParmVarDecl" : (
+                                                {
+                                                  "pointer" : 70,
+                                                  "source_range" : (
+                                                    {
+                                                      "column" : 16
+                                                    },
+                                                    {
+                                                      "column" : 16
+                                                    }
+                                                  ),
+                                                  "is_used" : true,
+                                                  "is_this_declaration_referenced" : true
+                                                },
+                                                {
+                                                  "name" : "",
+                                                  "qual_name" : [
+                                                    ""
+                                                  ]
+                                                },
+                                                {
+                                                  "type_ptr" : 71
+                                                },
+                                                {
+                                                  "parm_index_in_function" : 0
+                                                }
+                                              )>
+                                            ],
+                                            "decl_ptr_with_body" : 68,
+                                            "body" : <"CompoundStmt" : (
+                                              {
+                                                "pointer" : 72,
+                                                "source_range" : (
+                                                  {
+                                                    "column" : 16
+                                                  },
+                                                  {
+                                                    "column" : 16
+                                                  }
+                                                )
+                                              },
+                                              [
+                                              ]
+                                            )>
+                                          },
+                                          {
+                                            "cxx_ctor_initializers" : [
+                                              {
+                                                "subject" : <"Member" : {
+                                                  "kind" : <"Field">,
+                                                  "decl_pointer" : 56,
+                                                  "name" : {
+                                                    "name" : "",
+                                                    "qual_name" : [
+                                                      "",
+                                                      "lambda_tests/lambda.cpp:6:16",
+                                                      "main"
+                                                    ]
+                                                  },
+                                                  "type_ptr" : 57
+                                                }>,
+                                                "source_range" : (
+                                                  {
+                                                    "column" : 16
+                                                  },
+                                                  {
+                                                    "column" : 16
+                                                  }
+                                                ),
+                                                "init_expr" : <"MemberExpr" : (
+                                                  {
+                                                    "pointer" : 73,
+                                                    "source_range" : (
+                                                      {
+                                                        "column" : 16
+                                                      },
+                                                      {
+                                                        "column" : 16
+                                                      }
+                                                    )
+                                                  },
+                                                  [
+                                                    <"CXXStaticCastExpr" : (
+                                                      {
+                                                        "pointer" : 74,
+                                                        "source_range" : (
+                                                          {
+                                                            "column" : 16
+                                                          },
+                                                          {
+                                                            "column" : 16
+                                                          }
+                                                        )
+                                                      },
+                                                      [
+                                                        <"DeclRefExpr" : (
+                                                          {
+                                                            "pointer" : 75,
+                                                            "source_range" : (
+                                                              {
+                                                                "column" : 16
+                                                              },
+                                                              {
+                                                                "column" : 16
+                                                              }
+                                                            )
+                                                          },
+                                                          [
+                                                          ],
+                                                          {
+                                                            "type_ptr" : 54,
+                                                            "value_kind" : <"LValue">
+                                                          },
+                                                          {
+                                                            "decl_ref" : {
+                                                              "kind" : <"ParmVar">,
+                                                              "decl_pointer" : 70,
+                                                              "name" : {
+                                                                "name" : "",
+                                                                "qual_name" : [
+                                                                  ""
+                                                                ]
+                                                              },
+                                                              "type_ptr" : 71
+                                                            }
+                                                          }
+                                                        )>
+                                                      ],
+                                                      {
+                                                        "type_ptr" : 54,
+                                                        "value_kind" : <"XValue">
+                                                      },
+                                                      {
+                                                        "cast_kind" : <"NoOp">,
+                                                        "base_path" : [
+                                                        ]
+                                                      },
+                                                      71,
+                                                      "static_cast"
+                                                    )>
+                                                  ],
+                                                  {
+                                                    "type_ptr" : 12,
+                                                    "value_kind" : <"LValue">
+                                                  },
+                                                  {
+                                                    "performs_virtual_dispatch" : true,
+                                                    "name" : {
+                                                      "name" : "",
+                                                      "qual_name" : [
+                                                        "",
+                                                        "lambda_tests/lambda.cpp:6:16",
+                                                        "main"
+                                                      ]
+                                                    },
+                                                    "decl_ref" : {
+                                                      "kind" : <"Field">,
+                                                      "decl_pointer" : 56,
+                                                      "name" : {
+                                                        "name" : "",
+                                                        "qual_name" : [
+                                                          "",
+                                                          "lambda_tests/lambda.cpp:6:16",
+                                                          "main"
+                                                        ]
+                                                      },
+                                                      "type_ptr" : 57
+                                                    }
+                                                  }
+                                                )>
+                                              },
+                                              {
+                                                "subject" : <"Member" : {
+                                                  "kind" : <"Field">,
+                                                  "decl_pointer" : 58,
+                                                  "name" : {
+                                                    "name" : "",
+                                                    "qual_name" : [
+                                                      "",
+                                                      "lambda_tests/lambda.cpp:6:16",
+                                                      "main"
+                                                    ]
+                                                  },
+                                                  "type_ptr" : 12
+                                                }>,
+                                                "source_range" : (
+                                                  {
+                                                    "column" : 16
+                                                  },
+                                                  {
+                                                    "column" : 16
+                                                  }
+                                                ),
+                                                "init_expr" : <"ImplicitCastExpr" : (
+                                                  {
+                                                    "pointer" : 76,
+                                                    "source_range" : (
+                                                      {
+                                                        "column" : 16
+                                                      },
+                                                      {
+                                                        "column" : 16
+                                                      }
+                                                    )
+                                                  },
+                                                  [
+                                                    <"MemberExpr" : (
+                                                      {
+                                                        "pointer" : 77,
+                                                        "source_range" : (
+                                                          {
+                                                            "column" : 16
+                                                          },
+                                                          {
+                                                            "column" : 16
+                                                          }
+                                                        )
+                                                      },
+                                                      [
+                                                        <"CXXStaticCastExpr" : (
+                                                          {
+                                                            "pointer" : 78,
+                                                            "source_range" : (
+                                                              {
+                                                                "column" : 16
+                                                              },
+                                                              {
+                                                                "column" : 16
+                                                              }
+                                                            )
+                                                          },
+                                                          [
+                                                            <"DeclRefExpr" : (
+                                                              {
+                                                                "pointer" : 79,
+                                                                "source_range" : (
+                                                                  {
+                                                                    "column" : 16
+                                                                  },
+                                                                  {
+                                                                    "column" : 16
+                                                                  }
+                                                                )
+                                                              },
+                                                              [
+                                                              ],
+                                                              {
+                                                                "type_ptr" : 54,
+                                                                "value_kind" : <"LValue">
+                                                              },
+                                                              {
+                                                                "decl_ref" : {
+                                                                  "kind" : <"ParmVar">,
+                                                                  "decl_pointer" : 70,
+                                                                  "name" : {
+                                                                    "name" : "",
+                                                                    "qual_name" : [
+                                                                      ""
+                                                                    ]
+                                                                  },
+                                                                  "type_ptr" : 71
+                                                                }
+                                                              }
+                                                            )>
+                                                          ],
+                                                          {
+                                                            "type_ptr" : 54,
+                                                            "value_kind" : <"XValue">
+                                                          },
+                                                          {
+                                                            "cast_kind" : <"NoOp">,
+                                                            "base_path" : [
+                                                            ]
+                                                          },
+                                                          71,
+                                                          "static_cast"
+                                                        )>
+                                                      ],
+                                                      {
+                                                        "type_ptr" : 12,
+                                                        "value_kind" : <"XValue">
+                                                      },
+                                                      {
+                                                        "performs_virtual_dispatch" : true,
+                                                        "name" : {
+                                                          "name" : "",
+                                                          "qual_name" : [
+                                                            "",
+                                                            "lambda_tests/lambda.cpp:6:16",
+                                                            "main"
+                                                          ]
+                                                        },
+                                                        "decl_ref" : {
+                                                          "kind" : <"Field">,
+                                                          "decl_pointer" : 58,
+                                                          "name" : {
+                                                            "name" : "",
+                                                            "qual_name" : [
+                                                              "",
+                                                              "lambda_tests/lambda.cpp:6:16",
+                                                              "main"
+                                                            ]
+                                                          },
+                                                          "type_ptr" : 12
+                                                        }
+                                                      }
+                                                    )>
+                                                  ],
+                                                  {
+                                                    "type_ptr" : 12
+                                                  },
+                                                  {
+                                                    "cast_kind" : <"LValueToRValue">,
+                                                    "base_path" : [
+                                                    ]
+                                                  }
+                                                )>
+                                              }
+                                            ]
+                                          }
+                                        )>
+                                      ],
+                                      {
+                                      },
+                                      {
+                                        "is_complete_definition" : true
+                                      },
+                                      {
+                                        "destructor" : {
+                                          "kind" : <"CXXDestructor">,
+                                          "decl_pointer" : 62,
+                                          "name" : {
+                                            "name" : "~",
+                                            "qual_name" : [
+                                              "~",
+                                              "lambda_tests/lambda.cpp:6:16",
+                                              "main"
+                                            ]
+                                          },
+                                          "type_ptr" : 63
+                                        },
+                                        "lambda_call_operator" : {
+                                          "kind" : <"CXXMethod">,
+                                          "decl_pointer" : 59,
+                                          "name" : {
+                                            "name" : "operator()",
+                                            "qual_name" : [
+                                              "operator()",
+                                              "lambda_tests/lambda.cpp:6:16",
+                                              "main"
+                                            ]
+                                          },
+                                          "type_ptr" : 60
+                                        }
+                                      }
+                                    )>
+                                  }
+                                )>
+                              ],
+                              {
+                                "type_ptr" : 54,
+                                "value_kind" : <"XValue">
+                              },
+                              {
+                              }
+                            )>
+                          ],
+                          {
+                            "type_ptr" : 80
+                          },
+                          {
+                            "decl_ref" : {
+                              "kind" : <"CXXConstructor">,
+                              "decl_pointer" : 68,
+                              "name" : {
+                                "name" : "",
+                                "qual_name" : [
+                                  "",
+                                  "lambda_tests/lambda.cpp:6:16",
+                                  "main"
+                                ]
+                              },
+                              "type_ptr" : 69
+                            },
+                            "is_elidable" : true
+                          }
+                        )>
+                      ],
+                      {
+                        "type_ptr" : 80
+                      },
+                      {
+                      }
+                    )>
+                  }
+                )>
+              ]
+            )>,
+            <"ReturnStmt" : (
+              {
+                "pointer" : 82,
+                "source_range" : (
+                  {
+                    "line" : 8,
+                    "column" : 5
+                  },
+                  {
+                    "column" : 12
+                  }
+                )
+              },
+              [
+                <"IntegerLiteral" : (
+                  {
+                    "pointer" : 83,
+                    "source_range" : (
+                      {
+                        "column" : 12
+                      },
+                      {
+                        "column" : 12
+                      }
+                    )
+                  },
+                  [
+                  ],
+                  {
+                    "type_ptr" : 12
+                  },
+                  {
+                    "is_signed" : true,
+                    "bitwidth" : 32,
+                    "value" : "0"
+                  }
+                )>
+              ]
+            )>
+          ]
+        )>
+      }
+    )>,
+    <"TypedefDecl" : (
+      {
+        "pointer" : 84,
+        "source_range" : (
+          {
+          },
+          {
+          }
+        ),
+        "is_implicit" : true
+      },
+      {
+        "name" : "instancetype",
+        "qual_name" : [
+          "instancetype"
+        ]
+      },
+      <"Type" : "id">,
+      85,
+      {
+      }
+    )>
+  ],
+  {
+  },
+  {
+    "input_path" : "tests/lambda.cpp",
+    "input_kind" : <"IK_CXX">,
+    "types" : [
+      <"BuiltinType" : (
+        {
+          "pointer" : 86
+        },
+        <"Void">
+      )>,
+      <"BuiltinType" : (
+        {
+          "pointer" : 87
+        },
+        <"Bool">
+      )>,
+      <"BuiltinType" : (
+        {
+          "pointer" : 88
+        },
+        <"Char_S">
+      )>,
+      <"BuiltinType" : (
+        {
+          "pointer" : 89
+        },
+        <"SChar">
+      )>,
+      <"BuiltinType" : (
+        {
+          "pointer" : 90
+        },
+        <"Short">
+      )>,
+      <"BuiltinType" : (
+        {
+          "pointer" : 12
+        },
+        <"Int">
+      )>,
+      <"BuiltinType" : (
+        {
+          "pointer" : 91
+        },
+        <"Long">
+      )>,
+      <"BuiltinType" : (
+        {
+          "pointer" : 92
+        },
+        <"LongLong">
+      )>,
+      <"BuiltinType" : (
+        {
+          "pointer" : 93
+        },
+        <"UChar">
+      )>,
+      <"BuiltinType" : (
+        {
+          "pointer" : 94
+        },
+        <"UShort">
+      )>,
+      <"BuiltinType" : (
+        {
+          "pointer" : 95
+        },
+        <"UInt">
+      )>,
+      <"BuiltinType" : (
+        {
+          "pointer" : 96
+        },
+        <"ULong">
+      )>,
+      <"BuiltinType" : (
+        {
+          "pointer" : 97
+        },
+        <"ULongLong">
+      )>,
+      <"BuiltinType" : (
+        {
+          "pointer" : 98
+        },
+        <"Float">
+      )>,
+      <"BuiltinType" : (
+        {
+          "pointer" : 99
+        },
+        <"Double">
+      )>,
+      <"BuiltinType" : (
+        {
+          "pointer" : 100
+        },
+        <"LongDouble">
+      )>,
+      <"BuiltinType" : (
+        {
+          "pointer" : 101
+        },
+        <"Float128">
+      )>,
+      <"BuiltinType" : (
+        {
+          "pointer" : 102
+        },
+        <"Int128">
+      )>,
+      <"BuiltinType" : (
+        {
+          "pointer" : 103
+        },
+        <"UInt128">
+      )>,
+      <"BuiltinType" : (
+        {
+          "pointer" : 104
+        },
+        <"WChar_S">
+      )>,
+      <"BuiltinType" : (
+        {
+          "pointer" : 105
+        },
+        <"Char16">
+      )>,
+      <"BuiltinType" : (
+        {
+          "pointer" : 106
+        },
+        <"Char32">
+      )>,
+      <"BuiltinType" : (
+        {
+          "pointer" : 107
+        },
+        <"Dependent">
+      )>,
+      <"BuiltinType" : (
+        {
+          "pointer" : 108
+        },
+        <"Overload">
+      )>,
+      <"BuiltinType" : (
+        {
+          "pointer" : 109
+        },
+        <"BoundMember">
+      )>,
+      <"BuiltinType" : (
+        {
+          "pointer" : 110
+        },
+        <"PseudoObject">
+      )>,
+      <"BuiltinType" : (
+        {
+          "pointer" : 111
+        },
+        <"UnknownAny">
+      )>,
+      <"BuiltinType" : (
+        {
+          "pointer" : 112
+        },
+        <"ARCUnbridgedCast">
+      )>,
+      <"BuiltinType" : (
+        {
+          "pointer" : 113
+        },
+        <"BuiltinFn">
+      )>,
+      <"ComplexType" : (
+        {
+          "pointer" : 114
+        }
+      )>,
+      <"ComplexType" : (
+        {
+          "pointer" : 115
+        }
+      )>,
+      <"ComplexType" : (
+        {
+          "pointer" : 116
+        }
+      )>,
+      <"ComplexType" : (
+        {
+          "pointer" : 117
+        }
+      )>,
+      <"BuiltinType" : (
+        {
+          "pointer" : 118
+        },
+        <"ObjCId">
+      )>,
+      <"BuiltinType" : (
+        {
+          "pointer" : 119
+        },
+        <"ObjCClass">
+      )>,
+      <"BuiltinType" : (
+        {
+          "pointer" : 120
+        },
+        <"ObjCSel">
+      )>,
+      <"PointerType" : (
+        {
+          "pointer" : 121
+        },
+        {
+          "type_ptr" : 86
+        }
+      )>,
+      <"BuiltinType" : (
+        {
+          "pointer" : 122
+        },
+        <"NullPtr">
+      )>,
+      <"BuiltinType" : (
+        {
+          "pointer" : 123
+        },
+        <"Half">
+      )>,
+      <"RecordType" : (
+        {
+          "pointer" : 124
+        },
+        125
+      )>,
+      <"PointerType" : (
+        {
+          "pointer" : 126
+        },
+        {
+          "type_ptr" : 12,
+          "is_const" : true
+        }
+      )>,
+      <"PointerType" : (
+        {
+          "pointer" : 127
+        },
+        {
+          "type_ptr" : 88,
+          "is_const" : true
+        }
+      )>,
+      <"PointerType" : (
+        {
+          "pointer" : 128
+        },
+        {
+          "type_ptr" : 88
+        }
+      )>,
+      <"RecordType" : (
+        {
+          "pointer" : 129
+        },
+        130
+      )>,
+      <"ConstantArrayType" : (
+        {
+          "pointer" : 131
+        },
+        129,
+        1
+      )>,
+      <"FunctionProtoType" : (
+        {
+          "pointer" : 8
+        },
+        {
+          "return_type" : 12
+        },
+        {
+        }
+      )>,
+      <"PointerType" : (
+        {
+          "pointer" : 132
+        },
+        {
+          "type_ptr" : 128
+        }
+      )>,
+      <"FunctionProtoType" : (
+        {
+          "pointer" : 133
+        },
+        {
+          "return_type" : 107
+        },
+        {
+        }
+      )>,
+      <"RecordType" : (
+        {
+          "pointer" : 22
+        },
+        23
+      )>,
+      <"FunctionProtoType" : (
+        {
+          "pointer" : 25
+        },
+        {
+          "return_type" : 12
+        },
+        {
+        }
+      )>,
+      <"PointerType" : (
+        {
+          "pointer" : 134
+        },
+        {
+          "type_ptr" : 8
+        }
+      )>,
+      <"FunctionProtoType" : (
+        {
+          "pointer" : 27
+        },
+        {
+          "return_type" : 134
+        },
+        {
+        }
+      )>,
+      <"FunctionProtoType" : (
+        {
+          "pointer" : 135
+        },
+        {
+          "return_type" : 86
+        },
+        {
+        }
+      )>,
+      <"FunctionProtoType" : (
+        {
+          "pointer" : 30
+        },
+        {
+          "return_type" : 86
+        },
+        {
+        }
+      )>,
+      <"TemplateTypeParmType" : (
+        {
+          "pointer" : 136
+        }
+      )>,
+      <"TemplateTypeParmType" : (
+        {
+          "pointer" : 137
+        }
+      )>,
+      <"AutoType" : (
+        {
+          "pointer" : 40,
+          "desugared_type" : 22
+        }
+      )>,
+      <"LValueReferenceType" : (
+        {
+          "pointer" : 34
+        },
+        {
+          "type_ptr" : 22,
+          "is_const" : true
+        }
+      )>,
+      <"FunctionProtoType" : (
+        {
+          "pointer" : 138
+        },
+        {
+          "return_type" : 86
+        },
+        {
+          "params_type" : [
+            34
+          ]
+        }
+      )>,
+      <"FunctionProtoType" : (
+        {
+          "pointer" : 32
+        },
+        {
+          "return_type" : 86
+        },
+        {
+          "params_type" : [
+            34
+          ]
+        }
+      )>,
+      <"RValueReferenceType" : (
+        {
+          "pointer" : 38
+        },
+        {
+          "type_ptr" : 22
+        }
+      )>,
+      <"FunctionProtoType" : (
+        {
+          "pointer" : 139
+        },
+        {
+          "return_type" : 86
+        },
+        {
+          "params_type" : [
+            38
+          ]
+        }
+      )>,
+      <"FunctionProtoType" : (
+        {
+          "pointer" : 140
+        },
+        {
+          "return_type" : 86
+        },
+        {
+          "params_type" : [
+            38
+          ]
+        }
+      )>,
+      <"FunctionProtoType" : (
+        {
+          "pointer" : 36
+        },
+        {
+          "return_type" : 86
+        },
+        {
+          "params_type" : [
+            38
+          ]
+        }
+      )>,
+      <"FunctionProtoType" : (
+        {
+          "pointer" : 141
+        },
+        {
+          "return_type" : 107
+        },
+        {
+          "params_type" : [
+            12
+          ]
+        }
+      )>,
+      <"RecordType" : (
+        {
+          "pointer" : 54
+        },
+        55
+      )>,
+      <"LValueReferenceType" : (
+        {
+          "pointer" : 57
+        },
+        {
+          "type_ptr" : 12
+        }
+      )>,
+      <"FunctionProtoType" : (
+        {
+          "pointer" : 60
+        },
+        {
+          "return_type" : 12
+        },
+        {
+          "params_type" : [
+            12
+          ]
+        }
+      )>,
+      <"FunctionProtoType" : (
+        {
+          "pointer" : 63
+        },
+        {
+          "return_type" : 86
+        },
+        {
+        }
+      )>,
+      <"TemplateTypeParmType" : (
+        {
+          "pointer" : 142
+        }
+      )>,
+      <"AutoType" : (
+        {
+          "pointer" : 80,
+          "desugared_type" : 54
+        }
+      )>,
+      <"LValueReferenceType" : (
+        {
+          "pointer" : 67
+        },
+        {
+          "type_ptr" : 54,
+          "is_const" : true
+        }
+      )>,
+      <"FunctionProtoType" : (
+        {
+          "pointer" : 143
+        },
+        {
+          "return_type" : 86
+        },
+        {
+          "params_type" : [
+            67
+          ]
+        }
+      )>,
+      <"FunctionProtoType" : (
+        {
+          "pointer" : 65
+        },
+        {
+          "return_type" : 86
+        },
+        {
+          "params_type" : [
+            67
+          ]
+        }
+      )>,
+      <"RValueReferenceType" : (
+        {
+          "pointer" : 71
+        },
+        {
+          "type_ptr" : 54
+        }
+      )>,
+      <"FunctionProtoType" : (
+        {
+          "pointer" : 144
+        },
+        {
+          "return_type" : 86
+        },
+        {
+          "params_type" : [
+            71
+          ]
+        }
+      )>,
+      <"FunctionProtoType" : (
+        {
+          "pointer" : 145
+        },
+        {
+          "return_type" : 86
+        },
+        {
+          "params_type" : [
+            71
+          ]
+        }
+      )>,
+      <"FunctionProtoType" : (
+        {
+          "pointer" : 69
+        },
+        {
+          "return_type" : 86
+        },
+        {
+          "params_type" : [
+            71
+          ]
+        }
+      )>,
+      <"ObjCObjectType" : (
+        {
+          "pointer" : 146
+        },
+        {
+          "base_type" : 118
+        }
+      )>,
+      <"ObjCObjectPointerType" : (
+        {
+          "pointer" : 147
+        },
+        {
+          "type_ptr" : 146
+        }
+      )>,
+      <"TypedefType" : (
+        {
+          "pointer" : 148,
+          "desugared_type" : 147
+        },
+        {
+          "child_type" : 147,
+          "decl_ptr" : 149
+        }
+      )>,
+      <"TypedefType" : (
+        {
+          "pointer" : 85,
+          "desugared_type" : 147
+        },
+        {
+          "child_type" : 148,
+          "decl_ptr" : 84
+        }
+      )>,
+      <"NoneType" : (
+        {
+          "pointer" : 0
+        }
+      )>
+    ]
+  }
+)>
