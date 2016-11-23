@@ -1,0 +1,3580 @@
+["TranslationUnitDecl" , [
+  {
+    "pointer" : 1,
+    "source_range" : [
+      {
+      },
+      {
+      }
+    ]
+  },
+  [
+    ["TypedefDecl" , [
+      {
+        "pointer" : 2,
+        "source_range" : [
+          {
+          },
+          {
+          }
+        ],
+        "is_implicit" : true
+      },
+      {
+        "name" : "__int128_t",
+        "qual_name" : [
+          "__int128_t"
+        ]
+      },
+      "NoType",
+      0,
+      {
+      }
+    ]],
+    ["TypedefDecl" , [
+      {
+        "pointer" : 3,
+        "source_range" : [
+          {
+          },
+          {
+          }
+        ],
+        "is_implicit" : true
+      },
+      {
+        "name" : "__uint128_t",
+        "qual_name" : [
+          "__uint128_t"
+        ]
+      },
+      "NoType",
+      0,
+      {
+      }
+    ]],
+    ["TypedefDecl" , [
+      {
+        "pointer" : 4,
+        "source_range" : [
+          {
+          },
+          {
+          }
+        ],
+        "is_implicit" : true
+      },
+      {
+        "name" : "__NSConstantString",
+        "qual_name" : [
+          "__NSConstantString"
+        ]
+      },
+      "NoType",
+      0,
+      {
+      }
+    ]],
+    ["TypedefDecl" , [
+      {
+        "pointer" : 5,
+        "source_range" : [
+          {
+          },
+          {
+          }
+        ],
+        "is_implicit" : true
+      },
+      {
+        "name" : "__builtin_ms_va_list",
+        "qual_name" : [
+          "__builtin_ms_va_list"
+        ]
+      },
+      "NoType",
+      0,
+      {
+      }
+    ]],
+    ["TypedefDecl" , [
+      {
+        "pointer" : 6,
+        "source_range" : [
+          {
+          },
+          {
+          }
+        ],
+        "is_implicit" : true
+      },
+      {
+        "name" : "__builtin_va_list",
+        "qual_name" : [
+          "__builtin_va_list"
+        ]
+      },
+      "NoType",
+      0,
+      {
+      }
+    ]],
+    ["CXXRecordDecl" , [
+      {
+        "pointer" : 7,
+        "source_range" : [
+          {
+            "file" : "tests/expr_with_cleanups.cpp",
+            "line" : 1,
+            "column" : 1
+          },
+          {
+            "line" : 7,
+            "column" : 1
+          }
+        ],
+        "is_this_declaration_referenced" : true
+      },
+      {
+        "name" : "X",
+        "qual_name" : [
+          "X"
+        ]
+      },
+      ["Type" , "class X"],
+      8,
+      [
+        ["CXXRecordDecl" , [
+          {
+            "pointer" : 9,
+            "source_range" : [
+              {
+                "line" : 1,
+                "column" : 1
+              },
+              {
+                "column" : 7
+              }
+            ],
+            "is_implicit" : true,
+            "is_this_declaration_referenced" : true
+          },
+          {
+            "name" : "X",
+            "qual_name" : [
+              "X",
+              "X"
+            ]
+          },
+          ["Type" , "class X"],
+          8,
+          [
+          ],
+          {
+          },
+          {
+          },
+          {
+          }
+        ]],
+        ["AccessSpecDecl" , [
+          {
+            "pointer" : 10,
+            "source_range" : [
+              {
+                "line" : 2,
+                "column" : 1
+              },
+              {
+                "column" : 7
+              }
+            ]
+          }
+        ]],
+        ["CXXConstructorDecl" , [
+          {
+            "pointer" : 11,
+            "parent_pointer" : 7,
+            "source_range" : [
+              {
+                "line" : 3,
+                "column" : 3
+              },
+              {
+                "column" : 8
+              }
+            ],
+            "is_used" : true,
+            "is_this_declaration_referenced" : true
+          },
+          {
+            "name" : "X",
+            "qual_name" : [
+              "X",
+              "X"
+            ]
+          },
+          {
+            "type_ptr" : 12
+          },
+          {
+            "mangled_name" : "_ZN1XC1Ei",
+            "parameters" : [
+              ["ParmVarDecl" , [
+                {
+                  "pointer" : 13,
+                  "source_range" : [
+                    {
+                      "column" : 5
+                    },
+                    {
+                      "column" : 5
+                    }
+                  ]
+                },
+                {
+                  "name" : "",
+                  "qual_name" : [
+                    ""
+                  ]
+                },
+                {
+                  "type_ptr" : 14
+                },
+                {
+                  "parm_index_in_function" : 0
+                }
+              ]]
+            ]
+          },
+          {
+          }
+        ]],
+        ["CXXConstructorDecl" , [
+          {
+            "pointer" : 15,
+            "parent_pointer" : 7,
+            "source_range" : [
+              {
+                "line" : 4,
+                "column" : 3
+              },
+              {
+                "column" : 13
+              }
+            ],
+            "is_used" : true,
+            "is_this_declaration_referenced" : true
+          },
+          {
+            "name" : "X",
+            "qual_name" : [
+              "X",
+              "X"
+            ]
+          },
+          {
+            "type_ptr" : 16
+          },
+          {
+            "mangled_name" : "_ZN1XC1ERKS_",
+            "parameters" : [
+              ["ParmVarDecl" , [
+                {
+                  "pointer" : 17,
+                  "source_range" : [
+                    {
+                      "column" : 5
+                    },
+                    {
+                      "column" : 12
+                    }
+                  ]
+                },
+                {
+                  "name" : "",
+                  "qual_name" : [
+                    ""
+                  ]
+                },
+                {
+                  "type_ptr" : 18
+                },
+                {
+                  "parm_index_in_function" : 0
+                }
+              ]]
+            ]
+          },
+          {
+          }
+        ]],
+        ["CXXMethodDecl" , [
+          {
+            "pointer" : 19,
+            "parent_pointer" : 7,
+            "source_range" : [
+              {
+                "line" : 5,
+                "column" : 3
+              },
+              {
+                "column" : 24
+              }
+            ],
+            "is_used" : true,
+            "is_this_declaration_referenced" : true
+          },
+          {
+            "name" : "operator=",
+            "qual_name" : [
+              "operator=",
+              "X"
+            ]
+          },
+          {
+            "type_ptr" : 20
+          },
+          {
+            "mangled_name" : "_ZN1XaSERKS_",
+            "parameters" : [
+              ["ParmVarDecl" , [
+                {
+                  "pointer" : 21,
+                  "source_range" : [
+                    {
+                      "column" : 16
+                    },
+                    {
+                      "column" : 23
+                    }
+                  ]
+                },
+                {
+                  "name" : "",
+                  "qual_name" : [
+                    ""
+                  ]
+                },
+                {
+                  "type_ptr" : 18
+                },
+                {
+                  "parm_index_in_function" : 0
+                }
+              ]]
+            ]
+          },
+          {
+          }
+        ]],
+        ["CXXDestructorDecl" , [
+          {
+            "pointer" : 22,
+            "parent_pointer" : 7,
+            "source_range" : [
+              {
+                "line" : 6,
+                "column" : 3
+              },
+              {
+                "column" : 6
+              }
+            ],
+            "is_used" : true,
+            "is_this_declaration_referenced" : true
+          },
+          {
+            "name" : "~X",
+            "qual_name" : [
+              "~X",
+              "X"
+            ]
+          },
+          {
+            "type_ptr" : 23
+          },
+          {
+            "mangled_name" : "_ZN1XD0Ev"
+          },
+          {
+          }
+        ]]
+      ],
+      {
+      },
+      {
+        "is_complete_definition" : true
+      },
+      {
+        "destructor" : {
+          "kind" : "CXXDestructor",
+          "decl_pointer" : 22,
+          "name" : {
+            "name" : "~X",
+            "qual_name" : [
+              "~X",
+              "X"
+            ]
+          },
+          "type_ptr" : 23
+        }
+      }
+    ]],
+    ["CXXRecordDecl" , [
+      {
+        "pointer" : 24,
+        "source_range" : [
+          {
+            "line" : 8,
+            "column" : 1
+          },
+          {
+            "line" : 12,
+            "column" : 1
+          }
+        ],
+        "is_this_declaration_referenced" : true
+      },
+      {
+        "name" : "Y",
+        "qual_name" : [
+          "Y"
+        ]
+      },
+      ["Type" , "class Y"],
+      25,
+      [
+        ["CXXRecordDecl" , [
+          {
+            "pointer" : 26,
+            "source_range" : [
+              {
+                "line" : 8,
+                "column" : 1
+              },
+              {
+                "column" : 7
+              }
+            ],
+            "is_implicit" : true,
+            "is_this_declaration_referenced" : true
+          },
+          {
+            "name" : "Y",
+            "qual_name" : [
+              "Y",
+              "Y"
+            ]
+          },
+          ["Type" , "class Y"],
+          25,
+          [
+          ],
+          {
+          },
+          {
+          },
+          {
+          }
+        ]],
+        ["AccessSpecDecl" , [
+          {
+            "pointer" : 27,
+            "source_range" : [
+              {
+                "line" : 9,
+                "column" : 1
+              },
+              {
+                "column" : 7
+              }
+            ]
+          }
+        ]],
+        ["CXXConstructorDecl" , [
+          {
+            "pointer" : 28,
+            "parent_pointer" : 24,
+            "source_range" : [
+              {
+                "line" : 10,
+                "column" : 3
+              },
+              {
+                "column" : 8
+              }
+            ],
+            "is_used" : true,
+            "is_this_declaration_referenced" : true
+          },
+          {
+            "name" : "Y",
+            "qual_name" : [
+              "Y",
+              "Y"
+            ]
+          },
+          {
+            "type_ptr" : 12
+          },
+          {
+            "mangled_name" : "_ZN1YC1Ei",
+            "parameters" : [
+              ["ParmVarDecl" , [
+                {
+                  "pointer" : 29,
+                  "source_range" : [
+                    {
+                      "column" : 5
+                    },
+                    {
+                      "column" : 5
+                    }
+                  ]
+                },
+                {
+                  "name" : "",
+                  "qual_name" : [
+                    ""
+                  ]
+                },
+                {
+                  "type_ptr" : 14
+                },
+                {
+                  "parm_index_in_function" : 0
+                }
+              ]]
+            ]
+          },
+          {
+          }
+        ]],
+        ["CXXDestructorDecl" , [
+          {
+            "pointer" : 30,
+            "parent_pointer" : 24,
+            "source_range" : [
+              {
+                "line" : 11,
+                "column" : 3
+              },
+              {
+                "column" : 6
+              }
+            ],
+            "is_used" : true,
+            "is_this_declaration_referenced" : true
+          },
+          {
+            "name" : "~Y",
+            "qual_name" : [
+              "~Y",
+              "Y"
+            ]
+          },
+          {
+            "type_ptr" : 23
+          },
+          {
+            "mangled_name" : "_ZN1YD0Ev"
+          },
+          {
+          }
+        ]],
+        ["CXXConstructorDecl" , [
+          {
+            "pointer" : 31,
+            "parent_pointer" : 24,
+            "source_range" : [
+              {
+                "line" : 8,
+                "column" : 7
+              },
+              {
+                "column" : 7
+              }
+            ],
+            "is_implicit" : true,
+            "is_used" : true,
+            "is_this_declaration_referenced" : true
+          },
+          {
+            "name" : "Y",
+            "qual_name" : [
+              "Y",
+              "Y"
+            ]
+          },
+          {
+            "type_ptr" : 32
+          },
+          {
+            "mangled_name" : "_ZN1YC1ERKS_",
+            "is_inline" : true,
+            "parameters" : [
+              ["ParmVarDecl" , [
+                {
+                  "pointer" : 33,
+                  "source_range" : [
+                    {
+                      "column" : 7
+                    },
+                    {
+                      "column" : 7
+                    }
+                  ]
+                },
+                {
+                  "name" : "",
+                  "qual_name" : [
+                    ""
+                  ]
+                },
+                {
+                  "type_ptr" : 34
+                },
+                {
+                  "parm_index_in_function" : 0
+                }
+              ]]
+            ],
+            "decl_ptr_with_body" : 31,
+            "body" : ["CompoundStmt" , [
+              {
+                "pointer" : 35,
+                "source_range" : [
+                  {
+                    "column" : 7
+                  },
+                  {
+                    "column" : 7
+                  }
+                ]
+              },
+              [
+              ]
+            ]]
+          },
+          {
+          }
+        ]]
+      ],
+      {
+      },
+      {
+        "is_complete_definition" : true
+      },
+      {
+        "destructor" : {
+          "kind" : "CXXDestructor",
+          "decl_pointer" : 30,
+          "name" : {
+            "name" : "~Y",
+            "qual_name" : [
+              "~Y",
+              "Y"
+            ]
+          },
+          "type_ptr" : 23
+        }
+      }
+    ]],
+    ["FunctionDecl" , [
+      {
+        "pointer" : 36,
+        "source_range" : [
+          {
+            "line" : 13,
+            "column" : 1
+          },
+          {
+            "column" : 6
+          }
+        ],
+        "is_used" : true,
+        "is_this_declaration_referenced" : true
+      },
+      {
+        "name" : "f",
+        "qual_name" : [
+          "f"
+        ]
+      },
+      {
+        "type_ptr" : 37
+      },
+      {
+        "mangled_name" : "_Z1f1X",
+        "parameters" : [
+          ["ParmVarDecl" , [
+            {
+              "pointer" : 38,
+              "source_range" : [
+                {
+                  "column" : 5
+                },
+                {
+                  "column" : 5
+                }
+              ]
+            },
+            {
+              "name" : "",
+              "qual_name" : [
+                ""
+              ]
+            },
+            {
+              "type_ptr" : 8
+            },
+            {
+              "parm_index_in_function" : 0
+            }
+          ]]
+        ]
+      }
+    ]],
+    ["FunctionDecl" , [
+      {
+        "pointer" : 39,
+        "source_range" : [
+          {
+            "line" : 14,
+            "column" : 1
+          },
+          {
+            "column" : 6
+          }
+        ],
+        "is_used" : true,
+        "is_this_declaration_referenced" : true
+      },
+      {
+        "name" : "g",
+        "qual_name" : [
+          "g"
+        ]
+      },
+      {
+        "type_ptr" : 40
+      },
+      {
+        "mangled_name" : "_Z1g1Y",
+        "parameters" : [
+          ["ParmVarDecl" , [
+            {
+              "pointer" : 41,
+              "source_range" : [
+                {
+                  "column" : 5
+                },
+                {
+                  "column" : 5
+                }
+              ]
+            },
+            {
+              "name" : "",
+              "qual_name" : [
+                ""
+              ]
+            },
+            {
+              "type_ptr" : 25
+            },
+            {
+              "parm_index_in_function" : 0
+            }
+          ]]
+        ]
+      }
+    ]],
+    ["FunctionDecl" , [
+      {
+        "pointer" : 42,
+        "source_range" : [
+          {
+            "line" : 15,
+            "column" : 1
+          },
+          {
+            "line" : 20,
+            "column" : 1
+          }
+        ]
+      },
+      {
+        "name" : "h",
+        "qual_name" : [
+          "h"
+        ]
+      },
+      {
+        "type_ptr" : 43
+      },
+      {
+        "mangled_name" : "_Z1hv",
+        "decl_ptr_with_body" : 42,
+        "body" : ["CompoundStmt" , [
+          {
+            "pointer" : 44,
+            "source_range" : [
+              {
+                "line" : 15,
+                "column" : 10
+              },
+              {
+                "line" : 20,
+                "column" : 1
+              }
+            ]
+          },
+          [
+            ["DeclStmt" , [
+              {
+                "pointer" : 45,
+                "source_range" : [
+                  {
+                    "line" : 16,
+                    "column" : 3
+                  },
+                  {
+                    "column" : 9
+                  }
+                ]
+              },
+              [
+                ["CXXConstructExpr" , [
+                  {
+                    "pointer" : 46,
+                    "source_range" : [
+                      {
+                        "column" : 5
+                      },
+                      {
+                        "column" : 8
+                      }
+                    ]
+                  },
+                  [
+                    ["IntegerLiteral" , [
+                      {
+                        "pointer" : 47,
+                        "source_range" : [
+                          {
+                            "column" : 7
+                          },
+                          {
+                            "column" : 7
+                          }
+                        ]
+                      },
+                      [
+                      ],
+                      {
+                        "type_ptr" : 14
+                      },
+                      {
+                        "is_signed" : true,
+                        "bitwidth" : 32,
+                        "value" : "1"
+                      }
+                    ]]
+                  ],
+                  {
+                    "type_ptr" : 8
+                  },
+                  {
+                    "decl_ref" : {
+                      "kind" : "CXXConstructor",
+                      "decl_pointer" : 11,
+                      "name" : {
+                        "name" : "X",
+                        "qual_name" : [
+                          "X",
+                          "X"
+                        ]
+                      },
+                      "type_ptr" : 12
+                    }
+                  }
+                ]]
+              ],
+              [
+                ["VarDecl" , [
+                  {
+                    "pointer" : 48,
+                    "source_range" : [
+                      {
+                        "column" : 3
+                      },
+                      {
+                        "column" : 8
+                      }
+                    ],
+                    "is_used" : true,
+                    "is_this_declaration_referenced" : true
+                  },
+                  {
+                    "name" : "a",
+                    "qual_name" : [
+                      "a"
+                    ]
+                  },
+                  {
+                    "type_ptr" : 8
+                  },
+                  {
+                    "init_expr" : ["CXXConstructExpr" , [
+                      {
+                        "pointer" : 46,
+                        "source_range" : [
+                          {
+                            "column" : 5
+                          },
+                          {
+                            "column" : 8
+                          }
+                        ]
+                      },
+                      [
+                        ["IntegerLiteral" , [
+                          {
+                            "pointer" : 47,
+                            "source_range" : [
+                              {
+                                "column" : 7
+                              },
+                              {
+                                "column" : 7
+                              }
+                            ]
+                          },
+                          [
+                          ],
+                          {
+                            "type_ptr" : 14
+                          },
+                          {
+                            "is_signed" : true,
+                            "bitwidth" : 32,
+                            "value" : "1"
+                          }
+                        ]]
+                      ],
+                      {
+                        "type_ptr" : 8
+                      },
+                      {
+                        "decl_ref" : {
+                          "kind" : "CXXConstructor",
+                          "decl_pointer" : 11,
+                          "name" : {
+                            "name" : "X",
+                            "qual_name" : [
+                              "X",
+                              "X"
+                            ]
+                          },
+                          "type_ptr" : 12
+                        }
+                      }
+                    ]]
+                  }
+                ]]
+              ]
+            ]],
+            ["DeclStmt" , [
+              {
+                "pointer" : 49,
+                "source_range" : [
+                  {
+                    "line" : 17,
+                    "column" : 3
+                  },
+                  {
+                    "column" : 16
+                  }
+                ]
+              },
+              [
+                ["ExprWithCleanups" , [
+                  {
+                    "pointer" : 50,
+                    "source_range" : [
+                      {
+                        "column" : 9
+                      },
+                      {
+                        "column" : 15
+                      }
+                    ]
+                  },
+                  [
+                    ["CXXConstructExpr" , [
+                      {
+                        "pointer" : 51,
+                        "source_range" : [
+                          {
+                            "column" : 9
+                          },
+                          {
+                            "column" : 15
+                          }
+                        ]
+                      },
+                      [
+                        ["MaterializeTemporaryExpr" , [
+                          {
+                            "pointer" : 52,
+                            "source_range" : [
+                              {
+                                "column" : 9
+                              },
+                              {
+                                "column" : 15
+                              }
+                            ]
+                          },
+                          [
+                            ["ImplicitCastExpr" , [
+                              {
+                                "pointer" : 53,
+                                "source_range" : [
+                                  {
+                                    "column" : 9
+                                  },
+                                  {
+                                    "column" : 15
+                                  }
+                                ]
+                              },
+                              [
+                                ["CXXBindTemporaryExpr" , [
+                                  {
+                                    "pointer" : 54,
+                                    "source_range" : [
+                                      {
+                                        "column" : 9
+                                      },
+                                      {
+                                        "column" : 15
+                                      }
+                                    ]
+                                  },
+                                  [
+                                    ["CallExpr" , [
+                                      {
+                                        "pointer" : 55,
+                                        "source_range" : [
+                                          {
+                                            "column" : 9
+                                          },
+                                          {
+                                            "column" : 15
+                                          }
+                                        ]
+                                      },
+                                      [
+                                        ["ImplicitCastExpr" , [
+                                          {
+                                            "pointer" : 56,
+                                            "source_range" : [
+                                              {
+                                                "column" : 9
+                                              },
+                                              {
+                                                "column" : 9
+                                              }
+                                            ]
+                                          },
+                                          [
+                                            ["DeclRefExpr" , [
+                                              {
+                                                "pointer" : 57,
+                                                "source_range" : [
+                                                  {
+                                                    "column" : 9
+                                                  },
+                                                  {
+                                                    "column" : 9
+                                                  }
+                                                ]
+                                              },
+                                              [
+                                              ],
+                                              {
+                                                "type_ptr" : 37,
+                                                "value_kind" : "LValue"
+                                              },
+                                              {
+                                                "decl_ref" : {
+                                                  "kind" : "Function",
+                                                  "decl_pointer" : 36,
+                                                  "name" : {
+                                                    "name" : "f",
+                                                    "qual_name" : [
+                                                      "f"
+                                                    ]
+                                                  },
+                                                  "type_ptr" : 37
+                                                }
+                                              }
+                                            ]]
+                                          ],
+                                          {
+                                            "type_ptr" : 58
+                                          },
+                                          {
+                                            "cast_kind" : "FunctionToPointerDecay",
+                                            "base_path" : [
+                                            ]
+                                          }
+                                        ]],
+                                        ["CXXBindTemporaryExpr" , [
+                                          {
+                                            "pointer" : 59,
+                                            "source_range" : [
+                                              {
+                                                "column" : 11
+                                              },
+                                              {
+                                                "column" : 14
+                                              }
+                                            ]
+                                          },
+                                          [
+                                            ["CXXConstructExpr" , [
+                                              {
+                                                "pointer" : 60,
+                                                "source_range" : [
+                                                  {
+                                                    "column" : 11
+                                                  },
+                                                  {
+                                                    "column" : 14
+                                                  }
+                                                ]
+                                              },
+                                              [
+                                                ["MaterializeTemporaryExpr" , [
+                                                  {
+                                                    "pointer" : 61,
+                                                    "source_range" : [
+                                                      {
+                                                        "column" : 11
+                                                      },
+                                                      {
+                                                        "column" : 14
+                                                      }
+                                                    ]
+                                                  },
+                                                  [
+                                                    ["ImplicitCastExpr" , [
+                                                      {
+                                                        "pointer" : 62,
+                                                        "source_range" : [
+                                                          {
+                                                            "column" : 11
+                                                          },
+                                                          {
+                                                            "column" : 14
+                                                          }
+                                                        ]
+                                                      },
+                                                      [
+                                                        ["CXXFunctionalCastExpr" , [
+                                                          {
+                                                            "pointer" : 63,
+                                                            "source_range" : [
+                                                              {
+                                                                "column" : 11
+                                                              },
+                                                              {
+                                                                "column" : 14
+                                                              }
+                                                            ]
+                                                          },
+                                                          [
+                                                            ["CXXBindTemporaryExpr" , [
+                                                              {
+                                                                "pointer" : 64,
+                                                                "source_range" : [
+                                                                  {
+                                                                    "column" : 11
+                                                                  },
+                                                                  {
+                                                                    "column" : 14
+                                                                  }
+                                                                ]
+                                                              },
+                                                              [
+                                                                ["CXXConstructExpr" , [
+                                                                  {
+                                                                    "pointer" : 65,
+                                                                    "source_range" : [
+                                                                      {
+                                                                        "column" : 11
+                                                                      },
+                                                                      {
+                                                                        "column" : 14
+                                                                      }
+                                                                    ]
+                                                                  },
+                                                                  [
+                                                                    ["IntegerLiteral" , [
+                                                                      {
+                                                                        "pointer" : 66,
+                                                                        "source_range" : [
+                                                                          {
+                                                                            "column" : 13
+                                                                          },
+                                                                          {
+                                                                            "column" : 13
+                                                                          }
+                                                                        ]
+                                                                      },
+                                                                      [
+                                                                      ],
+                                                                      {
+                                                                        "type_ptr" : 14
+                                                                      },
+                                                                      {
+                                                                        "is_signed" : true,
+                                                                        "bitwidth" : 32,
+                                                                        "value" : "2"
+                                                                      }
+                                                                    ]]
+                                                                  ],
+                                                                  {
+                                                                    "type_ptr" : 8
+                                                                  },
+                                                                  {
+                                                                    "decl_ref" : {
+                                                                      "kind" : "CXXConstructor",
+                                                                      "decl_pointer" : 11,
+                                                                      "name" : {
+                                                                        "name" : "X",
+                                                                        "qual_name" : [
+                                                                          "X",
+                                                                          "X"
+                                                                        ]
+                                                                      },
+                                                                      "type_ptr" : 12
+                                                                    }
+                                                                  }
+                                                                ]]
+                                                              ],
+                                                              {
+                                                                "type_ptr" : 8
+                                                              },
+                                                              {
+                                                                "cxx_temporary" : 67
+                                                              }
+                                                            ]]
+                                                          ],
+                                                          {
+                                                            "type_ptr" : 8
+                                                          },
+                                                          {
+                                                            "cast_kind" : "ConstructorConversion",
+                                                            "base_path" : [
+                                                            ]
+                                                          },
+                                                          8
+                                                        ]]
+                                                      ],
+                                                      {
+                                                        "type_ptr" : 8
+                                                      },
+                                                      {
+                                                        "cast_kind" : "NoOp",
+                                                        "base_path" : [
+                                                        ]
+                                                      }
+                                                    ]]
+                                                  ],
+                                                  {
+                                                    "type_ptr" : 8,
+                                                    "value_kind" : "LValue"
+                                                  },
+                                                  {
+                                                  }
+                                                ]]
+                                              ],
+                                              {
+                                                "type_ptr" : 8
+                                              },
+                                              {
+                                                "decl_ref" : {
+                                                  "kind" : "CXXConstructor",
+                                                  "decl_pointer" : 15,
+                                                  "name" : {
+                                                    "name" : "X",
+                                                    "qual_name" : [
+                                                      "X",
+                                                      "X"
+                                                    ]
+                                                  },
+                                                  "type_ptr" : 16
+                                                },
+                                                "is_elidable" : true
+                                              }
+                                            ]]
+                                          ],
+                                          {
+                                            "type_ptr" : 8
+                                          },
+                                          {
+                                            "cxx_temporary" : 68
+                                          }
+                                        ]]
+                                      ],
+                                      {
+                                        "type_ptr" : 8
+                                      }
+                                    ]]
+                                  ],
+                                  {
+                                    "type_ptr" : 8
+                                  },
+                                  {
+                                    "cxx_temporary" : 69
+                                  }
+                                ]]
+                              ],
+                              {
+                                "type_ptr" : 8
+                              },
+                              {
+                                "cast_kind" : "NoOp",
+                                "base_path" : [
+                                ]
+                              }
+                            ]]
+                          ],
+                          {
+                            "type_ptr" : 8,
+                            "value_kind" : "LValue"
+                          },
+                          {
+                          }
+                        ]]
+                      ],
+                      {
+                        "type_ptr" : 8
+                      },
+                      {
+                        "decl_ref" : {
+                          "kind" : "CXXConstructor",
+                          "decl_pointer" : 15,
+                          "name" : {
+                            "name" : "X",
+                            "qual_name" : [
+                              "X",
+                              "X"
+                            ]
+                          },
+                          "type_ptr" : 16
+                        },
+                        "is_elidable" : true
+                      }
+                    ]]
+                  ],
+                  {
+                    "type_ptr" : 8
+                  },
+                  {
+                  }
+                ]]
+              ],
+              [
+                ["VarDecl" , [
+                  {
+                    "pointer" : 70,
+                    "source_range" : [
+                      {
+                        "column" : 3
+                      },
+                      {
+                        "column" : 15
+                      }
+                    ]
+                  },
+                  {
+                    "name" : "b",
+                    "qual_name" : [
+                      "b"
+                    ]
+                  },
+                  {
+                    "type_ptr" : 8
+                  },
+                  {
+                    "init_expr" : ["ExprWithCleanups" , [
+                      {
+                        "pointer" : 50,
+                        "source_range" : [
+                          {
+                            "column" : 9
+                          },
+                          {
+                            "column" : 15
+                          }
+                        ]
+                      },
+                      [
+                        ["CXXConstructExpr" , [
+                          {
+                            "pointer" : 51,
+                            "source_range" : [
+                              {
+                                "column" : 9
+                              },
+                              {
+                                "column" : 15
+                              }
+                            ]
+                          },
+                          [
+                            ["MaterializeTemporaryExpr" , [
+                              {
+                                "pointer" : 52,
+                                "source_range" : [
+                                  {
+                                    "column" : 9
+                                  },
+                                  {
+                                    "column" : 15
+                                  }
+                                ]
+                              },
+                              [
+                                ["ImplicitCastExpr" , [
+                                  {
+                                    "pointer" : 53,
+                                    "source_range" : [
+                                      {
+                                        "column" : 9
+                                      },
+                                      {
+                                        "column" : 15
+                                      }
+                                    ]
+                                  },
+                                  [
+                                    ["CXXBindTemporaryExpr" , [
+                                      {
+                                        "pointer" : 54,
+                                        "source_range" : [
+                                          {
+                                            "column" : 9
+                                          },
+                                          {
+                                            "column" : 15
+                                          }
+                                        ]
+                                      },
+                                      [
+                                        ["CallExpr" , [
+                                          {
+                                            "pointer" : 55,
+                                            "source_range" : [
+                                              {
+                                                "column" : 9
+                                              },
+                                              {
+                                                "column" : 15
+                                              }
+                                            ]
+                                          },
+                                          [
+                                            ["ImplicitCastExpr" , [
+                                              {
+                                                "pointer" : 56,
+                                                "source_range" : [
+                                                  {
+                                                    "column" : 9
+                                                  },
+                                                  {
+                                                    "column" : 9
+                                                  }
+                                                ]
+                                              },
+                                              [
+                                                ["DeclRefExpr" , [
+                                                  {
+                                                    "pointer" : 57,
+                                                    "source_range" : [
+                                                      {
+                                                        "column" : 9
+                                                      },
+                                                      {
+                                                        "column" : 9
+                                                      }
+                                                    ]
+                                                  },
+                                                  [
+                                                  ],
+                                                  {
+                                                    "type_ptr" : 37,
+                                                    "value_kind" : "LValue"
+                                                  },
+                                                  {
+                                                    "decl_ref" : {
+                                                      "kind" : "Function",
+                                                      "decl_pointer" : 36,
+                                                      "name" : {
+                                                        "name" : "f",
+                                                        "qual_name" : [
+                                                          "f"
+                                                        ]
+                                                      },
+                                                      "type_ptr" : 37
+                                                    }
+                                                  }
+                                                ]]
+                                              ],
+                                              {
+                                                "type_ptr" : 58
+                                              },
+                                              {
+                                                "cast_kind" : "FunctionToPointerDecay",
+                                                "base_path" : [
+                                                ]
+                                              }
+                                            ]],
+                                            ["CXXBindTemporaryExpr" , [
+                                              {
+                                                "pointer" : 59,
+                                                "source_range" : [
+                                                  {
+                                                    "column" : 11
+                                                  },
+                                                  {
+                                                    "column" : 14
+                                                  }
+                                                ]
+                                              },
+                                              [
+                                                ["CXXConstructExpr" , [
+                                                  {
+                                                    "pointer" : 60,
+                                                    "source_range" : [
+                                                      {
+                                                        "column" : 11
+                                                      },
+                                                      {
+                                                        "column" : 14
+                                                      }
+                                                    ]
+                                                  },
+                                                  [
+                                                    ["MaterializeTemporaryExpr" , [
+                                                      {
+                                                        "pointer" : 61,
+                                                        "source_range" : [
+                                                          {
+                                                            "column" : 11
+                                                          },
+                                                          {
+                                                            "column" : 14
+                                                          }
+                                                        ]
+                                                      },
+                                                      [
+                                                        ["ImplicitCastExpr" , [
+                                                          {
+                                                            "pointer" : 62,
+                                                            "source_range" : [
+                                                              {
+                                                                "column" : 11
+                                                              },
+                                                              {
+                                                                "column" : 14
+                                                              }
+                                                            ]
+                                                          },
+                                                          [
+                                                            ["CXXFunctionalCastExpr" , [
+                                                              {
+                                                                "pointer" : 63,
+                                                                "source_range" : [
+                                                                  {
+                                                                    "column" : 11
+                                                                  },
+                                                                  {
+                                                                    "column" : 14
+                                                                  }
+                                                                ]
+                                                              },
+                                                              [
+                                                                ["CXXBindTemporaryExpr" , [
+                                                                  {
+                                                                    "pointer" : 64,
+                                                                    "source_range" : [
+                                                                      {
+                                                                        "column" : 11
+                                                                      },
+                                                                      {
+                                                                        "column" : 14
+                                                                      }
+                                                                    ]
+                                                                  },
+                                                                  [
+                                                                    ["CXXConstructExpr" , [
+                                                                      {
+                                                                        "pointer" : 65,
+                                                                        "source_range" : [
+                                                                          {
+                                                                            "column" : 11
+                                                                          },
+                                                                          {
+                                                                            "column" : 14
+                                                                          }
+                                                                        ]
+                                                                      },
+                                                                      [
+                                                                        ["IntegerLiteral" , [
+                                                                          {
+                                                                            "pointer" : 66,
+                                                                            "source_range" : [
+                                                                              {
+                                                                                "column" : 13
+                                                                              },
+                                                                              {
+                                                                                "column" : 13
+                                                                              }
+                                                                            ]
+                                                                          },
+                                                                          [
+                                                                          ],
+                                                                          {
+                                                                            "type_ptr" : 14
+                                                                          },
+                                                                          {
+                                                                            "is_signed" : true,
+                                                                            "bitwidth" : 32,
+                                                                            "value" : "2"
+                                                                          }
+                                                                        ]]
+                                                                      ],
+                                                                      {
+                                                                        "type_ptr" : 8
+                                                                      },
+                                                                      {
+                                                                        "decl_ref" : {
+                                                                          "kind" : "CXXConstructor",
+                                                                          "decl_pointer" : 11,
+                                                                          "name" : {
+                                                                            "name" : "X",
+                                                                            "qual_name" : [
+                                                                              "X",
+                                                                              "X"
+                                                                            ]
+                                                                          },
+                                                                          "type_ptr" : 12
+                                                                        }
+                                                                      }
+                                                                    ]]
+                                                                  ],
+                                                                  {
+                                                                    "type_ptr" : 8
+                                                                  },
+                                                                  {
+                                                                    "cxx_temporary" : 67
+                                                                  }
+                                                                ]]
+                                                              ],
+                                                              {
+                                                                "type_ptr" : 8
+                                                              },
+                                                              {
+                                                                "cast_kind" : "ConstructorConversion",
+                                                                "base_path" : [
+                                                                ]
+                                                              },
+                                                              8
+                                                            ]]
+                                                          ],
+                                                          {
+                                                            "type_ptr" : 8
+                                                          },
+                                                          {
+                                                            "cast_kind" : "NoOp",
+                                                            "base_path" : [
+                                                            ]
+                                                          }
+                                                        ]]
+                                                      ],
+                                                      {
+                                                        "type_ptr" : 8,
+                                                        "value_kind" : "LValue"
+                                                      },
+                                                      {
+                                                      }
+                                                    ]]
+                                                  ],
+                                                  {
+                                                    "type_ptr" : 8
+                                                  },
+                                                  {
+                                                    "decl_ref" : {
+                                                      "kind" : "CXXConstructor",
+                                                      "decl_pointer" : 15,
+                                                      "name" : {
+                                                        "name" : "X",
+                                                        "qual_name" : [
+                                                          "X",
+                                                          "X"
+                                                        ]
+                                                      },
+                                                      "type_ptr" : 16
+                                                    },
+                                                    "is_elidable" : true
+                                                  }
+                                                ]]
+                                              ],
+                                              {
+                                                "type_ptr" : 8
+                                              },
+                                              {
+                                                "cxx_temporary" : 68
+                                              }
+                                            ]]
+                                          ],
+                                          {
+                                            "type_ptr" : 8
+                                          }
+                                        ]]
+                                      ],
+                                      {
+                                        "type_ptr" : 8
+                                      },
+                                      {
+                                        "cxx_temporary" : 69
+                                      }
+                                    ]]
+                                  ],
+                                  {
+                                    "type_ptr" : 8
+                                  },
+                                  {
+                                    "cast_kind" : "NoOp",
+                                    "base_path" : [
+                                    ]
+                                  }
+                                ]]
+                              ],
+                              {
+                                "type_ptr" : 8,
+                                "value_kind" : "LValue"
+                              },
+                              {
+                              }
+                            ]]
+                          ],
+                          {
+                            "type_ptr" : 8
+                          },
+                          {
+                            "decl_ref" : {
+                              "kind" : "CXXConstructor",
+                              "decl_pointer" : 15,
+                              "name" : {
+                                "name" : "X",
+                                "qual_name" : [
+                                  "X",
+                                  "X"
+                                ]
+                              },
+                              "type_ptr" : 16
+                            },
+                            "is_elidable" : true
+                          }
+                        ]]
+                      ],
+                      {
+                        "type_ptr" : 8
+                      },
+                      {
+                      }
+                    ]]
+                  }
+                ]]
+              ]
+            ]],
+            ["DeclStmt" , [
+              {
+                "pointer" : 71,
+                "source_range" : [
+                  {
+                    "line" : 18,
+                    "column" : 3
+                  },
+                  {
+                    "column" : 16
+                  }
+                ]
+              },
+              [
+                ["ExprWithCleanups" , [
+                  {
+                    "pointer" : 72,
+                    "source_range" : [
+                      {
+                        "column" : 9
+                      },
+                      {
+                        "column" : 15
+                      }
+                    ]
+                  },
+                  [
+                    ["CXXConstructExpr" , [
+                      {
+                        "pointer" : 73,
+                        "source_range" : [
+                          {
+                            "column" : 9
+                          },
+                          {
+                            "column" : 15
+                          }
+                        ]
+                      },
+                      [
+                        ["MaterializeTemporaryExpr" , [
+                          {
+                            "pointer" : 74,
+                            "source_range" : [
+                              {
+                                "column" : 9
+                              },
+                              {
+                                "column" : 15
+                              }
+                            ]
+                          },
+                          [
+                            ["ImplicitCastExpr" , [
+                              {
+                                "pointer" : 75,
+                                "source_range" : [
+                                  {
+                                    "column" : 9
+                                  },
+                                  {
+                                    "column" : 15
+                                  }
+                                ]
+                              },
+                              [
+                                ["CXXBindTemporaryExpr" , [
+                                  {
+                                    "pointer" : 76,
+                                    "source_range" : [
+                                      {
+                                        "column" : 9
+                                      },
+                                      {
+                                        "column" : 15
+                                      }
+                                    ]
+                                  },
+                                  [
+                                    ["CallExpr" , [
+                                      {
+                                        "pointer" : 77,
+                                        "source_range" : [
+                                          {
+                                            "column" : 9
+                                          },
+                                          {
+                                            "column" : 15
+                                          }
+                                        ]
+                                      },
+                                      [
+                                        ["ImplicitCastExpr" , [
+                                          {
+                                            "pointer" : 78,
+                                            "source_range" : [
+                                              {
+                                                "column" : 9
+                                              },
+                                              {
+                                                "column" : 9
+                                              }
+                                            ]
+                                          },
+                                          [
+                                            ["DeclRefExpr" , [
+                                              {
+                                                "pointer" : 79,
+                                                "source_range" : [
+                                                  {
+                                                    "column" : 9
+                                                  },
+                                                  {
+                                                    "column" : 9
+                                                  }
+                                                ]
+                                              },
+                                              [
+                                              ],
+                                              {
+                                                "type_ptr" : 40,
+                                                "value_kind" : "LValue"
+                                              },
+                                              {
+                                                "decl_ref" : {
+                                                  "kind" : "Function",
+                                                  "decl_pointer" : 39,
+                                                  "name" : {
+                                                    "name" : "g",
+                                                    "qual_name" : [
+                                                      "g"
+                                                    ]
+                                                  },
+                                                  "type_ptr" : 40
+                                                }
+                                              }
+                                            ]]
+                                          ],
+                                          {
+                                            "type_ptr" : 80
+                                          },
+                                          {
+                                            "cast_kind" : "FunctionToPointerDecay",
+                                            "base_path" : [
+                                            ]
+                                          }
+                                        ]],
+                                        ["CXXBindTemporaryExpr" , [
+                                          {
+                                            "pointer" : 81,
+                                            "source_range" : [
+                                              {
+                                                "column" : 11
+                                              },
+                                              {
+                                                "column" : 14
+                                              }
+                                            ]
+                                          },
+                                          [
+                                            ["CXXConstructExpr" , [
+                                              {
+                                                "pointer" : 82,
+                                                "source_range" : [
+                                                  {
+                                                    "column" : 11
+                                                  },
+                                                  {
+                                                    "column" : 14
+                                                  }
+                                                ]
+                                              },
+                                              [
+                                                ["MaterializeTemporaryExpr" , [
+                                                  {
+                                                    "pointer" : 83,
+                                                    "source_range" : [
+                                                      {
+                                                        "column" : 11
+                                                      },
+                                                      {
+                                                        "column" : 14
+                                                      }
+                                                    ]
+                                                  },
+                                                  [
+                                                    ["ImplicitCastExpr" , [
+                                                      {
+                                                        "pointer" : 84,
+                                                        "source_range" : [
+                                                          {
+                                                            "column" : 11
+                                                          },
+                                                          {
+                                                            "column" : 14
+                                                          }
+                                                        ]
+                                                      },
+                                                      [
+                                                        ["CXXFunctionalCastExpr" , [
+                                                          {
+                                                            "pointer" : 85,
+                                                            "source_range" : [
+                                                              {
+                                                                "column" : 11
+                                                              },
+                                                              {
+                                                                "column" : 14
+                                                              }
+                                                            ]
+                                                          },
+                                                          [
+                                                            ["CXXBindTemporaryExpr" , [
+                                                              {
+                                                                "pointer" : 86,
+                                                                "source_range" : [
+                                                                  {
+                                                                    "column" : 11
+                                                                  },
+                                                                  {
+                                                                    "column" : 14
+                                                                  }
+                                                                ]
+                                                              },
+                                                              [
+                                                                ["CXXConstructExpr" , [
+                                                                  {
+                                                                    "pointer" : 87,
+                                                                    "source_range" : [
+                                                                      {
+                                                                        "column" : 11
+                                                                      },
+                                                                      {
+                                                                        "column" : 14
+                                                                      }
+                                                                    ]
+                                                                  },
+                                                                  [
+                                                                    ["IntegerLiteral" , [
+                                                                      {
+                                                                        "pointer" : 88,
+                                                                        "source_range" : [
+                                                                          {
+                                                                            "column" : 13
+                                                                          },
+                                                                          {
+                                                                            "column" : 13
+                                                                          }
+                                                                        ]
+                                                                      },
+                                                                      [
+                                                                      ],
+                                                                      {
+                                                                        "type_ptr" : 14
+                                                                      },
+                                                                      {
+                                                                        "is_signed" : true,
+                                                                        "bitwidth" : 32,
+                                                                        "value" : "3"
+                                                                      }
+                                                                    ]]
+                                                                  ],
+                                                                  {
+                                                                    "type_ptr" : 25
+                                                                  },
+                                                                  {
+                                                                    "decl_ref" : {
+                                                                      "kind" : "CXXConstructor",
+                                                                      "decl_pointer" : 28,
+                                                                      "name" : {
+                                                                        "name" : "Y",
+                                                                        "qual_name" : [
+                                                                          "Y",
+                                                                          "Y"
+                                                                        ]
+                                                                      },
+                                                                      "type_ptr" : 12
+                                                                    }
+                                                                  }
+                                                                ]]
+                                                              ],
+                                                              {
+                                                                "type_ptr" : 25
+                                                              },
+                                                              {
+                                                                "cxx_temporary" : 89
+                                                              }
+                                                            ]]
+                                                          ],
+                                                          {
+                                                            "type_ptr" : 25
+                                                          },
+                                                          {
+                                                            "cast_kind" : "ConstructorConversion",
+                                                            "base_path" : [
+                                                            ]
+                                                          },
+                                                          25
+                                                        ]]
+                                                      ],
+                                                      {
+                                                        "type_ptr" : 25
+                                                      },
+                                                      {
+                                                        "cast_kind" : "NoOp",
+                                                        "base_path" : [
+                                                        ]
+                                                      }
+                                                    ]]
+                                                  ],
+                                                  {
+                                                    "type_ptr" : 25,
+                                                    "value_kind" : "LValue"
+                                                  },
+                                                  {
+                                                  }
+                                                ]]
+                                              ],
+                                              {
+                                                "type_ptr" : 25
+                                              },
+                                              {
+                                                "decl_ref" : {
+                                                  "kind" : "CXXConstructor",
+                                                  "decl_pointer" : 31,
+                                                  "name" : {
+                                                    "name" : "Y",
+                                                    "qual_name" : [
+                                                      "Y",
+                                                      "Y"
+                                                    ]
+                                                  },
+                                                  "type_ptr" : 32
+                                                },
+                                                "is_elidable" : true
+                                              }
+                                            ]]
+                                          ],
+                                          {
+                                            "type_ptr" : 25
+                                          },
+                                          {
+                                            "cxx_temporary" : 90
+                                          }
+                                        ]]
+                                      ],
+                                      {
+                                        "type_ptr" : 25
+                                      }
+                                    ]]
+                                  ],
+                                  {
+                                    "type_ptr" : 25
+                                  },
+                                  {
+                                    "cxx_temporary" : 91
+                                  }
+                                ]]
+                              ],
+                              {
+                                "type_ptr" : 25
+                              },
+                              {
+                                "cast_kind" : "NoOp",
+                                "base_path" : [
+                                ]
+                              }
+                            ]]
+                          ],
+                          {
+                            "type_ptr" : 25,
+                            "value_kind" : "LValue"
+                          },
+                          {
+                          }
+                        ]]
+                      ],
+                      {
+                        "type_ptr" : 25
+                      },
+                      {
+                        "decl_ref" : {
+                          "kind" : "CXXConstructor",
+                          "decl_pointer" : 31,
+                          "name" : {
+                            "name" : "Y",
+                            "qual_name" : [
+                              "Y",
+                              "Y"
+                            ]
+                          },
+                          "type_ptr" : 32
+                        },
+                        "is_elidable" : true
+                      }
+                    ]]
+                  ],
+                  {
+                    "type_ptr" : 25
+                  },
+                  {
+                  }
+                ]]
+              ],
+              [
+                ["VarDecl" , [
+                  {
+                    "pointer" : 92,
+                    "source_range" : [
+                      {
+                        "column" : 3
+                      },
+                      {
+                        "column" : 15
+                      }
+                    ]
+                  },
+                  {
+                    "name" : "c",
+                    "qual_name" : [
+                      "c"
+                    ]
+                  },
+                  {
+                    "type_ptr" : 25
+                  },
+                  {
+                    "init_expr" : ["ExprWithCleanups" , [
+                      {
+                        "pointer" : 72,
+                        "source_range" : [
+                          {
+                            "column" : 9
+                          },
+                          {
+                            "column" : 15
+                          }
+                        ]
+                      },
+                      [
+                        ["CXXConstructExpr" , [
+                          {
+                            "pointer" : 73,
+                            "source_range" : [
+                              {
+                                "column" : 9
+                              },
+                              {
+                                "column" : 15
+                              }
+                            ]
+                          },
+                          [
+                            ["MaterializeTemporaryExpr" , [
+                              {
+                                "pointer" : 74,
+                                "source_range" : [
+                                  {
+                                    "column" : 9
+                                  },
+                                  {
+                                    "column" : 15
+                                  }
+                                ]
+                              },
+                              [
+                                ["ImplicitCastExpr" , [
+                                  {
+                                    "pointer" : 75,
+                                    "source_range" : [
+                                      {
+                                        "column" : 9
+                                      },
+                                      {
+                                        "column" : 15
+                                      }
+                                    ]
+                                  },
+                                  [
+                                    ["CXXBindTemporaryExpr" , [
+                                      {
+                                        "pointer" : 76,
+                                        "source_range" : [
+                                          {
+                                            "column" : 9
+                                          },
+                                          {
+                                            "column" : 15
+                                          }
+                                        ]
+                                      },
+                                      [
+                                        ["CallExpr" , [
+                                          {
+                                            "pointer" : 77,
+                                            "source_range" : [
+                                              {
+                                                "column" : 9
+                                              },
+                                              {
+                                                "column" : 15
+                                              }
+                                            ]
+                                          },
+                                          [
+                                            ["ImplicitCastExpr" , [
+                                              {
+                                                "pointer" : 78,
+                                                "source_range" : [
+                                                  {
+                                                    "column" : 9
+                                                  },
+                                                  {
+                                                    "column" : 9
+                                                  }
+                                                ]
+                                              },
+                                              [
+                                                ["DeclRefExpr" , [
+                                                  {
+                                                    "pointer" : 79,
+                                                    "source_range" : [
+                                                      {
+                                                        "column" : 9
+                                                      },
+                                                      {
+                                                        "column" : 9
+                                                      }
+                                                    ]
+                                                  },
+                                                  [
+                                                  ],
+                                                  {
+                                                    "type_ptr" : 40,
+                                                    "value_kind" : "LValue"
+                                                  },
+                                                  {
+                                                    "decl_ref" : {
+                                                      "kind" : "Function",
+                                                      "decl_pointer" : 39,
+                                                      "name" : {
+                                                        "name" : "g",
+                                                        "qual_name" : [
+                                                          "g"
+                                                        ]
+                                                      },
+                                                      "type_ptr" : 40
+                                                    }
+                                                  }
+                                                ]]
+                                              ],
+                                              {
+                                                "type_ptr" : 80
+                                              },
+                                              {
+                                                "cast_kind" : "FunctionToPointerDecay",
+                                                "base_path" : [
+                                                ]
+                                              }
+                                            ]],
+                                            ["CXXBindTemporaryExpr" , [
+                                              {
+                                                "pointer" : 81,
+                                                "source_range" : [
+                                                  {
+                                                    "column" : 11
+                                                  },
+                                                  {
+                                                    "column" : 14
+                                                  }
+                                                ]
+                                              },
+                                              [
+                                                ["CXXConstructExpr" , [
+                                                  {
+                                                    "pointer" : 82,
+                                                    "source_range" : [
+                                                      {
+                                                        "column" : 11
+                                                      },
+                                                      {
+                                                        "column" : 14
+                                                      }
+                                                    ]
+                                                  },
+                                                  [
+                                                    ["MaterializeTemporaryExpr" , [
+                                                      {
+                                                        "pointer" : 83,
+                                                        "source_range" : [
+                                                          {
+                                                            "column" : 11
+                                                          },
+                                                          {
+                                                            "column" : 14
+                                                          }
+                                                        ]
+                                                      },
+                                                      [
+                                                        ["ImplicitCastExpr" , [
+                                                          {
+                                                            "pointer" : 84,
+                                                            "source_range" : [
+                                                              {
+                                                                "column" : 11
+                                                              },
+                                                              {
+                                                                "column" : 14
+                                                              }
+                                                            ]
+                                                          },
+                                                          [
+                                                            ["CXXFunctionalCastExpr" , [
+                                                              {
+                                                                "pointer" : 85,
+                                                                "source_range" : [
+                                                                  {
+                                                                    "column" : 11
+                                                                  },
+                                                                  {
+                                                                    "column" : 14
+                                                                  }
+                                                                ]
+                                                              },
+                                                              [
+                                                                ["CXXBindTemporaryExpr" , [
+                                                                  {
+                                                                    "pointer" : 86,
+                                                                    "source_range" : [
+                                                                      {
+                                                                        "column" : 11
+                                                                      },
+                                                                      {
+                                                                        "column" : 14
+                                                                      }
+                                                                    ]
+                                                                  },
+                                                                  [
+                                                                    ["CXXConstructExpr" , [
+                                                                      {
+                                                                        "pointer" : 87,
+                                                                        "source_range" : [
+                                                                          {
+                                                                            "column" : 11
+                                                                          },
+                                                                          {
+                                                                            "column" : 14
+                                                                          }
+                                                                        ]
+                                                                      },
+                                                                      [
+                                                                        ["IntegerLiteral" , [
+                                                                          {
+                                                                            "pointer" : 88,
+                                                                            "source_range" : [
+                                                                              {
+                                                                                "column" : 13
+                                                                              },
+                                                                              {
+                                                                                "column" : 13
+                                                                              }
+                                                                            ]
+                                                                          },
+                                                                          [
+                                                                          ],
+                                                                          {
+                                                                            "type_ptr" : 14
+                                                                          },
+                                                                          {
+                                                                            "is_signed" : true,
+                                                                            "bitwidth" : 32,
+                                                                            "value" : "3"
+                                                                          }
+                                                                        ]]
+                                                                      ],
+                                                                      {
+                                                                        "type_ptr" : 25
+                                                                      },
+                                                                      {
+                                                                        "decl_ref" : {
+                                                                          "kind" : "CXXConstructor",
+                                                                          "decl_pointer" : 28,
+                                                                          "name" : {
+                                                                            "name" : "Y",
+                                                                            "qual_name" : [
+                                                                              "Y",
+                                                                              "Y"
+                                                                            ]
+                                                                          },
+                                                                          "type_ptr" : 12
+                                                                        }
+                                                                      }
+                                                                    ]]
+                                                                  ],
+                                                                  {
+                                                                    "type_ptr" : 25
+                                                                  },
+                                                                  {
+                                                                    "cxx_temporary" : 89
+                                                                  }
+                                                                ]]
+                                                              ],
+                                                              {
+                                                                "type_ptr" : 25
+                                                              },
+                                                              {
+                                                                "cast_kind" : "ConstructorConversion",
+                                                                "base_path" : [
+                                                                ]
+                                                              },
+                                                              25
+                                                            ]]
+                                                          ],
+                                                          {
+                                                            "type_ptr" : 25
+                                                          },
+                                                          {
+                                                            "cast_kind" : "NoOp",
+                                                            "base_path" : [
+                                                            ]
+                                                          }
+                                                        ]]
+                                                      ],
+                                                      {
+                                                        "type_ptr" : 25,
+                                                        "value_kind" : "LValue"
+                                                      },
+                                                      {
+                                                      }
+                                                    ]]
+                                                  ],
+                                                  {
+                                                    "type_ptr" : 25
+                                                  },
+                                                  {
+                                                    "decl_ref" : {
+                                                      "kind" : "CXXConstructor",
+                                                      "decl_pointer" : 31,
+                                                      "name" : {
+                                                        "name" : "Y",
+                                                        "qual_name" : [
+                                                          "Y",
+                                                          "Y"
+                                                        ]
+                                                      },
+                                                      "type_ptr" : 32
+                                                    },
+                                                    "is_elidable" : true
+                                                  }
+                                                ]]
+                                              ],
+                                              {
+                                                "type_ptr" : 25
+                                              },
+                                              {
+                                                "cxx_temporary" : 90
+                                              }
+                                            ]]
+                                          ],
+                                          {
+                                            "type_ptr" : 25
+                                          }
+                                        ]]
+                                      ],
+                                      {
+                                        "type_ptr" : 25
+                                      },
+                                      {
+                                        "cxx_temporary" : 91
+                                      }
+                                    ]]
+                                  ],
+                                  {
+                                    "type_ptr" : 25
+                                  },
+                                  {
+                                    "cast_kind" : "NoOp",
+                                    "base_path" : [
+                                    ]
+                                  }
+                                ]]
+                              ],
+                              {
+                                "type_ptr" : 25,
+                                "value_kind" : "LValue"
+                              },
+                              {
+                              }
+                            ]]
+                          ],
+                          {
+                            "type_ptr" : 25
+                          },
+                          {
+                            "decl_ref" : {
+                              "kind" : "CXXConstructor",
+                              "decl_pointer" : 31,
+                              "name" : {
+                                "name" : "Y",
+                                "qual_name" : [
+                                  "Y",
+                                  "Y"
+                                ]
+                              },
+                              "type_ptr" : 32
+                            },
+                            "is_elidable" : true
+                          }
+                        ]]
+                      ],
+                      {
+                        "type_ptr" : 25
+                      },
+                      {
+                      }
+                    ]]
+                  }
+                ]]
+              ]
+            ]],
+            ["ExprWithCleanups" , [
+              {
+                "pointer" : 93,
+                "source_range" : [
+                  {
+                    "line" : 19,
+                    "column" : 3
+                  },
+                  {
+                    "column" : 10
+                  }
+                ]
+              },
+              [
+                ["CXXOperatorCallExpr" , [
+                  {
+                    "pointer" : 94,
+                    "source_range" : [
+                      {
+                        "column" : 3
+                      },
+                      {
+                        "column" : 10
+                      }
+                    ]
+                  },
+                  [
+                    ["ImplicitCastExpr" , [
+                      {
+                        "pointer" : 95,
+                        "source_range" : [
+                          {
+                            "column" : 5
+                          },
+                          {
+                            "column" : 5
+                          }
+                        ]
+                      },
+                      [
+                        ["DeclRefExpr" , [
+                          {
+                            "pointer" : 96,
+                            "source_range" : [
+                              {
+                                "column" : 5
+                              },
+                              {
+                                "column" : 5
+                              }
+                            ]
+                          },
+                          [
+                          ],
+                          {
+                            "type_ptr" : 20,
+                            "value_kind" : "LValue"
+                          },
+                          {
+                            "decl_ref" : {
+                              "kind" : "CXXMethod",
+                              "decl_pointer" : 19,
+                              "name" : {
+                                "name" : "operator=",
+                                "qual_name" : [
+                                  "operator=",
+                                  "X"
+                                ]
+                              },
+                              "type_ptr" : 20
+                            }
+                          }
+                        ]]
+                      ],
+                      {
+                        "type_ptr" : 97
+                      },
+                      {
+                        "cast_kind" : "FunctionToPointerDecay",
+                        "base_path" : [
+                        ]
+                      }
+                    ]],
+                    ["DeclRefExpr" , [
+                      {
+                        "pointer" : 98,
+                        "source_range" : [
+                          {
+                            "column" : 3
+                          },
+                          {
+                            "column" : 3
+                          }
+                        ]
+                      },
+                      [
+                      ],
+                      {
+                        "type_ptr" : 8,
+                        "value_kind" : "LValue"
+                      },
+                      {
+                        "decl_ref" : {
+                          "kind" : "Var",
+                          "decl_pointer" : 48,
+                          "name" : {
+                            "name" : "a",
+                            "qual_name" : [
+                              "a"
+                            ]
+                          },
+                          "type_ptr" : 8
+                        }
+                      }
+                    ]],
+                    ["MaterializeTemporaryExpr" , [
+                      {
+                        "pointer" : 99,
+                        "source_range" : [
+                          {
+                            "column" : 7
+                          },
+                          {
+                            "column" : 10
+                          }
+                        ]
+                      },
+                      [
+                        ["ImplicitCastExpr" , [
+                          {
+                            "pointer" : 100,
+                            "source_range" : [
+                              {
+                                "column" : 7
+                              },
+                              {
+                                "column" : 10
+                              }
+                            ]
+                          },
+                          [
+                            ["CXXBindTemporaryExpr" , [
+                              {
+                                "pointer" : 101,
+                                "source_range" : [
+                                  {
+                                    "column" : 7
+                                  },
+                                  {
+                                    "column" : 10
+                                  }
+                                ]
+                              },
+                              [
+                                ["CallExpr" , [
+                                  {
+                                    "pointer" : 102,
+                                    "source_range" : [
+                                      {
+                                        "column" : 7
+                                      },
+                                      {
+                                        "column" : 10
+                                      }
+                                    ]
+                                  },
+                                  [
+                                    ["ImplicitCastExpr" , [
+                                      {
+                                        "pointer" : 103,
+                                        "source_range" : [
+                                          {
+                                            "column" : 7
+                                          },
+                                          {
+                                            "column" : 7
+                                          }
+                                        ]
+                                      },
+                                      [
+                                        ["DeclRefExpr" , [
+                                          {
+                                            "pointer" : 104,
+                                            "source_range" : [
+                                              {
+                                                "column" : 7
+                                              },
+                                              {
+                                                "column" : 7
+                                              }
+                                            ]
+                                          },
+                                          [
+                                          ],
+                                          {
+                                            "type_ptr" : 37,
+                                            "value_kind" : "LValue"
+                                          },
+                                          {
+                                            "decl_ref" : {
+                                              "kind" : "Function",
+                                              "decl_pointer" : 36,
+                                              "name" : {
+                                                "name" : "f",
+                                                "qual_name" : [
+                                                  "f"
+                                                ]
+                                              },
+                                              "type_ptr" : 37
+                                            }
+                                          }
+                                        ]]
+                                      ],
+                                      {
+                                        "type_ptr" : 58
+                                      },
+                                      {
+                                        "cast_kind" : "FunctionToPointerDecay",
+                                        "base_path" : [
+                                        ]
+                                      }
+                                    ]],
+                                    ["CXXBindTemporaryExpr" , [
+                                      {
+                                        "pointer" : 105,
+                                        "source_range" : [
+                                          {
+                                            "column" : 9
+                                          },
+                                          {
+                                            "column" : 9
+                                          }
+                                        ]
+                                      },
+                                      [
+                                        ["CXXConstructExpr" , [
+                                          {
+                                            "pointer" : 106,
+                                            "source_range" : [
+                                              {
+                                                "column" : 9
+                                              },
+                                              {
+                                                "column" : 9
+                                              }
+                                            ]
+                                          },
+                                          [
+                                            ["ImplicitCastExpr" , [
+                                              {
+                                                "pointer" : 107,
+                                                "source_range" : [
+                                                  {
+                                                    "column" : 9
+                                                  },
+                                                  {
+                                                    "column" : 9
+                                                  }
+                                                ]
+                                              },
+                                              [
+                                                ["DeclRefExpr" , [
+                                                  {
+                                                    "pointer" : 108,
+                                                    "source_range" : [
+                                                      {
+                                                        "column" : 9
+                                                      },
+                                                      {
+                                                        "column" : 9
+                                                      }
+                                                    ]
+                                                  },
+                                                  [
+                                                  ],
+                                                  {
+                                                    "type_ptr" : 8,
+                                                    "value_kind" : "LValue"
+                                                  },
+                                                  {
+                                                    "decl_ref" : {
+                                                      "kind" : "Var",
+                                                      "decl_pointer" : 48,
+                                                      "name" : {
+                                                        "name" : "a",
+                                                        "qual_name" : [
+                                                          "a"
+                                                        ]
+                                                      },
+                                                      "type_ptr" : 8
+                                                    }
+                                                  }
+                                                ]]
+                                              ],
+                                              {
+                                                "type_ptr" : 8,
+                                                "value_kind" : "LValue"
+                                              },
+                                              {
+                                                "cast_kind" : "NoOp",
+                                                "base_path" : [
+                                                ]
+                                              }
+                                            ]]
+                                          ],
+                                          {
+                                            "type_ptr" : 8
+                                          },
+                                          {
+                                            "decl_ref" : {
+                                              "kind" : "CXXConstructor",
+                                              "decl_pointer" : 15,
+                                              "name" : {
+                                                "name" : "X",
+                                                "qual_name" : [
+                                                  "X",
+                                                  "X"
+                                                ]
+                                              },
+                                              "type_ptr" : 16
+                                            }
+                                          }
+                                        ]]
+                                      ],
+                                      {
+                                        "type_ptr" : 8
+                                      },
+                                      {
+                                        "cxx_temporary" : 109
+                                      }
+                                    ]]
+                                  ],
+                                  {
+                                    "type_ptr" : 8
+                                  }
+                                ]]
+                              ],
+                              {
+                                "type_ptr" : 8
+                              },
+                              {
+                                "cxx_temporary" : 110
+                              }
+                            ]]
+                          ],
+                          {
+                            "type_ptr" : 8
+                          },
+                          {
+                            "cast_kind" : "NoOp",
+                            "base_path" : [
+                            ]
+                          }
+                        ]]
+                      ],
+                      {
+                        "type_ptr" : 8,
+                        "value_kind" : "LValue"
+                      },
+                      {
+                      }
+                    ]]
+                  ],
+                  {
+                    "type_ptr" : 8,
+                    "value_kind" : "LValue"
+                  }
+                ]]
+              ],
+              {
+                "type_ptr" : 8,
+                "value_kind" : "LValue"
+              },
+              {
+              }
+            ]]
+          ]
+        ]]
+      }
+    ]],
+    ["TypedefDecl" , [
+      {
+        "pointer" : 111,
+        "source_range" : [
+          {
+          },
+          {
+          }
+        ],
+        "is_implicit" : true
+      },
+      {
+        "name" : "instancetype",
+        "qual_name" : [
+          "instancetype"
+        ]
+      },
+      ["Type" , "id"],
+      112,
+      {
+      }
+    ]]
+  ],
+  {
+  },
+  {
+    "input_path" : "tests/expr_with_cleanups.cpp",
+    "input_kind" : "IK_CXX",
+    "types" : [
+      ["BuiltinType" , [
+        {
+          "pointer" : 113
+        },
+        "Void"
+      ]],
+      ["BuiltinType" , [
+        {
+          "pointer" : 114
+        },
+        "Bool"
+      ]],
+      ["BuiltinType" , [
+        {
+          "pointer" : 115
+        },
+        "Char_S"
+      ]],
+      ["BuiltinType" , [
+        {
+          "pointer" : 116
+        },
+        "SChar"
+      ]],
+      ["BuiltinType" , [
+        {
+          "pointer" : 117
+        },
+        "Short"
+      ]],
+      ["BuiltinType" , [
+        {
+          "pointer" : 14
+        },
+        "Int"
+      ]],
+      ["BuiltinType" , [
+        {
+          "pointer" : 118
+        },
+        "Long"
+      ]],
+      ["BuiltinType" , [
+        {
+          "pointer" : 119
+        },
+        "LongLong"
+      ]],
+      ["BuiltinType" , [
+        {
+          "pointer" : 120
+        },
+        "UChar"
+      ]],
+      ["BuiltinType" , [
+        {
+          "pointer" : 121
+        },
+        "UShort"
+      ]],
+      ["BuiltinType" , [
+        {
+          "pointer" : 122
+        },
+        "UInt"
+      ]],
+      ["BuiltinType" , [
+        {
+          "pointer" : 123
+        },
+        "ULong"
+      ]],
+      ["BuiltinType" , [
+        {
+          "pointer" : 124
+        },
+        "ULongLong"
+      ]],
+      ["BuiltinType" , [
+        {
+          "pointer" : 125
+        },
+        "Float"
+      ]],
+      ["BuiltinType" , [
+        {
+          "pointer" : 126
+        },
+        "Double"
+      ]],
+      ["BuiltinType" , [
+        {
+          "pointer" : 127
+        },
+        "LongDouble"
+      ]],
+      ["BuiltinType" , [
+        {
+          "pointer" : 128
+        },
+        "Float128"
+      ]],
+      ["BuiltinType" , [
+        {
+          "pointer" : 129
+        },
+        "Int128"
+      ]],
+      ["BuiltinType" , [
+        {
+          "pointer" : 130
+        },
+        "UInt128"
+      ]],
+      ["BuiltinType" , [
+        {
+          "pointer" : 131
+        },
+        "WChar_S"
+      ]],
+      ["BuiltinType" , [
+        {
+          "pointer" : 132
+        },
+        "Char16"
+      ]],
+      ["BuiltinType" , [
+        {
+          "pointer" : 133
+        },
+        "Char32"
+      ]],
+      ["BuiltinType" , [
+        {
+          "pointer" : 134
+        },
+        "Dependent"
+      ]],
+      ["BuiltinType" , [
+        {
+          "pointer" : 135
+        },
+        "Overload"
+      ]],
+      ["BuiltinType" , [
+        {
+          "pointer" : 136
+        },
+        "BoundMember"
+      ]],
+      ["BuiltinType" , [
+        {
+          "pointer" : 137
+        },
+        "PseudoObject"
+      ]],
+      ["BuiltinType" , [
+        {
+          "pointer" : 138
+        },
+        "UnknownAny"
+      ]],
+      ["BuiltinType" , [
+        {
+          "pointer" : 139
+        },
+        "ARCUnbridgedCast"
+      ]],
+      ["BuiltinType" , [
+        {
+          "pointer" : 140
+        },
+        "BuiltinFn"
+      ]],
+      ["ComplexType" , [
+        {
+          "pointer" : 141
+        }
+      ]],
+      ["ComplexType" , [
+        {
+          "pointer" : 142
+        }
+      ]],
+      ["ComplexType" , [
+        {
+          "pointer" : 143
+        }
+      ]],
+      ["ComplexType" , [
+        {
+          "pointer" : 144
+        }
+      ]],
+      ["BuiltinType" , [
+        {
+          "pointer" : 145
+        },
+        "ObjCId"
+      ]],
+      ["BuiltinType" , [
+        {
+          "pointer" : 146
+        },
+        "ObjCClass"
+      ]],
+      ["BuiltinType" , [
+        {
+          "pointer" : 147
+        },
+        "ObjCSel"
+      ]],
+      ["PointerType" , [
+        {
+          "pointer" : 148
+        },
+        {
+          "type_ptr" : 113
+        }
+      ]],
+      ["BuiltinType" , [
+        {
+          "pointer" : 149
+        },
+        "NullPtr"
+      ]],
+      ["BuiltinType" , [
+        {
+          "pointer" : 150
+        },
+        "Half"
+      ]],
+      ["RecordType" , [
+        {
+          "pointer" : 151
+        },
+        152
+      ]],
+      ["PointerType" , [
+        {
+          "pointer" : 153
+        },
+        {
+          "type_ptr" : 14,
+          "is_const" : true
+        }
+      ]],
+      ["PointerType" , [
+        {
+          "pointer" : 154
+        },
+        {
+          "type_ptr" : 115,
+          "is_const" : true
+        }
+      ]],
+      ["PointerType" , [
+        {
+          "pointer" : 155
+        },
+        {
+          "type_ptr" : 115
+        }
+      ]],
+      ["RecordType" , [
+        {
+          "pointer" : 156
+        },
+        157
+      ]],
+      ["ConstantArrayType" , [
+        {
+          "pointer" : 158
+        },
+        156,
+        1
+      ]],
+      ["RecordType" , [
+        {
+          "pointer" : 8
+        },
+        7
+      ]],
+      ["PointerType" , [
+        {
+          "pointer" : 159
+        },
+        {
+          "type_ptr" : 8
+        }
+      ]],
+      ["FunctionProtoType" , [
+        {
+          "pointer" : 12
+        },
+        {
+          "return_type" : 113
+        },
+        {
+          "params_type" : [
+            14
+          ]
+        }
+      ]],
+      ["LValueReferenceType" , [
+        {
+          "pointer" : 18
+        },
+        {
+          "type_ptr" : 8,
+          "is_const" : true
+        }
+      ]],
+      ["FunctionProtoType" , [
+        {
+          "pointer" : 16
+        },
+        {
+          "return_type" : 113
+        },
+        {
+          "params_type" : [
+            18
+          ]
+        }
+      ]],
+      ["LValueReferenceType" , [
+        {
+          "pointer" : 160
+        },
+        {
+          "type_ptr" : 8
+        }
+      ]],
+      ["FunctionProtoType" , [
+        {
+          "pointer" : 20
+        },
+        {
+          "return_type" : 160
+        },
+        {
+          "params_type" : [
+            18
+          ]
+        }
+      ]],
+      ["FunctionProtoType" , [
+        {
+          "pointer" : 43
+        },
+        {
+          "return_type" : 113
+        },
+        {
+        }
+      ]],
+      ["FunctionProtoType" , [
+        {
+          "pointer" : 161
+        },
+        {
+          "return_type" : 113
+        },
+        {
+        }
+      ]],
+      ["RecordType" , [
+        {
+          "pointer" : 25
+        },
+        24
+      ]],
+      ["PointerType" , [
+        {
+          "pointer" : 162
+        },
+        {
+          "type_ptr" : 25
+        }
+      ]],
+      ["FunctionProtoType" , [
+        {
+          "pointer" : 163
+        },
+        {
+          "return_type" : 113
+        },
+        {
+        }
+      ]],
+      ["FunctionProtoType" , [
+        {
+          "pointer" : 37
+        },
+        {
+          "return_type" : 8
+        },
+        {
+          "params_type" : [
+            8
+          ]
+        }
+      ]],
+      ["FunctionProtoType" , [
+        {
+          "pointer" : 40
+        },
+        {
+          "return_type" : 25
+        },
+        {
+          "params_type" : [
+            25
+          ]
+        }
+      ]],
+      ["FunctionProtoType" , [
+        {
+          "pointer" : 23
+        },
+        {
+          "return_type" : 113
+        },
+        {
+        }
+      ]],
+      ["PointerType" , [
+        {
+          "pointer" : 58
+        },
+        {
+          "type_ptr" : 37
+        }
+      ]],
+      ["LValueReferenceType" , [
+        {
+          "pointer" : 34
+        },
+        {
+          "type_ptr" : 25,
+          "is_const" : true
+        }
+      ]],
+      ["FunctionProtoType" , [
+        {
+          "pointer" : 164
+        },
+        {
+          "return_type" : 113
+        },
+        {
+          "params_type" : [
+            34
+          ]
+        }
+      ]],
+      ["FunctionProtoType" , [
+        {
+          "pointer" : 165
+        },
+        {
+          "return_type" : 113
+        },
+        {
+          "params_type" : [
+            34
+          ]
+        }
+      ]],
+      ["PointerType" , [
+        {
+          "pointer" : 80
+        },
+        {
+          "type_ptr" : 40
+        }
+      ]],
+      ["FunctionProtoType" , [
+        {
+          "pointer" : 32
+        },
+        {
+          "return_type" : 113
+        },
+        {
+          "params_type" : [
+            34
+          ]
+        }
+      ]],
+      ["PointerType" , [
+        {
+          "pointer" : 97
+        },
+        {
+          "type_ptr" : 20
+        }
+      ]],
+      ["ObjCObjectType" , [
+        {
+          "pointer" : 166
+        },
+        {
+          "base_type" : 145
+        }
+      ]],
+      ["ObjCObjectPointerType" , [
+        {
+          "pointer" : 167
+        },
+        {
+          "type_ptr" : 166
+        }
+      ]],
+      ["TypedefType" , [
+        {
+          "pointer" : 168,
+          "desugared_type" : 167
+        },
+        {
+          "child_type" : 167,
+          "decl_ptr" : 169
+        }
+      ]],
+      ["TypedefType" , [
+        {
+          "pointer" : 112,
+          "desugared_type" : 167
+        },
+        {
+          "child_type" : 168,
+          "decl_ptr" : 111
+        }
+      ]],
+      ["NoneType" , [
+        {
+          "pointer" : 0
+        }
+      ]]
+    ]
+  }
+]]
