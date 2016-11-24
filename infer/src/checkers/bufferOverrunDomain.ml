@@ -36,7 +36,23 @@ struct
     F.fprintf fmt "%s" (to_string astate)
 end
 
-module Symbol = 
+(* for test *)
+module Val = 
+struct
+  include AbstractDomain.Pair(Const)(ArrayBlk)
+  let of_const c = (c, ArrayBlk.bot)
+end
+
+module PPMap = PrettyPrintable.MakePPMap
+  (struct 
+     include Var
+     let pp_key = pp
+   end)
+
+include AbstractDomain.Map(PPMap) (Val)
+
+(*
+module SymItv = 
 struct 
   (* TODO *)
 end
@@ -50,16 +66,12 @@ struct
   (* TODO *)
 end
 
-module PPMap = PrettyPrintable.MakePPMap
-  (struct 
-     include Var
-     let pp_key = pp
-   end)
 
-(* for test *)
-include AbstractDomain.Map(PPMap) (Const)
+module Val = 
+struct
+  include AbstractDomain.Pair(SymItv)(ArrayBlk)
+end
 
-(*
-module Mem = AbstractDomain.Map(PPMap)(SymItv)
+module Mem = AbstractDomain.Map(PPMap)(Val)
 include AbstractDomain.Pair(Mem)(Condition)
 *)
