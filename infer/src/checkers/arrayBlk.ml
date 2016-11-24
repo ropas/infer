@@ -1,8 +1,6 @@
 (* Abstract Array Block *)
 open BasicDom
 
-module Itv = SymItv
-
 module ArrInfo = 
 struct
   type t = {
