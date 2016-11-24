@@ -169,15 +169,16 @@ type t = astate
 
 let bot = initial
 
-let top = raise TODO
+(* TODO *)
+let top = bot
 
-let zero = raise TODO
+let zero = bot
 
-let one = raise TODO
+let one = bot
 
-let pos = raise TODO
+let pos = bot
 
-let nat = raise TODO
+let nat = bot
 
 let of_int : int -> astate
 = fun n ->
