@@ -5,11 +5,10 @@ module L = Logging
 
 exception TODO
 
+(* TODO: Due to the side-effect of the symbol numbers, we may have to
+   place the sym_size to the outside of the Itv module. *)
 let sym_size = ref 0
 
-(* TODO: Due to the side-effect of the symbol numbers, we may have to
-   place the Symbol module at the outside of the BufferOverrunDomain
-   module. *)
 module Symbol =
 struct
   type t = int
