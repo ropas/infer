@@ -5,9 +5,9 @@ exception TODO
 
 let sym_size = ref 0
 
-(* TODO: Due to the side-effect of the symbol numbers, it might have
-   to place the Symbol module at the outside of the
-   BufferOverrunDomain module. *)
+(* TODO: Due to the side-effect of the symbol numbers, we may have to
+   place the Symbol module at the outside of the BufferOverrunDomain
+   module. *)
 module Symbol =
 struct
   type t = int
@@ -118,15 +118,14 @@ struct
         if c0 >= c1 && Coeff.eq x0 x1 then x else PInf
 
   let pp : F.formatter -> t -> unit
-  = fun fmt x ->
-    match x with
+  = fun fmt -> function
     | MInf -> F.fprintf fmt "-oo"
     | PInf -> F.fprintf fmt "+oo"
-    | V (c, y) ->
-        if Coeff.le y Coeff.empty then
+    | V (c, x) ->
+        if Coeff.le x Coeff.empty then
           F.fprintf fmt "%d" c
         else
-          F.fprintf fmt "%d+%a" c Coeff.pp y
+          F.fprintf fmt "%d+%a" c Coeff.pp x
 
   let of_int : int -> t
   = fun n ->
@@ -162,36 +161,73 @@ struct
     (Bound.of_int n, Bound.of_int n)
 end
 
-module SymItv = AbstractDomain.BottomLifted(SymItvPure)
-
-module Conditions =
+module SymItv =
 struct
-  (* set of safety conditions *)
-  (* collect all the B.O. safety conditions
-     in the function, in terms of symbol *)
+  include AbstractDomain.BottomLifted(SymItvPure)
+
+  let of_int : int -> astate
+  = fun n ->
+    NonBottom (SymItvPure.of_int n)
+end
+
+(* Set of safety conditions
+
+   It collects all the B.O. safety conditions in the function, in
+   terms of symbol. *)
+module Conds =
+struct
   type cond =
     | Le of SymItv.astate * SymItv.astate
     | Lt of SymItv.astate * SymItv.astate
     | Eq of SymItv.astate * SymItv.astate
 
+  (* TODO: Check the condition list is short.  If it is not, we may
+     have to use set instead of list. *)
   type astate = cond list
 
-  let initial = raise TODO
+  let initial : astate = []
 
-  let (<=) = raise TODO
+  (* TODO: As of now, we do not use logical implications among
+     conditions for order. *)
+  let (<=) : lhs:astate -> rhs:astate -> bool
+  = fun ~lhs ~rhs ->
+    List.for_all (fun c -> List.mem c rhs) lhs
 
-  let join = raise TODO
+  let fold : (cond -> 'a -> 'a) -> astate -> 'a -> 'a
+  = fun f l init ->
+    List.fold_left (fun acc e -> f e acc) init l
 
-  let widen = raise TODO
+  let join : astate -> astate -> astate
+  = fun x y ->
+    fold (fun c acc -> if List.mem c acc then acc else c :: acc) y x
 
-  let pp = raise TODO
+  (* TODO: We expect that the growing of conditions is finite by the
+     widening of SymItv. *)
+  let widen : prev:astate -> next:astate -> num_iters:int -> astate
+  = fun ~prev ~next ~num_iters:_ ->
+    join next prev
+
+  let pp1 : F.formatter -> cond -> unit
+  = fun fmt -> function
+    | Le (x, y) -> F.fprintf fmt "%a <= %a" SymItv.pp x SymItv.pp y
+    | Lt (x, y) -> F.fprintf fmt "%a < %a" SymItv.pp x SymItv.pp y
+    | Eq (x, y) -> F.fprintf fmt "%a = %a" SymItv.pp x SymItv.pp y
+
+  let pp : F.formatter -> astate -> unit
+  = fun fmt -> function
+    | [] -> F.fprintf fmt "true"
+    | c :: tl ->
+        pp1 fmt c;
+        List.iter (fun c -> F.fprintf fmt " /\ %a" pp1 c) tl
 end
 
 module Val =
 struct
   include AbstractDomain.Pair(SymItv)(ArrayBlk)
 
-  let of_int = raise TODO
+  let of_int : int -> astate
+  = fun n ->
+    (SymItv.of_int n, ArrayBlk.bot)
 end
 
 module PPMap = PrettyPrintable.MakePPMap
@@ -202,13 +238,13 @@ module PPMap = PrettyPrintable.MakePPMap
 
 module Mem = AbstractDomain.Map(PPMap)(Val)
 
-include AbstractDomain.Pair(Mem)(Conditions)
+include AbstractDomain.Pair(Mem)(Conds)
 
 let get_mem : astate -> Mem.astate
 = fun s ->
   fst s
 
-let get_cond : astate -> Conditions.astate
+let get_cond : astate -> Conds.astate
 = fun s ->
   snd s
 
