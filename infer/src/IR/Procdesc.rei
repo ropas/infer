@@ -20,7 +20,7 @@ let module Node: {
   type t;
 
   /** node id */
-  type id = private int;
+  type id = int;
 
   /** kind of cfg node */
   type nodekind =

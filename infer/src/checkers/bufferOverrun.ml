@@ -70,31 +70,40 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
   and eval_binop : Binop.t -> Exp.t -> Exp.t -> Domain.astate -> Domain.Val.astate 
   = fun binop e1 e2 astate -> 
     raise Not_implemented
- (* 
-  let eval_array_alloc : ProcCfg.DefaultNode.t -> Exp.t -> Domain.astate -> Domain.Val.astate
-  = fun node size astate ->
-    let allocsite = Allocsite.of_node node in
-    let offset = Domain.SymItv.of_int 0 in
+
+  let get_allocsite pdesc node inst_num dimension =
+    Procname.to_string (Procdesc.get_attributes pdesc).ProcAttributes.proc_name
+    ^ "-" ^ string_of_int (CFG.underlying_id node) ^ "-" ^ string_of_int inst_num ^ "-" ^ string_of_int dimension
+    |> Allocsite.make
+
+  let eval_array_alloc : Procdesc.t -> CFG.node -> Typ.t -> Exp.t -> int -> int -> Domain.astate -> Domain.Val.astate
+  = fun pdesc node typ size inst_num dimension astate ->
+    let allocsite = get_allocsite pdesc node inst_num dimension in
+    let offset = Itv.of_int 0 in
     let size = eval size astate |> Domain.Val.get_itv in
-    let stride = Domain.SymItv.of_int 4 in (* TODO *)
-    let nullpos = Domain.SymItv.of_int 0 in (* TODO *)
+    let stride = Itv.of_int 4 in (* TODO *)
+    let nullpos = Itv.of_int 0 in (* TODO *)
     ArrayBlk.make allocsite offset size stride nullpos
-*)
+    |> Domain.Val.of_array_blk
+
   let handle_unknown_call callee_pname params node astate = 
     match Procname.get_method callee_pname with
       "malloc" -> prerr_endline "print malloc"; astate
     | _ -> astate
 
-  let declare_locals locals node astate = 
-    IList.fold_left (fun astate (pvar, typ) ->
+  let rec declare_array pdesc node loc typ inst_num dimension astate = 
       match typ with 
-        Typ.Tarray (typ, len) -> 
-(*          Domain.Val.of_int (IntLit.to_int intlit)*)
-          prerr_endline "Tarray";
-          Pvar.pp pe_text F.err_formatter pvar;
+        Typ.Tarray (typ, Some len) -> 
+(*          prerr_endline "Tarray";
+          IntLit.pp F.err_formatter len;
+          Loc.pp  F.err_formatter loc;
           Typ.pp_full pe_text F.err_formatter typ;
-          astate
-      | _ -> astate) astate locals
+*)
+          let size = Exp.Const (Const.Cint len) in
+          let astate = Domain.add_mem loc (eval_array_alloc pdesc node typ size inst_num dimension astate) astate in
+          let loc = Loc.of_allocsite (get_allocsite pdesc node inst_num dimension) in
+          declare_array pdesc node loc typ inst_num (dimension + 1) astate
+      | _ -> astate
 
   let exec_instr astate { ProcData.pdesc; tenv } node (instr : Sil.instr) = 
     Sil.pp_instr Utils.pe_text F.err_formatter instr;
@@ -130,7 +139,12 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
         in
         Domain.add_mem (Loc.of_var (Var.of_id id)) (Domain.find_mem (Loc.of_var (Var.of_pvar (Pvar.get_ret_pvar callee_pname))) callee_state) astate
     | Call (_, _, params, loc, _) -> astate
-    | Declare_locals (locals, _) -> declare_locals locals node astate 
+    | Declare_locals (locals, _) -> 
+        IList.fold_left (fun (astate,c) (pvar, typ) ->
+            match typ with 
+              Typ.Tarray (_, _) ->
+                (declare_array pdesc node (Loc.of_var (Var.of_pvar pvar)) typ c 1 astate, c+1)
+            | _ -> (astate, c)) (astate, 1) locals |> fst
     | Remove_temps _ | Abstract _ | Nullify _ -> astate
 end
 

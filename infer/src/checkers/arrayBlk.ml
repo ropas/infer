@@ -97,17 +97,14 @@ struct
   let set_null_pos arr i = { arr with null_pos = i }
   let plus_null_pos arr i = { arr with null_pos = Itv.plus arr.null_pos i }
 
-  let to_string arr = 
-    "("^(Itv.to_string arr.offset)^", "^(Itv.to_string arr.size)^", "^(Itv.to_string arr.stride)
-    ^", "^(Itv.to_string arr.null_pos)(*^", "^(PowStruct.to_string arr.structure)^")"*)
-  
-  let pp fmt arr = Format.fprintf fmt "%s" (to_string arr)
+  let pp fmt arr = 
+    Format.fprintf fmt "offset : %a, size : %a, stride : %a" Itv.pp arr.offset Itv.pp arr.size Itv.pp arr.stride
 end
 
 module PPMap = PrettyPrintable.MakePPMap 
   (struct
      include Allocsite
-     let pp_key f k = ProcCfg.DefaultNode.pp_id f k
+     let pp_key f k = pp f k
    end)
 include AbstractDomain.Map(PPMap)(ArrInfo)
 

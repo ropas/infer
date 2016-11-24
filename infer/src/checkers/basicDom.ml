@@ -1,10 +1,8 @@
 module Allocsite = 
 struct
-  type t = ProcCfg.DefaultNode.id
-  let compare = ProcCfg.DefaultNode.id_compare
-  let pp = ProcCfg.DefaultNode.pp_id
-  let of_node : ProcCfg.DefaultNode.t -> t 
-  = fun node -> ProcCfg.DefaultNode.id node
+  include String
+  let pp fmt s = Format.fprintf fmt "%s" s
+  let make x = x
 end
 
 module Loc = 
