@@ -21,11 +21,13 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
 
   exception Not_implemented 
 
-  let eval_const : Const.t -> BufferOverrunDomain.Const.astate = function 
-    | Const.Cint intlit -> BufferOverrunDomain.Const.of_int (IntLit.to_int intlit)
-    | _ -> BufferOverrunDomain.Const.of_int (-999)
+  let eval_const : Const.t -> Domain.Val.astate = function 
+    | Const.Cint intlit -> 
+        Domain.Val.of_const (Domain.Const.of_int (IntLit.to_int intlit))
+    | _ -> Domain.Val.of_const (Domain.Const.of_int (-999))
 
-  let eval exp astate = 
+  let eval : Exp.t -> Domain.astate -> Domain.Val.astate
+  = fun exp astate ->
     match exp with
       (* Pure variable: it is not an lvalue *)
     | Exp.Var id -> Domain.find (Var.of_id id) astate
