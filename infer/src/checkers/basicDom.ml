@@ -11,6 +11,7 @@ struct
   let pp fmt = function 
     | Var v -> Var.pp fmt v
     | Allocsite a -> Allocsite.pp fmt a
+  let is_var = function Var _ -> true | _ -> false
   let of_var v = Var v
   let of_allocsite a = Allocsite a
 end

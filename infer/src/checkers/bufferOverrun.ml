@@ -94,22 +94,28 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
     | _ -> astate
 
   let rec declare_array pdesc node loc typ inst_num dimension astate = 
-      match typ with 
-        Typ.Tarray (typ, Some len) -> 
-(*          prerr_endline "Tarray";
-          IntLit.pp F.err_formatter len;
+    match typ with 
+      Typ.Tarray (typ, Some len) -> 
+(*      prerr_endline "Tarray";
+        IntLit.pp F.err_formatter len;
           Loc.pp  F.err_formatter loc;
           Typ.pp_full pe_text F.err_formatter typ;
 *)
-          let size = Exp.Const (Const.Cint len) in
-          let astate = Domain.add_mem loc (eval_array_alloc pdesc node typ size inst_num dimension astate) astate in
-          let loc = Loc.of_allocsite (get_allocsite pdesc node inst_num dimension) in
-          declare_array pdesc node loc typ inst_num (dimension + 1) astate
-      | _ -> astate
+        let size = Exp.Const (Const.Cint len) in
+        let astate = Domain.add_mem loc (eval_array_alloc pdesc node typ size inst_num dimension astate) astate in
+        let loc = Loc.of_allocsite (get_allocsite pdesc node inst_num dimension) in
+        declare_array pdesc node loc typ inst_num (dimension + 1) astate
+    | _ -> astate
+
+  let can_strong_update ploc =
+    if PowLoc.cardinal ploc = 1 then 
+      let lv = PowLoc.choose ploc in
+      Loc.is_var lv
+    else false
 
   let update_mem : PowLoc.t -> Domain.Val.t -> Domain.astate -> Domain.astate 
   = fun ploc v s ->
-    if PowLoc.cardinal ploc = 1 then Domain.strong_update_mem ploc v s
+    if can_strong_update ploc then Domain.strong_update_mem ploc v s
     else Domain.weak_update_mem ploc v s
 
   let exec_instr astate { ProcData.pdesc; tenv } node (instr : Sil.instr) = 
