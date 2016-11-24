@@ -136,7 +136,7 @@ struct
   let initial : t = of_int 0
 end
 
-module SymItvPure =
+module ItvPure =
 struct
   type astate = Bound.t * Bound.t
 
@@ -163,7 +163,7 @@ struct
     (Bound.of_int n, Bound.of_int n)
 end
 
-include AbstractDomain.BottomLifted(SymItvPure)
+include AbstractDomain.BottomLifted(ItvPure)
 
 type t = astate
 
@@ -181,7 +181,7 @@ let nat = raise TODO
 
 let of_int : int -> astate
 = fun n ->
-  NonBottom (SymItvPure.of_int n)
+  NonBottom (ItvPure.of_int n)
 
 let le = (<=)
 
