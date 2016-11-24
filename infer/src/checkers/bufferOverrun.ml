@@ -23,14 +23,14 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
 
   let eval_const : Const.t -> Domain.Val.astate = function 
     | Const.Cint intlit -> 
-        Domain.Val.of_const (Domain.Const.of_int (IntLit.to_int intlit))
-    | _ -> Domain.Val.of_const (Domain.Const.of_int (-999))
+        Domain.Val.of_int (IntLit.to_int intlit)
+    | _ -> Domain.Val.of_int (-999)
 
   let eval : Exp.t -> Domain.astate -> Domain.Val.astate
   = fun exp astate ->
     match exp with
       (* Pure variable: it is not an lvalue *)
-    | Exp.Var id -> Domain.find (Var.of_id id) astate
+    | Exp.Var id -> Domain.find_mem (Var.of_id id) astate
 (*    (* Unary operator with type of the result if known *)
     | UnOp Unop.t t (option Typ.t)
     (* Binary operator *)
@@ -44,7 +44,7 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
     (* Type cast *)
 (*    | Cast Typ.t t *)
     (* The address of a program variable *)
-    | Exp.Lvar pvar -> Domain.find (Var.of_pvar pvar) astate
+    | Exp.Lvar pvar -> Domain.find_mem (Var.of_pvar pvar) astate
     (* A field offset, the type is the surrounding struct type *)
 (*    | Lfield t Ident.fieldname Typ.t
     (* An array index offset: [exp1\[exp2\]] *)
@@ -76,9 +76,9 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
     prerr_newline ();
     match instr with
     | Load (id, exp, _, loc) ->
-        Domain.add (Var.of_id id) (eval exp astate) astate
+        Domain.add_mem (Var.of_id id) (eval exp astate) astate
     | Store (exp1, _, exp2, loc) ->
-        Domain.add (eval_lv exp1 astate) (eval exp2 astate) astate
+        Domain.add_mem (eval_lv exp1 astate) (eval exp2 astate) astate
     | Prune (exp, loc, _, _) ->
 (*    | Call (_, Const (Cfun callee_pname), params, loc, _) ->
         let callsite = CallSite.make callee_pname loc in
@@ -101,7 +101,7 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
           | Some astate -> astate
           | None -> handle_unknown_call callee_pname params node Domain.initial
         in
-        Domain.add (Var.of_id id) (Domain.find (Var.of_pvar (Pvar.get_ret_pvar callee_pname)) callee_state) astate
+        Domain.add_mem (Var.of_id id) (Domain.find_mem (Var.of_pvar (Pvar.get_ret_pvar callee_pname)) callee_state) astate
     | Call (_, _, params, loc, _) -> astate
     | Declare_locals _ | Remove_temps _ | Abstract _ | Nullify _ ->
         astate

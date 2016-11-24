@@ -78,3 +78,10 @@ module PPMap = PrettyPrintable.MakePPMap
 module Mem = AbstractDomain.Map(PPMap)(Val)
 
 include AbstractDomain.Pair(Mem)(Conditions)
+
+let add_mem : Var.t -> Val.astate -> astate -> astate
+= fun x y s ->
+  (fst s |> Mem.add x y, snd s)
+let find_mem : Var.t -> astate -> Val.astate
+= fun x s ->
+  Mem.find x (fst s)
