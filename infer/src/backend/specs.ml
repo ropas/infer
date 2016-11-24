@@ -328,6 +328,7 @@ type payload =
     quandary : QuandarySummary.t option;
     siof : SiofDomain.astate option;
     threadsafety : ThreadSafetyDomain.astate option;
+    interval : BufferOverrunDomain.astate option;
   }
 
 type summary =
@@ -773,6 +774,7 @@ let empty_payload =
     quandary = None;
     siof = None;
     threadsafety = None;
+    interval = None;
   }
 
 (** [init_summary (depend_list, nodes,
