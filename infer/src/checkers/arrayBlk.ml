@@ -1,4 +1,5 @@
 (* Abstract Array Block *)
+open BasicDom
 
 module Itv = SymItv
 
@@ -105,12 +106,6 @@ struct
   let pp fmt arr = Format.fprintf fmt "%s" (to_string arr)
 end
 
-module Allocsite = 
-struct
-  type t = ProcCfg.DefaultNode.id
-  let compare = ProcCfg.DefaultNode.id_compare
-end
-
 module PPMap = PrettyPrintable.MakePPMap 
   (struct
      include Allocsite
@@ -160,6 +155,11 @@ let set_null_pos : astate -> Itv.t -> astate
 let plus_null_pos : astate -> Itv.t -> astate
 = fun arr i ->
   map (fun a -> ArrInfo.plus_null_pos a i) arr
+
+let pow_loc_of_array : astate -> PowLoc.t = fun array ->
+  let pow_loc_of_allocsite k _ acc = PowLoc.add (Loc.of_allocsite k) acc in
+  fold pow_loc_of_allocsite array PowLoc.bot
+
 (*
 let cast_array : Cil.typ -> t -> t 
 = fun typ a ->
@@ -167,10 +167,6 @@ let cast_array : Cil.typ -> t -> t
 
 let allocsites_of_array a =
   foldi (fun k _ -> BatSet.add k) a BatSet.empty 
-
-let pow_loc_of_array : t -> PowLoc.t = fun array ->
-  let pow_loc_of_allocsite k _ acc = PowLoc.add (Loc.of_allocsite k) acc in
-  foldi pow_loc_of_allocsite array PowLoc.bot
 
 let struct_of_array a = 
   foldi (fun k v -> 

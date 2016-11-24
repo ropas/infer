@@ -1,4 +1,5 @@
 open! Utils
+open BasicDom
 
 module F = Format
 module L = Logging
@@ -26,37 +27,42 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
         Domain.Val.of_int (IntLit.to_int intlit)
     | _ -> Domain.Val.of_int (-999)
 
- let rec eval : Exp.t -> Domain.astate -> Domain.Val.astate
+  let sizeof : Typ.t -> int
+  = fun t ->
+    (* TODO *)
+    4
+
+  let rec eval : Exp.t -> Domain.astate -> Domain.Val.astate
   = fun exp astate ->
     match exp with
       (* Pure variable: it is not an lvalue *)
-    | Exp.Var id -> Domain.find_mem (Var.of_id id) astate
+    | Exp.Var _
+    (* The address of a program variable *)
+    | Exp.Lvar _ -> 
+        Domain.find_mem (eval_lv exp astate) astate
     | Exp.UnOp (uop, e, _) -> eval_unop uop e astate
     | Exp.BinOp (bop, e1, e2) -> eval_binop bop e1 e2 astate
     | Exp.Const c -> eval_const c 
     (* Type cast *)
 (*    | Cast Typ.t t *)
-    (* The address of a program variable *)
-    | Exp.Lvar pvar -> Domain.find_mem (Var.of_pvar pvar) astate
     (* A field offset, the type is the surrounding struct type *)
 (*    | Lfield t Ident.fieldname Typ.t *)
-(*    | Lindex (e1, e2) -> 
-        Domain.find_mem ( *)
-    (* A sizeof expression. [Sizeof (Tarray elt (Some static_length)) (Some dynamic_length)]
-        represents the size of an array value consisting of [dynamic_length] elements of type [elt].
-        The [dynamic_length], tracked by symbolic execution, may differ from the [static_length]
-        obtained from the type definition, e.g. when an array is over-allocated.  For struct types,
-        the [dynamic_length] is that of the final extensible array, if any. *)
-(*    | Sizeof Typ.t dynamic_length Subtype.t;*)
+    | Exp.Lindex (e1, e2) -> 
+        let locs = Domain.find_mem (eval_lv e1 astate) astate 
+          |> Domain.Val.get_array_blk 
+          |> ArrayBlk.pow_loc_of_array
+        in
+        Domain.find_mem_set locs astate
+    | Exp.Sizeof (typ, _, _) -> Domain.Val.of_int (sizeof typ) 
 (*    | Exp.Exn _ -> 
     | Exp.Closure _ -> *)
     | _ -> raise Not_implemented
 
-  and eval_lv : Exp.t -> Domain.astate -> Var.t
+  and eval_lv : Exp.t -> Domain.astate -> Loc.t
   = fun e astate ->
     match e with 
-    | Exp.Var id -> Var.of_id id
-    | Exp.Lvar pvar -> Var.of_pvar pvar
+    | Exp.Var id -> Var.of_id id |> Loc.of_var 
+    | Exp.Lvar pvar -> Var.of_pvar pvar |> Loc.of_var 
     | _ -> raise Not_implemented
   and eval_unop : Unop.t -> Exp.t -> Domain.astate -> Domain.Val.astate 
   = fun unop e astate -> 
@@ -64,12 +70,31 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
   and eval_binop : Binop.t -> Exp.t -> Exp.t -> Domain.astate -> Domain.Val.astate 
   = fun binop e1 e2 astate -> 
     raise Not_implemented
-
-   
+ (* 
+  let eval_array_alloc : ProcCfg.DefaultNode.t -> Exp.t -> Domain.astate -> Domain.Val.astate
+  = fun node size astate ->
+    let allocsite = Allocsite.of_node node in
+    let offset = Domain.SymItv.of_int 0 in
+    let size = eval size astate |> Domain.Val.get_itv in
+    let stride = Domain.SymItv.of_int 4 in (* TODO *)
+    let nullpos = Domain.SymItv.of_int 0 in (* TODO *)
+    ArrayBlk.make allocsite offset size stride nullpos
+*)
   let handle_unknown_call callee_pname params node astate = 
     match Procname.get_method callee_pname with
       "malloc" -> prerr_endline "print malloc"; astate
     | _ -> astate
+
+  let declare_locals locals node astate = 
+    IList.fold_left (fun astate (pvar, typ) ->
+      match typ with 
+        Typ.Tarray (typ, len) -> 
+(*          Domain.Val.of_int (IntLit.to_int intlit)*)
+          prerr_endline "Tarray";
+          Pvar.pp pe_text F.err_formatter pvar;
+          Typ.pp_full pe_text F.err_formatter typ;
+          astate
+      | _ -> astate) astate locals
 
   let exec_instr astate { ProcData.pdesc; tenv } node (instr : Sil.instr) = 
     Sil.pp_instr Utils.pe_text F.err_formatter instr;
@@ -78,7 +103,7 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
     prerr_newline ();
     match instr with
     | Load (id, exp, _, loc) ->
-        Domain.add_mem (Var.of_id id) (eval exp astate) astate
+        Domain.add_mem (Loc.of_var (Var.of_id id)) (eval exp astate) astate
     | Store (exp1, _, exp2, loc) ->
         Domain.add_mem (eval_lv exp1 astate) (eval exp2 astate) astate
     | Prune (exp, loc, _, _) ->
@@ -103,10 +128,10 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
           | Some astate -> astate
           | None -> handle_unknown_call callee_pname params node Domain.initial
         in
-        Domain.add_mem (Var.of_id id) (Domain.find_mem (Var.of_pvar (Pvar.get_ret_pvar callee_pname)) callee_state) astate
+        Domain.add_mem (Loc.of_var (Var.of_id id)) (Domain.find_mem (Loc.of_var (Var.of_pvar (Pvar.get_ret_pvar callee_pname))) callee_state) astate
     | Call (_, _, params, loc, _) -> astate
-    | Declare_locals _ | Remove_temps _ | Abstract _ | Nullify _ ->
-        astate
+    | Declare_locals (locals, _) -> declare_locals locals node astate 
+    | Remove_temps _ | Abstract _ | Nullify _ -> astate
 end
 
 module Analyzer =

@@ -1,3 +1,5 @@
+open BasicDom
+
 module F = Format
 module L = Logging
 
@@ -164,6 +166,14 @@ end
 module SymItv =
 struct
   include AbstractDomain.BottomLifted(SymItvPure)
+ 
+  let bot = initial
+  (* TODO *)
+  let top = bot
+  let zero = bot
+  let one = bot
+  let pos = bot
+  let nat = bot
 
   let of_int : int -> astate
   = fun n ->
@@ -226,20 +236,36 @@ end
 
 module Val =
 struct
-  include AbstractDomain.Pair(SymItv)(ArrayBlk)
+  include AbstractDomain.Pair3(SymItv)(PowLoc)(ArrayBlk)
+
+  let bot = initial
+  let get_itv (x,_,_) = x
+  let get_pow_loc (_,x,_) = x
+  let get_array_blk (_,_,x) = x
 
   let of_int : int -> astate
   = fun n ->
-    (SymItv.of_int n, ArrayBlk.bot)
+    (SymItv.of_int n, PowLoc.bot, ArrayBlk.bot)
+  let of_pow_loc x = (SymItv.bot, x, ArrayBlk.bot)
+  let of_array_blk : ArrayBlk.astate -> astate
+  = fun a -> (SymItv.bot, PowLoc.bot, a)
 end
 
 module PPMap = PrettyPrintable.MakePPMap
   (struct
-     include Var
+     include Loc
+     let compare = compare
      let pp_key = pp
    end)
 
-module Mem = AbstractDomain.Map(PPMap)(Val)
+module Mem = 
+struct
+  include AbstractDomain.Map(PPMap)(Val)
+  let find_set : PowLoc.t -> astate -> Val.astate
+  = fun locs mem -> 
+    let find_join loc acc = Val.join acc (find loc mem) in
+    PowLoc.fold find_join locs Val.bot
+end
 
 include AbstractDomain.Pair(Mem)(Conds)
 
@@ -251,10 +277,15 @@ let get_cond : astate -> Conds.astate
 = fun s ->
   snd s
 
-let add_mem : Var.t -> Val.astate -> astate -> astate
+let add_mem : Loc.t -> Val.astate -> astate -> astate
 = fun x y s ->
   (get_mem s |> Mem.add x y, get_cond s)
 
-let find_mem : Var.t -> astate -> Val.astate
+let find_mem : Loc.t -> astate -> Val.astate
 = fun x s ->
   Mem.find x (get_mem s)
+
+let find_mem_set : PowLoc.t -> astate -> Val.astate
+= fun x s ->
+  Mem.find_set x (get_mem s)
+
