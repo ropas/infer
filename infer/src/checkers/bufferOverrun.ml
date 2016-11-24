@@ -41,7 +41,7 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
     (* A field offset, the type is the surrounding struct type *)
 (*    | Lfield t Ident.fieldname Typ.t *)
 (*    | Lindex (e1, e2) -> 
-        Domain.find_mem (*)
+        Domain.find_mem ( *)
     (* A sizeof expression. [Sizeof (Tarray elt (Some static_length)) (Some dynamic_length)]
         represents the size of an array value consisting of [dynamic_length] elements of type [elt].
         The [dynamic_length], tracked by symbolic execution, may differ from the [static_length]
