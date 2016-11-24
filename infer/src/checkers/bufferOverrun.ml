@@ -26,20 +26,21 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
         Domain.Val.of_int (IntLit.to_int intlit)
     | _ -> Domain.Val.of_int (-999)
 
+  let eval_unop : Unop.t -> Exp.t -> Domain.astate -> Domain.Val.astate 
+  = fun unop e astate -> 
+    raise Not_implemented
+
+  let eval_binop : Binop.t -> Exp.t -> Exp.t -> Domain.astate -> Domain.Val.astate 
+  = fun binop e1 e2 astate -> 
+    raise Not_implemented
+
   let eval : Exp.t -> Domain.astate -> Domain.Val.astate
   = fun exp astate ->
     match exp with
       (* Pure variable: it is not an lvalue *)
     | Exp.Var id -> Domain.find_mem (Var.of_id id) astate
-(*    (* Unary operator with type of the result if known *)
-    | UnOp Unop.t t (option Typ.t)
-    (* Binary operator *)
-    | BinOp Binop.t t t
-    (* Exception *)
-    | Exn t
-    (* Anonymous function *)
-    | Closure closure*)
-    (* Constants *)
+    | Exp.UnOp (uop, e, _) -> eval_unop uop e astate
+    | Exp.BinOp (bop, e1, e2) -> eval_binop bop e1 e2 astate
     | Exp.Const c -> eval_const c 
     (* Type cast *)
 (*    | Cast Typ.t t *)
@@ -55,6 +56,8 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
         obtained from the type definition, e.g. when an array is over-allocated.  For struct types,
         the [dynamic_length] is that of the final extensible array, if any. *)
     | Sizeof Typ.t dynamic_length Subtype.t;*)
+(*    | Exp.Exn _ -> 
+    | Exp.Closure _ -> *)
     | _ -> raise Not_implemented
 
   let eval_lv : Exp.t -> Domain.astate -> Var.t
