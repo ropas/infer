@@ -218,7 +218,7 @@ struct
     | [] -> F.fprintf fmt "true"
     | c :: tl ->
         pp1 fmt c;
-        List.iter (fun c -> F.fprintf fmt " /\ %a" pp1 c) tl
+        List.iter (fun c -> F.fprintf fmt " /\\ %a" pp1 c) tl
 end
 
 module Val =
