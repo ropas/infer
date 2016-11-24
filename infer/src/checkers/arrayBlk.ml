@@ -105,15 +105,21 @@ struct
   let pp fmt arr = Format.fprintf fmt "%s" (to_string arr)
 end
 
+module Allocsite = 
+struct
+  type t = ProcCfg.DefaultNode.id
+  let compare = ProcCfg.DefaultNode.id_compare
+end
+
 module PPMap = PrettyPrintable.MakePPMap 
   (struct
-     include Ident
-     let pp_key f k = pp Utils.pe_text f k
+     include Allocsite
+     let pp_key f k = ProcCfg.DefaultNode.pp_id f k
    end)
 include AbstractDomain.Map(PPMap)(ArrInfo)
 
 let bot = initial
-let make : Ident.t -> Itv.t -> Itv.t -> Itv.t -> Itv.t -> astate
+let make : Allocsite.t -> Itv.t -> Itv.t -> Itv.t -> Itv.t -> astate
 = fun a o sz st np ->
   add a (ArrInfo.make (o, sz, st, np(*, PowStruct.bot*))) bot
 

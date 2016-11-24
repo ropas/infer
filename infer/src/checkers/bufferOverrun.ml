@@ -63,8 +63,13 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
     | Exp.Var id -> Var.of_id id
     | Exp.Lvar pvar -> Var.of_pvar pvar
     | _ -> raise Not_implemented
-    
-  let exec_instr astate { ProcData.pdesc; tenv } _ (instr : Sil.instr) = 
+   
+  let handle_unknown_call callee_pname params node astate = 
+    match Procname.get_method callee_pname with
+      "malloc" -> prerr_endline "print malloc"; astate
+    | _ -> astate
+
+  let exec_instr astate { ProcData.pdesc; tenv } node (instr : Sil.instr) = 
     Sil.pp_instr Utils.pe_text F.err_formatter instr;
     prerr_newline ();
     Domain.pp F.err_formatter astate;
@@ -90,10 +95,11 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
         at_least_bottom*)
       astate
     | Call (Some (id, _), Const (Cfun callee_pname), params, loc, _) ->
+        let call_site = CallSite.make callee_pname loc in
         let callee_state = 
           match Summary.read_summary tenv pdesc callee_pname with
           | Some astate -> astate
-          | None -> Domain.initial
+          | None -> handle_unknown_call callee_pname params node Domain.initial
         in
         Domain.add (Var.of_id id) (Domain.find (Var.of_pvar (Pvar.get_ret_pvar callee_pname)) callee_state) astate
     | Call (_, _, params, loc, _) -> astate
