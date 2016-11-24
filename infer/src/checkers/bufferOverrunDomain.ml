@@ -214,11 +214,14 @@ struct
     | Eq (x, y) -> F.fprintf fmt "%a = %a" SymItv.pp x SymItv.pp y
 
   let pp : F.formatter -> astate -> unit
-  = fun fmt -> function
-    | [] -> F.fprintf fmt "true"
-    | c :: tl ->
-        pp1 fmt c;
-        List.iter (fun c -> F.fprintf fmt " /\\ %a" pp1 c) tl
+  = fun fmt x ->
+    F.fprintf fmt "@[";
+    (match x with
+     | [] -> F.fprintf fmt "true"
+     | c :: tl ->
+         pp1 fmt c;
+         List.iter (fun c -> F.fprintf fmt "@, /\\ %a" pp1 c) tl);
+    F.fprintf fmt "@]"
 end
 
 module Val =
