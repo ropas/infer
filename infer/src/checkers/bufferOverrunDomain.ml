@@ -61,6 +61,7 @@ module Val =
 struct
   include AbstractDomain.Pair3(Itv)(PowLoc)(ArrayBlk)
 
+  type t = astate
   let bot = initial
   let get_itv (x,_,_) = x
   let get_pow_loc (_,x,_) = x
@@ -74,20 +75,32 @@ struct
   = fun a -> (Itv.bot, PowLoc.bot, a)
 end
 
-module PPMap = PrettyPrintable.MakePPMap
-  (struct
-     include Loc
-     let compare = compare
-     let pp_key = pp
-   end)
+module PPMap = 
+struct 
+  module Ord = struct include Loc let compare = compare let pp_key = pp end
+  include PrettyPrintable.MakePPMap(Ord)
+  let pp ~pp_value fmt m =
+    let pp_item fmt (k, v) = F.fprintf fmt "%a -> %a\n" Ord.pp_key k pp_value v in
+    PrettyPrintable.pp_collection ~pp_item fmt (bindings m)
+end
 
 module Mem = 
 struct
   include AbstractDomain.Map(PPMap)(Val)
+  let find l m = try find l m with Not_found -> Val.bot
+
   let find_set : PowLoc.t -> astate -> Val.astate
   = fun locs mem -> 
     let find_join loc acc = Val.join acc (find loc mem) in
     PowLoc.fold find_join locs Val.bot
+
+  let strong_update : PowLoc.t -> Val.astate -> astate -> astate
+  = fun locs v mem ->
+    PowLoc.fold (fun x -> add x v) locs mem
+
+  let weak_update : PowLoc.t -> Val.astate -> astate -> astate
+  = fun locs v mem ->
+    (* TODO *) mem 
 end
 
 include AbstractDomain.Pair(Mem)(Conds)
@@ -103,6 +116,14 @@ let get_cond : astate -> Conds.astate
 let add_mem : Loc.t -> Val.astate -> astate -> astate
 = fun x y s ->
   (get_mem s |> Mem.add x y, get_cond s)
+
+let strong_update_mem : PowLoc.t -> Val.astate -> astate -> astate
+= fun ploc v s ->
+  (get_mem s |> Mem.strong_update ploc v, get_cond s)
+
+let weak_update_mem : PowLoc.t -> Val.astate -> astate -> astate
+= fun ploc v s ->
+  (get_mem s |> Mem.weak_update ploc v, get_cond s)
 
 let find_mem : Loc.t -> astate -> Val.astate
 = fun x s ->

@@ -39,7 +39,7 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
     | Exp.Var _
     (* The address of a program variable *)
     | Exp.Lvar _ -> 
-        Domain.find_mem (eval_lv exp astate) astate
+        Domain.find_mem_set (eval_lv exp astate) astate
     | Exp.UnOp (uop, e, _) -> eval_unop uop e astate
     | Exp.BinOp (bop, e1, e2) -> eval_binop bop e1 e2 astate
     | Exp.Const c -> eval_const c 
@@ -48,7 +48,7 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
     (* A field offset, the type is the surrounding struct type *)
 (*    | Lfield t Ident.fieldname Typ.t *)
     | Exp.Lindex (e1, e2) -> 
-        let locs = Domain.find_mem (eval_lv e1 astate) astate 
+        let locs = Domain.find_mem_set (eval_lv e1 astate) astate 
           |> Domain.Val.get_array_blk 
           |> ArrayBlk.pow_loc_of_array
         in
@@ -58,11 +58,13 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
     | Exp.Closure _ -> *)
     | _ -> raise Not_implemented
 
-  and eval_lv : Exp.t -> Domain.astate -> Loc.t
+  and eval_lv : Exp.t -> Domain.astate -> PowLoc.t
   = fun e astate ->
     match e with 
-    | Exp.Var id -> Var.of_id id |> Loc.of_var 
-    | Exp.Lvar pvar -> Var.of_pvar pvar |> Loc.of_var 
+    | Exp.Var id -> Var.of_id id |> Loc.of_var |> PowLoc.singleton
+    | Exp.Lvar pvar -> Var.of_pvar pvar |> Loc.of_var |> PowLoc.singleton
+    | Exp.Lindex (e1, e2) -> 
+        eval e1 astate |> Domain.Val.get_array_blk |> ArrayBlk.pow_loc_of_array
     | _ -> raise Not_implemented
   and eval_unop : Unop.t -> Exp.t -> Domain.astate -> Domain.Val.astate 
   = fun unop e astate -> 
@@ -105,6 +107,11 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
           declare_array pdesc node loc typ inst_num (dimension + 1) astate
       | _ -> astate
 
+  let update_mem : PowLoc.t -> Domain.Val.t -> Domain.astate -> Domain.astate 
+  = fun ploc v s ->
+    if PowLoc.cardinal ploc = 1 then Domain.strong_update_mem ploc v s
+    else Domain.weak_update_mem ploc v s
+
   let exec_instr astate { ProcData.pdesc; tenv } node (instr : Sil.instr) = 
     Sil.pp_instr Utils.pe_text F.err_formatter instr;
     prerr_newline ();
@@ -114,7 +121,7 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
     | Load (id, exp, _, loc) ->
         Domain.add_mem (Loc.of_var (Var.of_id id)) (eval exp astate) astate
     | Store (exp1, _, exp2, loc) ->
-        Domain.add_mem (eval_lv exp1 astate) (eval exp2 astate) astate
+        update_mem (eval_lv exp1 astate) (eval exp2 astate) astate
     | Prune (exp, loc, _, _) ->
 (*    | Call (_, Const (Cfun callee_pname), params, loc, _) ->
         let callsite = CallSite.make callee_pname loc in
