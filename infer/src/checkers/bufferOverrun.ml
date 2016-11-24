@@ -26,15 +26,7 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
         Domain.Val.of_int (IntLit.to_int intlit)
     | _ -> Domain.Val.of_int (-999)
 
-  let eval_unop : Unop.t -> Exp.t -> Domain.astate -> Domain.Val.astate 
-  = fun unop e astate -> 
-    raise Not_implemented
-
-  let eval_binop : Binop.t -> Exp.t -> Exp.t -> Domain.astate -> Domain.Val.astate 
-  = fun binop e1 e2 astate -> 
-    raise Not_implemented
-
-  let eval : Exp.t -> Domain.astate -> Domain.Val.astate
+ let rec eval : Exp.t -> Domain.astate -> Domain.Val.astate
   = fun exp astate ->
     match exp with
       (* Pure variable: it is not an lvalue *)
@@ -47,25 +39,32 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
     (* The address of a program variable *)
     | Exp.Lvar pvar -> Domain.find_mem (Var.of_pvar pvar) astate
     (* A field offset, the type is the surrounding struct type *)
-(*    | Lfield t Ident.fieldname Typ.t
-    (* An array index offset: [exp1\[exp2\]] *)
-    | Lindex t t
+(*    | Lfield t Ident.fieldname Typ.t *)
+(*    | Lindex (e1, e2) -> 
+        Domain.find_mem (*)
     (* A sizeof expression. [Sizeof (Tarray elt (Some static_length)) (Some dynamic_length)]
         represents the size of an array value consisting of [dynamic_length] elements of type [elt].
         The [dynamic_length], tracked by symbolic execution, may differ from the [static_length]
         obtained from the type definition, e.g. when an array is over-allocated.  For struct types,
         the [dynamic_length] is that of the final extensible array, if any. *)
-    | Sizeof Typ.t dynamic_length Subtype.t;*)
+(*    | Sizeof Typ.t dynamic_length Subtype.t;*)
 (*    | Exp.Exn _ -> 
     | Exp.Closure _ -> *)
     | _ -> raise Not_implemented
 
-  let eval_lv : Exp.t -> Domain.astate -> Var.t
+  and eval_lv : Exp.t -> Domain.astate -> Var.t
   = fun e astate ->
     match e with 
     | Exp.Var id -> Var.of_id id
     | Exp.Lvar pvar -> Var.of_pvar pvar
     | _ -> raise Not_implemented
+  and eval_unop : Unop.t -> Exp.t -> Domain.astate -> Domain.Val.astate 
+  = fun unop e astate -> 
+    raise Not_implemented
+  and eval_binop : Binop.t -> Exp.t -> Exp.t -> Domain.astate -> Domain.Val.astate 
+  = fun binop e1 e2 astate -> 
+    raise Not_implemented
+
    
   let handle_unknown_call callee_pname params node astate = 
     match Procname.get_method callee_pname with
