@@ -17,8 +17,12 @@ struct
   (* TODO: Check the condition list is short.  If it is not, we may
      have to use set instead of list. *)
   type astate = cond list
+  and t = astate
 
   let initial : astate = []
+
+  let add ~idx ~size conds = 
+    (Le (Itv.zero, idx)) :: (Lt (idx, size)) :: conds
 
   (* TODO: As of now, we do not use logical implications among
      conditions for order. *)
@@ -194,26 +198,6 @@ let get_mem : astate -> Mem.astate
 = fun s ->
   fst s
 
-let get_cond : astate -> Conds.astate
+let get_conds : astate -> Conds.astate
 = fun s ->
   snd s
-
-let add_mem : Loc.t -> Val.astate -> astate -> astate
-= fun x y s ->
-  (get_mem s |> Mem.add x y, get_cond s)
-
-let strong_update_mem : PowLoc.t -> Val.astate -> astate -> astate
-= fun ploc v s ->
-  (get_mem s |> Mem.strong_update ploc v, get_cond s)
-
-let weak_update_mem : PowLoc.t -> Val.astate -> astate -> astate
-= fun ploc v s ->
-  (get_mem s |> Mem.weak_update ploc v, get_cond s)
-
-let find_mem : Loc.t -> astate -> Val.astate
-= fun x s ->
-  Mem.find x (get_mem s)
-
-let find_mem_set : PowLoc.t -> astate -> Val.astate
-= fun x s ->
-  Mem.find_set x (get_mem s)
