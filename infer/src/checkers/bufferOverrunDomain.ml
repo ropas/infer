@@ -9,21 +9,28 @@ module L = Logging
    terms of symbol. *)
 module Conds =
 struct
-  type cond =
+  type rel_t =
     | Le of Itv.astate * Itv.astate
     | Lt of Itv.astate * Itv.astate
     | Eq of Itv.astate * Itv.astate
 
+  type cond = {rel: rel_t; loc: Location.t}
+
   (* TODO: Check the condition list is short.  If it is not, we may
      have to use set instead of list. *)
   type astate = cond list
-  and t = astate
+
+  type t = astate
 
   let initial : astate = []
 
-  let add x conds = x::conds
-  let add_bo_safety ~idx ~size conds = 
-    (Le (Itv.zero, idx)) :: (Lt (idx, size)) :: conds
+  (* TODO: Duplication checks may be required. *)
+  let add x conds = x :: conds
+
+  let add_bo_safety ~idx ~size conds loc =
+    {rel = Le (Itv.zero, idx); loc}
+    :: {rel = Lt (idx, size); loc}
+    :: conds
 
   (* TODO: As of now, we do not use logical implications among
      conditions for order. *)
@@ -33,12 +40,17 @@ struct
 
   let subst : cond -> int Itv.SubstMap.t -> cond 
   = fun cond map ->
-    match cond with
-    | Le (l,r) -> Le (Itv.subst l map, Itv.subst r map)
-    | Lt (l,r) -> Lt (Itv.subst l map, Itv.subst r map) 
-    | Eq (l,r) -> Eq (Itv.subst l map, Itv.subst r map)
+    let r =
+      match cond.rel with
+      | Le (l,r) -> Le (Itv.subst l map, Itv.subst r map)
+      | Lt (l,r) -> Lt (Itv.subst l map, Itv.subst r map)
+      | Eq (l,r) -> Eq (Itv.subst l map, Itv.subst r map)
+    in
+    {cond with rel = r}
 
-  let check : cond -> Itv.astate = function 
+  let check : cond -> Itv.astate
+  = fun cond ->
+    match cond.rel with
     | Le (l,r) -> Itv.le_sem l r
     | Lt (l,r) -> Itv.lt_sem l r
     | Eq (l,r) -> Itv.eq_sem l r
@@ -62,10 +74,12 @@ struct
     join next prev
 
   let pp1 : F.formatter -> cond -> unit
-  = fun fmt -> function
-    | Le (x, y) -> F.fprintf fmt "%a <= %a" Itv.pp x Itv.pp y
-    | Lt (x, y) -> F.fprintf fmt "%a < %a" Itv.pp x Itv.pp y
-    | Eq (x, y) -> F.fprintf fmt "%a = %a" Itv.pp x Itv.pp y
+  = fun fmt cond ->
+    (match cond.rel with
+     | Le (x, y) -> F.fprintf fmt "%a <= %a" Itv.pp x Itv.pp y
+     | Lt (x, y) -> F.fprintf fmt "%a < %a" Itv.pp x Itv.pp y
+     | Eq (x, y) -> F.fprintf fmt "%a = %a" Itv.pp x Itv.pp y);
+    F.fprintf fmt " at %a" Location.pp cond.loc
 
   let pp : F.formatter -> astate -> unit
   = fun fmt x ->
@@ -74,7 +88,7 @@ struct
      | [] -> F.fprintf fmt "true"
      | c :: tl ->
          pp1 fmt c;
-         List.iter (fun c -> F.fprintf fmt "@, /\\ %a" pp1 c) tl);
+         List.iter (fun c -> F.fprintf fmt " @,/\\ %a" pp1 c) tl);
     F.fprintf fmt "@]"
 end
 

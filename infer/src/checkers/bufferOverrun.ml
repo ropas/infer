@@ -33,23 +33,23 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
     4
   let conditions = ref Domain.Conds.initial
 
-  let rec eval : Exp.t -> Domain.Mem.astate -> Domain.Val.astate
-  = fun exp mem ->
+  let rec eval : Exp.t -> Domain.Mem.astate -> Location.t -> Domain.Val.astate
+  = fun exp mem loc ->
     match exp with
     (* Pure variable: it is not an lvalue *)
     | Exp.Var _
     (* The address of a program variable *)
-    | Exp.Lvar _ -> Domain.Mem.find_set (eval_lv exp mem) mem
-    | Exp.UnOp (uop, e, _) -> eval_unop uop e mem
-    | Exp.BinOp (bop, e1, e2) -> eval_binop bop e1 e2 mem
+    | Exp.Lvar _ -> Domain.Mem.find_set (eval_lv exp mem loc) mem
+    | Exp.UnOp (uop, e, _) -> eval_unop uop e mem loc
+    | Exp.BinOp (bop, e1, e2) -> eval_binop bop e1 e2 mem loc
     | Exp.Const c -> eval_const c
     (* Type cast *)
 (*    | Cast Typ.t t *)
     (* A field offset, the type is the surrounding struct type *)
 (*    | Lfield t Ident.fieldname Typ.t *)
     | Exp.Lindex (e1, e2) -> 
-        add_condition e1 e2 mem;
-        let locs = Domain.Mem.find_set (eval_lv e1 mem) mem
+        add_condition e1 e2 mem loc;
+        let locs = Domain.Mem.find_set (eval_lv e1 mem loc) mem
           |> Domain.Val.get_array_blk 
           |> ArrayBlk.pow_loc_of_array
         in
@@ -58,35 +58,39 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
 (*    | Exp.Exn _ -> 
     | Exp.Closure _ -> *)
     | _ -> raise Not_implemented
-  and eval_lv : Exp.t -> Domain.Mem.astate -> PowLoc.t
-  = fun e mem ->
+
+  and eval_lv : Exp.t -> Domain.Mem.astate -> Location.t -> PowLoc.t
+  = fun e mem loc ->
     match e with 
     | Exp.Var id -> Var.of_id id |> Loc.of_var |> PowLoc.singleton
     | Exp.Lvar pvar -> Var.of_pvar pvar |> Loc.of_var |> PowLoc.singleton
     | Exp.Lindex (e1, e2) -> 
-        add_condition e1 e2 mem;
-        eval e1 mem |> Domain.Val.get_array_blk |> ArrayBlk.pow_loc_of_array
+        add_condition e1 e2 mem loc;
+        eval e1 mem loc |> Domain.Val.get_array_blk |> ArrayBlk.pow_loc_of_array
     | _ -> raise Not_implemented
 
-  and add_condition : Exp.t -> Exp.t -> Domain.Mem.astate -> unit
-  = fun arr idx astate ->
-    let size = eval arr astate |> Domain.Val.get_array_blk |> ArrayBlk.sizeof in
-    let idx = eval idx astate |> Domain.Val.get_itv in
-    conditions := Domain.Conds.add_bo_safety ~size ~idx !conditions
+  and add_condition : Exp.t -> Exp.t -> Domain.Mem.astate -> Location.t -> unit
+  = fun arr idx astate loc ->
+    let size =
+      eval arr astate loc |> Domain.Val.get_array_blk |> ArrayBlk.sizeof in
+    let idx = eval idx astate loc |> Domain.Val.get_itv in
+    conditions := Domain.Conds.add_bo_safety ~size ~idx !conditions loc
 
-  and eval_unop : Unop.t -> Exp.t -> Domain.Mem.astate -> Domain.Val.astate 
-  = fun unop e mem -> 
-    let v = eval e mem in
+  and eval_unop
+    : Unop.t -> Exp.t -> Domain.Mem.astate -> Location.t -> Domain.Val.astate
+  = fun unop e mem loc ->
+    let v = eval e mem loc in
     match unop with
     | Unop.Neg -> Domain.Val.neg v
     | Unop.BNot -> Domain.Val.unknown_bit v
     | Unop.LNot -> Domain.Val.lnot v
 
   and eval_binop
-    : Binop.t -> Exp.t -> Exp.t -> Domain.Mem.astate -> Domain.Val.astate 
-  = fun binop e1 e2 mem -> 
-    let v1 = eval e1 mem in
-    let v2 = eval e2 mem in
+    : Binop.t -> Exp.t -> Exp.t -> Domain.Mem.astate -> Location.t
+      -> Domain.Val.astate
+  = fun binop e1 e2 mem loc ->
+    let v1 = eval e1 mem loc in
+    let v2 = eval e2 mem loc in
     match binop with
     | Binop.PlusA -> Domain.Val.plus v1 v2
     | Binop.PlusPI -> raise Not_implemented
@@ -116,11 +120,13 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
     ^ "-" ^ string_of_int (CFG.underlying_id node) ^ "-" ^ string_of_int inst_num ^ "-" ^ string_of_int dimension
     |> Allocsite.make
 
-  let eval_array_alloc : Procdesc.t -> CFG.node -> Typ.t -> Exp.t -> int -> int -> Domain.Mem.astate -> Domain.Val.astate
+  let eval_array_alloc
+    : Procdesc.t -> CFG.node -> Typ.t -> Exp.t -> int -> int
+      -> Domain.Mem.astate -> Domain.Val.astate
   = fun pdesc node typ size inst_num dimension mem ->
     let allocsite = get_allocsite pdesc node inst_num dimension in
     let offset = Itv.of_int 0 in
-    let size = eval size mem |> Domain.Val.get_itv in
+    let size = eval size mem (CFG.loc node) |> Domain.Val.get_itv in
     let stride = Itv.of_int 4 in (* TODO *)
     let nullpos = Itv.of_int 0 in (* TODO *)
     ArrayBlk.make allocsite offset size stride nullpos
@@ -192,11 +198,15 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
         else ()) new_conds;
     ()
 
-  let check_bo tenv callee_pdesc params caller_mem callee_mem callee_cond = 
+  let check_bo tenv callee_pdesc params caller_mem callee_mem callee_cond loc =
     match callee_pdesc with 
       Some pdesc ->
-        let formals = get_formals pdesc |> IList.map (fun (p, _) -> let loc = Loc.of_pvar p in Domain.Mem.find loc callee_mem) in
-        let actuals = IList.map (fun (p, _) -> eval p caller_mem) params in
+        let formals =
+          get_formals pdesc
+          |> IList.map
+            (fun (p, _) -> Domain.Mem.find (Loc.of_pvar p) callee_mem)
+        in
+        let actuals = IList.map (fun (p, _) -> eval p caller_mem loc) params in
         let subst_map = IList.fold_left2 (fun map formal actual ->
               let formal_itv = Domain.Val.get_itv formal in
               let actual_itv = Domain.Val.get_itv actual in
@@ -218,11 +228,14 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
     init_conditions astate;
     match instr with
     | Load (id, exp, _, loc) ->
-        (Domain.Mem.add (Loc.of_var (Var.of_id id)) (eval exp mem) mem, get_conditions ())
+        (Domain.Mem.add (Loc.of_var (Var.of_id id)) (eval exp mem loc) mem,
+         get_conditions ())
     | Store (exp1, _, exp2, loc) ->
-        (update_mem (eval_lv exp1 mem) (eval exp2 mem) mem, get_conditions ())
+        (update_mem (eval_lv exp1 mem loc) (eval exp2 mem loc) mem,
+         get_conditions ())
     | Prune (exp, loc, _, _) -> astate
-    | Call (ret, Const (Cfun callee_pname), params, loc, _) when extras callee_pname = None -> (* unknown function *)
+    | Call (ret, Const (Cfun callee_pname), params, loc, _)
+      when extras callee_pname = None -> (* unknown function *)
         prerr_endline "UNKNOWN FUNCTION";
         astate
     | Call (Some (id, _), Const (Cfun callee_pname), params, loc, _) ->
@@ -238,7 +251,7 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
           | Some astate -> astate
           | None -> handle_unknown_call callee_pname params node Domain.initial
         in
-        check_bo tenv callee params mem callee_mem callee_cond;
+        check_bo tenv callee params mem callee_mem callee_cond loc;
         (Domain.Mem.add (Loc.of_var (Var.of_id id)) (Domain.Mem.find (Loc.of_var (Var.of_pvar (Pvar.get_ret_pvar callee_pname))) callee_mem) mem, get_conditions ())
     | Call (_, _, params, loc, _) -> astate
     | Declare_locals (locals, _) -> 
