@@ -302,3 +302,6 @@ val create_path : string -> unit
 (** [realpath path] returns path with all symbolic links resolved. It caches results of previous
     calls to avoid expensive system calls *)
 val realpath : string -> string
+
+(** Composition operators *)
+val flip : ('a -> 'b -> 'c) -> 'b -> 'a -> 'c

@@ -73,6 +73,8 @@ struct
   let of_pow_loc x = (Itv.bot, x, ArrayBlk.bot)
   let of_array_blk : ArrayBlk.astate -> astate
   = fun a -> (Itv.bot, PowLoc.bot, a)
+  let get_new_sym : unit -> t 
+  = fun () -> (Itv.get_new_sym (), PowLoc.bot, ArrayBlk.bot)
 end
 
 module PPMap = 
