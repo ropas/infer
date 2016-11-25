@@ -175,8 +175,8 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
     if can_strong_update ploc then Domain.Mem.strong_update ploc v s
     else Domain.Mem.weak_update ploc v s
 
-  let prune_unop : Exp.t -> Domain.Mem.astate -> Location.t -> Domain.Mem.astate
-  = fun e mem loc ->
+  let prune_unop : Exp.t -> Domain.Mem.astate -> Domain.Mem.astate
+  = fun e mem ->
     match e with
     | Exp.Var x ->
         let lv = PowLoc.of_id x in
