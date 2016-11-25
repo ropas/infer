@@ -14,6 +14,8 @@
  * of patent rights can be found in the PATENTS file in the same directory.
  *)
 
+module F = Format
+
 module Allocsite = 
 struct
   include String
@@ -25,7 +27,12 @@ module Loc =
 struct
   type t = Var of Var.t | Allocsite of Allocsite.t
   let pp fmt = function 
-    | Var v -> Var.pp fmt v
+    | Var v -> 
+        Var.pp F.str_formatter v;
+        let s = F.flush_str_formatter () in
+        if s.[0] = '&' then
+          F.fprintf fmt "%s" (String.sub s 1 (String.length s - 1))
+        else F.fprintf fmt "%s" s
     | Allocsite a -> Allocsite.pp fmt a
   let is_var = function Var _ -> true | _ -> false
   let of_var v = Var v
