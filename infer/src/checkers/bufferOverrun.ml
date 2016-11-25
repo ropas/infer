@@ -66,12 +66,42 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
     | Exp.Lindex (e1, e2) -> 
         eval e1 astate |> Domain.Val.get_array_blk |> ArrayBlk.pow_loc_of_array
     | _ -> raise Not_implemented
+
   and eval_unop : Unop.t -> Exp.t -> Domain.astate -> Domain.Val.astate 
   = fun unop e astate -> 
-    raise Not_implemented
+    let v = eval e astate in
+    match unop with
+    | Unop.Neg -> Domain.Val.neg v
+    | Unop.BNot -> Domain.Val.unknown_bit v
+    | Unop.LNot -> Domain.Val.lnot v
+
   and eval_binop : Binop.t -> Exp.t -> Exp.t -> Domain.astate -> Domain.Val.astate 
   = fun binop e1 e2 astate -> 
-    raise Not_implemented
+    let v1 = eval e1 astate in
+    let v2 = eval e2 astate in
+    match binop with
+    | Binop.PlusA -> Domain.Val.plus v1 v2
+    | Binop.PlusPI -> raise Not_implemented
+    | Binop.MinusA -> Domain.Val.minus v1 v2
+    | Binop.MinusPI -> raise Not_implemented
+    | Binop.MinusPP -> raise Not_implemented
+    | Binop.Mult -> Domain.Val.mult v1 v2
+    | Binop.Div -> Domain.Val.div v1 v2
+    | Binop.Mod -> Domain.Val.mod_sem v1 v2
+    | Binop.Shiftlt -> Domain.Val.shiftlt v1 v2
+    | Binop.Shiftrt -> Domain.Val.shiftrt v1 v2
+    | Binop.Lt -> Domain.Val.lt_sem v1 v2
+    | Binop.Gt -> Domain.Val.gt_sem v1 v2
+    | Binop.Le -> Domain.Val.le_sem v1 v2
+    | Binop.Ge -> Domain.Val.ge_sem v1 v2
+    | Binop.Eq -> Domain.Val.eq_sem v1 v2
+    | Binop.Ne -> Domain.Val.ne_sem v1 v2
+    | Binop.BAnd
+    | Binop.BXor
+    | Binop.BOr -> Domain.Val.unknown_bit v1
+    | Binop.LAnd -> Domain.Val.land_sem v1 v2
+    | Binop.LOr -> Domain.Val.lor_sem v1 v2
+    | Binop.PtrFld -> raise Not_implemented
 
   let get_allocsite pdesc node inst_num dimension =
     Procname.to_string (Procdesc.get_attributes pdesc).ProcAttributes.proc_name

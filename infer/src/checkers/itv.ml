@@ -291,3 +291,20 @@ let minus : astate -> astate -> astate
   | NonBottom x', NonBottom y' -> NonBottom (ItvPure.minus x' y')
 
 let get_new_sym () = NonBottom (ItvPure.get_new_sym ())
+
+let neg x = raise TODO
+let lnot x = raise TODO
+let mult x y = raise TODO
+let div x y = raise TODO
+let mod_sem x y = raise TODO
+let shiftlt x y = raise TODO
+let shiftrt x y = raise TODO
+let lt_sem x y = raise TODO
+let gt_sem x y = raise TODO
+let le_sem x y = raise TODO
+let ge_sem x y = raise TODO
+let eq_sem x y = raise TODO
+let ne_sem x y = raise TODO
+let land_sem x y = raise TODO
+let lor_sem x y = raise TODO
+

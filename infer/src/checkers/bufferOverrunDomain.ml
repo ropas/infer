@@ -62,7 +62,9 @@ struct
   include AbstractDomain.Pair3(Itv)(PowLoc)(ArrayBlk)
 
   type t = astate
+
   let bot = initial
+
   let get_itv (x,_,_) = x
   let get_pow_loc (_,x,_) = x
   let get_array_blk (_,_,x) = x
@@ -70,17 +72,98 @@ struct
   let of_int : int -> astate
   = fun n ->
     (Itv.of_int n, PowLoc.bot, ArrayBlk.bot)
-  let of_pow_loc x = (Itv.bot, x, ArrayBlk.bot)
+
+  let of_pow_loc : PowLoc.t -> astate
+  = fun x ->
+    (Itv.bot, x, ArrayBlk.bot)
+
   let of_array_blk : ArrayBlk.astate -> astate
-  = fun a -> (Itv.bot, PowLoc.bot, a)
+  = fun a ->
+    (Itv.bot, PowLoc.bot, a)
+
   let get_new_sym : unit -> t 
   = fun () -> (Itv.get_new_sym (), PowLoc.bot, ArrayBlk.bot)
+
+  let unknown_bit : astate -> astate
+  = fun (_, x, a) ->
+    (Itv.top, x, a)
+
+  let neg : astate -> astate
+  = fun (n, x, a) ->
+    (Itv.neg n, x, a)
+
+  let lnot : astate -> astate
+  = fun (n, x, a) ->
+    (Itv.lnot n, x, a)
+
+  let plus : astate -> astate -> astate
+  = fun (n1, x1, a1) (n2, _, _) ->
+    (Itv.plus n1 n2, x1, a1)
+
+  let minus : astate -> astate -> astate
+  = fun (n1, x1, a1) (n2, _, _) ->
+    (Itv.minus n1 n2, x1, a1)
+
+  let mult : astate -> astate -> astate
+  = fun (n1, x1, a1) (n2, _, _) ->
+    (Itv.mult n1 n2, x1, a1)
+
+  let div : astate -> astate -> astate
+  = fun (n1, x1, a1) (n2, _, _) ->
+    (Itv.div n1 n2, x1, a1)
+
+  let mod_sem : astate -> astate -> astate
+  = fun (n1, x1, a1) (n2, _, _) ->
+    (Itv.mod_sem n1 n2, x1, a1)
+
+  let shiftlt : astate -> astate -> astate
+  = fun (n1, x1, a1) (n2, _, _) ->
+    (Itv.shiftlt n1 n2, x1, a1)
+
+  let shiftrt : astate -> astate -> astate
+  = fun (n1, x1, a1) (n2, _, _) ->
+    (Itv.shiftrt n1 n2, x1, a1)
+
+  let lt_sem : astate -> astate -> astate
+  = fun (n1, x1, a1) (n2, _, _) ->
+    (Itv.lt_sem n1 n2, x1, a1)
+
+  let gt_sem : astate -> astate -> astate
+  = fun (n1, x1, a1) (n2, _, _) ->
+    (Itv.gt_sem n1 n2, x1, a1)
+
+  let le_sem : astate -> astate -> astate
+  = fun (n1, x1, a1) (n2, _, _) ->
+    (Itv.le_sem n1 n2, x1, a1)
+
+  let ge_sem : astate -> astate -> astate
+  = fun (n1, x1, a1) (n2, _, _) ->
+    (Itv.ge_sem n1 n2, x1, a1)
+
+  let eq_sem : astate -> astate -> astate
+  = fun (n1, x1, a1) (n2, _, _) ->
+    (Itv.eq_sem n1 n2, x1, a1)
+
+  let ne_sem : astate -> astate -> astate
+  = fun (n1, x1, a1) (n2, _, _) ->
+    (Itv.ne_sem n1 n2, x1, a1)
+
+  let land_sem : astate -> astate -> astate
+  = fun (n1, x1, a1) (n2, _, _) ->
+    (Itv.land_sem n1 n2, x1, a1)
+
+  let lor_sem : astate -> astate -> astate
+  = fun (n1, x1, a1) (n2, _, _) ->
+    (Itv.lor_sem n1 n2, x1, a1)
 end
 
 module PPMap = 
 struct 
   module Ord = struct include Loc let compare = compare let pp_key = pp end
+
   include PrettyPrintable.MakePPMap(Ord)
+
+  (* TODO: Revise format not to use "\n". *)
   let pp ~pp_value fmt m =
     let pp_item fmt (k, v) = F.fprintf fmt "%a -> %a\n" Ord.pp_key k pp_value v in
     PrettyPrintable.pp_collection ~pp_item fmt (bindings m)
