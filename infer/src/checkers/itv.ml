@@ -24,6 +24,8 @@ struct
     F.fprintf fmt "s$%d" x
 end
 
+module SubstMap = Map.Make(struct type t = Symbol.t let compare = Symbol.compare end)
+
 module SymExp =
 struct
   module M = Map.Make(Symbol)
@@ -31,6 +33,12 @@ struct
   type t = int M.t
 
   let empty : t = M.empty
+
+  let add = M.add
+  let cardinal = M.cardinal 
+  let choose = M.choose 
+  let fold = M.fold 
+  let mem = M.mem
 
   let initial : t = empty
 
@@ -103,6 +111,19 @@ struct
     | MInf
     | V of int * SymExp.t
     | PInf
+
+  let subst x map =
+    match x with
+      V (c, se) -> 
+        let (c', se') = SymExp.fold (fun sym coeff (c, se) ->
+            try
+              let concrete = SubstMap.find sym map in
+              (c + (concrete * coeff), se)
+            with Not_found -> 
+              (c, SymExp.add sym coeff se)) se (c, SymExp.empty)
+        in
+        V (c', se')
+    | _ -> x
 
   let le : t -> t -> bool
   = fun x y ->
@@ -204,6 +225,11 @@ struct
 
   let initial : astate = (Bound.initial, Bound.initial)
 
+  let lb = fst
+  let ub = snd 
+
+  let subst x map = (Bound.subst (lb x) map, Bound.subst (ub x) map)
+
   let (<=) : lhs:astate -> rhs:astate -> bool
   = fun ~lhs:(l1, u1) ~rhs:(l2, u2) ->
     Bound.le l2 l1 && Bound.le u1 u2
@@ -251,6 +277,9 @@ type t = astate
 let bot = initial
 
 let top = NonBottom ItvPure.top
+
+let lb = function NonBottom x -> ItvPure.lb x | _ -> raise (Failure "lower bound of bottom")
+let ub = function NonBottom x -> ItvPure.ub x | _ -> raise (Failure "upper bound of bottom")
 
 let of_int : int -> astate
 = fun n ->
@@ -308,3 +337,8 @@ let ne_sem x y = raise TODO
 let land_sem x y = raise TODO
 let lor_sem x y = raise TODO
 
+let subst : astate -> int SubstMap.t -> astate
+= fun x map ->
+  match x with 
+    NonBottom x' -> NonBottom (ItvPure.subst x' map)
+  | _ -> x

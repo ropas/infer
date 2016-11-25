@@ -21,7 +21,8 @@ struct
 
   let initial : astate = []
 
-  let add ~idx ~size conds = 
+  let add x conds = x::conds
+  let add_bo_safety ~idx ~size conds = 
     (Le (Itv.zero, idx)) :: (Lt (idx, size)) :: conds
 
   (* TODO: As of now, we do not use logical implications among
@@ -30,9 +31,25 @@ struct
   = fun ~lhs ~rhs ->
     List.for_all (fun c -> List.mem c rhs) lhs
 
+  let subst : cond -> int Itv.SubstMap.t -> cond 
+  = fun cond map ->
+    match cond with
+    | Le (l,r) -> Le (Itv.subst l map, Itv.subst r map)
+    | Lt (l,r) -> Lt (Itv.subst l map, Itv.subst r map) 
+    | Eq (l,r) -> Eq (Itv.subst l map, Itv.subst r map)
+
+  let check : cond -> Itv.astate = function 
+    | Le (l,r) -> Itv.le_sem l r
+    | Lt (l,r) -> Itv.lt_sem l r
+    | Eq (l,r) -> Itv.eq_sem l r
+
   let fold : (cond -> 'a -> 'a) -> astate -> 'a -> 'a
   = fun f l init ->
     List.fold_left (fun acc e -> f e acc) init l
+
+  let iter : (cond -> unit) -> astate -> unit
+  = fun f l ->
+    List.iter f l
 
   let join : astate -> astate -> astate
   = fun x y ->
