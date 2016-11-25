@@ -221,9 +221,9 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
     
   let exec_instr ((mem, conds) as astate) { ProcData.pdesc; tenv; extras } node (instr : Sil.instr) = 
     Sil.pp_instr Utils.pe_text F.err_formatter instr;
-    prerr_newline ();
+    F.fprintf F.err_formatter "@.";
     Domain.pp F.err_formatter astate;
-    prerr_newline ();
+    F.fprintf F.err_formatter "@.@.";
 
     init_conditions astate;
     match instr with
