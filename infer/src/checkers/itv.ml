@@ -235,6 +235,8 @@ struct
 
   let zero : t = V (0, SymExp.zero)
 
+  let one : t = V (1, SymExp.zero)
+
   let is_zero : t -> bool
   = function
     | V (c, x) -> c = 0 && SymExp.is_zero x
@@ -291,6 +293,14 @@ struct
     | MInf -> PInf
     | PInf -> MInf
     | V (c, x) -> V (-c, SymExp.neg x)
+
+  let prune_l : t -> (t * t) -> t
+  = fun x (l, u) ->
+    if le l x && le x u then plus u one else x
+
+  let prune_u : t -> (t * t) -> t
+  = fun x (l, u) ->
+    if le l x && le x u then minus l one else x
 end
 
 module ItvPure =
@@ -479,6 +489,45 @@ struct
     if is_true x || is_true y then true_sem else
     if is_false x && is_false y then false_sem else
       unknown_bool
+
+  let valid : astate -> bool
+  = fun (l, u) ->
+    not (Bound.eq l Bound.PInf) && not (Bound.eq u Bound.MInf) && Bound.le l u
+
+  let invalid : astate -> bool
+  = fun (l, u) ->
+    Bound.eq l Bound.PInf || Bound.eq u Bound.MInf || Bound.lt u l
+
+  let prune : astate -> astate -> astate option
+  = fun (l1, u1) y ->
+    if not (valid y) then Some (l1, u1) else
+      let x' = (Bound.prune_l l1 y, Bound.prune_u u1 y) in
+      if invalid x' then None else Some x'
+
+  let prune_comp : Binop.t -> astate -> astate -> astate option
+  = fun c x (l, u) ->
+    if not (valid (l, u)) then Some x else
+      let y =
+        match c with
+        | Binop.Lt -> (u, Bound.PInf)
+        | Binop.Gt -> (Bound.MInf, l)
+        | Binop.Le -> (Bound.plus u Bound.one, Bound.PInf)
+        | Binop.Ge -> (Bound.MInf, Bound.minus l Bound.one)
+        | _ -> assert (false)
+      in
+      prune x y
+
+  let prune_eq : astate -> astate -> astate option
+  = fun x y ->
+    match prune_comp Binop.Le x y with
+    | None -> None
+    | Some x' -> prune_comp Binop.Ge x' y
+
+  let prune_ne : astate -> astate -> astate option
+  = fun x y ->
+    match prune_comp Binop.Lt x y with
+    | None -> None
+    | Some x' -> prune_comp Binop.Gt x' y
 end
 
 include AbstractDomain.BottomLifted(ItvPure)
@@ -527,6 +576,17 @@ let lift2 : (ItvPure.t -> ItvPure.t -> ItvPure.t) -> astate -> astate -> astate
   | _, Bottom -> Bottom
   | NonBottom x, NonBottom y -> NonBottom (f x y)
 
+let lift2_opt
+  : (ItvPure.t -> ItvPure.t -> ItvPure.t option) -> astate -> astate -> astate
+= fun f x y ->
+  match x, y with
+  | Bottom, _
+  | _, Bottom -> Bottom
+  | NonBottom x, NonBottom y ->
+      (match f x y with
+       | Some v -> NonBottom v
+       | None -> Bottom)
+
 let plus : astate -> astate -> astate = lift2 ItvPure.plus
 
 let minus : astate -> astate -> astate = lift2 ItvPure.minus
@@ -562,6 +622,16 @@ let ne_sem : astate -> astate -> astate = lift2 ItvPure.ne_sem
 let land_sem : astate -> astate -> astate = lift2 ItvPure.land_sem
 
 let lor_sem : astate -> astate -> astate = lift2 ItvPure.lor_sem
+
+let prune : astate -> astate -> astate = lift2_opt ItvPure.prune
+
+let prune_comp : Binop.t -> astate -> astate -> astate
+= fun comp ->
+  lift2_opt (ItvPure.prune_comp comp)
+
+let prune_eq : astate -> astate -> astate = lift2_opt ItvPure.prune_eq
+
+let prune_ne : astate -> astate -> astate = lift2_opt ItvPure.prune_ne
 
 let subst : astate -> int SubstMap.t -> astate
 = fun x map ->

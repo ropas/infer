@@ -162,6 +162,104 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
     if can_strong_update ploc then Domain.Mem.strong_update ploc v s
     else Domain.Mem.weak_update ploc v s
 
+  let prune_unop : Exp.t -> Domain.Mem.astate -> Location.t -> Domain.Mem.astate
+  = fun e mem loc ->
+    match e with
+    | Exp.Var x
+    | Exp.UnOp (Unop.Neg, Exp.Var x, _) ->
+        let lv = eval_lv (Exp.Var x) mem loc in
+        let v = Domain.Mem.find_set lv mem in
+        let v' = Domain.Val.prune v Domain.Val.zero in
+        update_mem lv v' mem
+    | Exp.UnOp (Unop.LNot, Exp.Var x, _) ->
+        let lv = eval_lv (Exp.Var x) mem loc in
+        let v = Domain.Mem.find_set lv mem in
+        let v' = (Domain.Val.get_itv Domain.Val.zero,
+                  Domain.Val.get_pow_loc v,
+                  Domain.Val.get_array_blk v) in
+        update_mem lv v' mem
+    | _ -> mem
+
+  let prune_binop_left
+    : Exp.t -> Domain.Mem.astate -> Location.t -> Domain.Mem.astate
+  = fun e mem loc ->
+    match e with
+    | Exp.BinOp (Binop.Lt as comp, Exp.Var x, e')
+    | Exp.BinOp (Binop.Gt as comp, Exp.Var x, e')
+    | Exp.BinOp (Binop.Le as comp, Exp.Var x, e')
+    | Exp.BinOp (Binop.Ge as comp, Exp.Var x, e') ->
+        let lv = eval_lv (Exp.Var x) mem loc in
+        let v = Domain.Mem.find_set lv mem in
+        let v' = Domain.Val.prune_comp comp v (eval e' mem loc) in
+        update_mem lv v' mem
+    | Exp.BinOp (Binop.Eq, Exp.Var x, e') ->
+        let lv = eval_lv (Exp.Var x) mem loc in
+        let v = Domain.Mem.find_set lv mem in
+        let v' = Domain.Val.prune_eq v (eval e' mem loc) in
+        update_mem lv v' mem
+    | Exp.BinOp (Binop.Ne, Exp.Var x, e') ->
+        let lv = eval_lv (Exp.Var x) mem loc in
+        let v = Domain.Mem.find_set lv mem in
+        let v' = Domain.Val.prune_ne v (eval e' mem loc) in
+        update_mem lv v' mem
+    | _ -> mem
+
+  let comp_rev : Binop.t -> Binop.t
+  = function
+    | Binop.Lt -> Binop.Gt
+    | Binop.Gt -> Binop.Lt
+    | Binop.Le -> Binop.Ge
+    | Binop.Ge -> Binop.Le
+    | Binop.Eq -> Binop.Eq
+    | Binop.Ne -> Binop.Ne
+    | _ -> assert (false)
+
+  let comp_not : Binop.t -> Binop.t
+  = function
+    | Binop.Lt -> Binop.Ge
+    | Binop.Gt -> Binop.Le
+    | Binop.Le -> Binop.Gt
+    | Binop.Ge -> Binop.Lt
+    | Binop.Eq -> Binop.Ne
+    | Binop.Ne -> Binop.Eq
+    | _ -> assert (false)
+
+  let prune_binop_right
+    : Exp.t -> Domain.Mem.astate -> Location.t -> Domain.Mem.astate
+  = fun e mem loc ->
+    match e with
+    | Exp.BinOp (Binop.Lt as c, e', Exp.Var x)
+    | Exp.BinOp (Binop.Gt as c, e', Exp.Var x)
+    | Exp.BinOp (Binop.Le as c, e', Exp.Var x)
+    | Exp.BinOp (Binop.Ge as c, e', Exp.Var x)
+    | Exp.BinOp (Binop.Eq as c, e', Exp.Var x)
+    | Exp.BinOp (Binop.Ne as c, e', Exp.Var x) ->
+        prune_binop_left (Exp.BinOp (comp_rev c, Exp.Var x, e')) mem loc
+    | _ -> mem
+
+  let rec prune : Exp.t -> Domain.Mem.astate -> Location.t -> Domain.Mem.astate
+  = fun e mem loc ->
+    let mem = prune_unop e mem loc in
+    let mem = prune_binop_left e mem loc in
+    let mem = prune_binop_right e mem loc in
+    match e with
+    | Exp.BinOp (Binop.LAnd, e1, e2) ->
+        let mem = prune e1 mem loc in
+        let mem = prune e2 mem loc in
+        mem
+    | Exp.UnOp (Unop.LNot, Exp.BinOp (Binop.LOr, e1, e2), t) ->
+        let mem = prune (Exp.UnOp (Unop.LNot, e1, t)) mem loc in
+        let mem = prune (Exp.UnOp (Unop.LNot, e2, t)) mem loc in
+        mem
+    | Exp.UnOp (Unop.LNot, Exp.BinOp (Binop.Lt as c, e1, e2), _)
+    | Exp.UnOp (Unop.LNot, Exp.BinOp (Binop.Gt as c, e1, e2), _)
+    | Exp.UnOp (Unop.LNot, Exp.BinOp (Binop.Le as c, e1, e2), _)
+    | Exp.UnOp (Unop.LNot, Exp.BinOp (Binop.Ge as c, e1, e2), _)
+    | Exp.UnOp (Unop.LNot, Exp.BinOp (Binop.Eq as c, e1, e2), _)
+    | Exp.UnOp (Unop.LNot, Exp.BinOp (Binop.Ne as c, e1, e2), _) ->
+        prune (Exp.BinOp (comp_not c, e1, e2)) mem loc
+    | _ -> mem
+
   let get_formals : Procdesc.t -> (Pvar.t * Typ.t) list
   = fun pdesc ->
     let proc_name = Procdesc.get_proc_name pdesc in
@@ -233,7 +331,7 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
     | Store (exp1, _, exp2, loc) ->
         (update_mem (eval_lv exp1 mem loc) (eval exp2 mem loc) mem,
          get_conditions ())
-    | Prune (exp, loc, _, _) -> astate
+    | Prune (exp, loc, _, _) -> (prune exp mem loc, get_conditions ())
     | Call (ret, Const (Cfun callee_pname), params, loc, _)
       when extras callee_pname = None -> (* unknown function *)
         prerr_endline "UNKNOWN FUNCTION";

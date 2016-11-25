@@ -113,6 +113,8 @@ struct
   = fun a ->
     (Itv.bot, PowLoc.bot, a)
 
+  let zero : astate = of_int 0
+
   let get_new_sym : unit -> t 
   = fun () -> (Itv.get_new_sym (), PowLoc.bot, ArrayBlk.bot)
 
@@ -187,6 +189,22 @@ struct
   let lor_sem : astate -> astate -> astate
   = fun (n1, x1, a1) (n2, _, _) ->
     (Itv.lor_sem n1 n2, x1, a1)
+
+  let prune : astate -> astate -> astate
+  = fun (n1, x1, a1) (n2, _, _) ->
+    (Itv.prune n1 n2, x1, a1)
+
+  let prune_comp : Binop.t -> astate -> astate -> astate
+  = fun c (n1, x1, a1) (n2, _, _) ->
+    (Itv.prune_comp c n1 n2, x1, a1)
+
+  let prune_eq : astate -> astate -> astate
+  = fun (n1, x1, a1) (n2, _, _) ->
+    (Itv.prune_eq n1 n2, x1, a1)
+
+  let prune_ne : astate -> astate -> astate
+  = fun (n1, x1, a1) (n2, _, _) ->
+    (Itv.prune_ne n1 n2, x1, a1)
 end
 
 module PPMap = 
