@@ -100,7 +100,7 @@ struct
 
   let weak_update : PowLoc.t -> Val.astate -> astate -> astate
   = fun locs v mem ->
-    (* TODO *) mem 
+    PowLoc.fold (fun x -> add x (Val.join v (find x mem))) locs mem
 end
 
 include AbstractDomain.Pair(Mem)(Conds)
@@ -132,4 +132,3 @@ let find_mem : Loc.t -> astate -> Val.astate
 let find_mem_set : PowLoc.t -> astate -> Val.astate
 = fun x s ->
   Mem.find_set x (get_mem s)
-
