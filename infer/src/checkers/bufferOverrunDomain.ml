@@ -1,3 +1,19 @@
+(*
+ * Copyright (c) 2016 - present 
+ * Kihong Heo (http://ropas.snu.ac.kr/~khheo)
+ * Sungkeun Cho (http://ropas.snu.ac.kr/~skcho)
+ * Kwangkeun Yi (http://ropas.snu.ac.kr/~kwang)
+ * 
+ * ROSAEC(Research On Software Analysis for Error-free Computing) Center
+ * Programming Research Laboratory
+ * Seoul National University, Korea
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ *)
+
 open BasicDom
 
 module F = Format
@@ -24,6 +40,9 @@ struct
 
   let initial : astate = []
 
+  let get_location : cond -> Location.t
+  = fun c -> c.loc 
+
   (* TODO: Duplication checks may be required. *)
   let add x conds = x :: conds
 
@@ -38,7 +57,7 @@ struct
   = fun ~lhs ~rhs ->
     List.for_all (fun c -> List.mem c rhs) lhs
 
-  let subst : cond -> int Itv.SubstMap.t -> cond 
+  let subst : cond -> Itv.Bound.t Itv.SubstMap.t -> cond 
   = fun cond map ->
     let r =
       match cond.rel with
@@ -47,6 +66,13 @@ struct
       | Eq (l,r) -> Eq (Itv.subst l map, Itv.subst r map)
     in
     {cond with rel = r}
+
+  (* TODO: generalize *)
+  let string_of_cond cond =
+    match cond.rel with
+    | Le (_, r) -> "Offset : " ^ Itv.to_string r
+    | Lt (l, r) -> "Offset : " ^ Itv.to_string l ^ " Size : " ^ Itv.to_string r
+    | _ -> ""
 
   let check : cond -> Itv.astate
   = fun cond ->
@@ -100,6 +126,8 @@ struct
   let get_itv (x,_,_) = x
   let get_pow_loc (_,x,_) = x
   let get_array_blk (_,_,x) = x
+
+  let top_itv = (Itv.top, PowLoc.bot, ArrayBlk.bot)
 
   let of_int : int -> astate
   = fun n ->

@@ -1,3 +1,19 @@
+(*
+ * Copyright (c) 2016 - present 
+ * Kihong Heo (http://ropas.snu.ac.kr/~khheo)
+ * Sungkeun Cho (http://ropas.snu.ac.kr/~skcho)
+ * Kwangkeun Yi (http://ropas.snu.ac.kr/~kwang)
+ * 
+ * ROSAEC(Research On Software Analysis for Error-free Computing) Center
+ * Programming Research Laboratory
+ * Seoul National University, Korea
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ *)
+
 module F = Format
 module L = Logging
 
@@ -133,18 +149,23 @@ struct
     | V of int * SymExp.t
     | PInf
 
-  let subst x map =
-    match x with
+  let subst formal map =
+    match formal with
       V (c, se) -> 
-        let (c', se') = SymExp.fold (fun sym coeff (c, se) ->
-            try
-              let concrete = SubstMap.find sym map in
-              (c + (concrete * coeff), se)
-            with Not_found -> 
-              (c, SymExp.add sym coeff se)) se (c, SymExp.empty)
-        in
-        V (c', se')
-    | _ -> x
+        SymExp.fold (fun sym coeff new_bound ->
+            match new_bound with
+              MInf | PInf -> new_bound
+            | V (c', se') ->
+              try
+                let target = SubstMap.find sym map in
+                match target with 
+                  MInf | PInf -> target
+                | V (target_c, target_se) when SymExp.cardinal target_se = 0 ->
+                    V (c' + (target_c * coeff), se')
+                | _ -> V (c', SymExp.add sym coeff se')
+              with Not_found -> 
+                V (c', SymExp.add sym coeff se')) se (V (c, SymExp.empty))
+    | _ -> formal
 
   let le : t -> t -> bool
   = fun x y ->
@@ -633,7 +654,7 @@ let prune_eq : astate -> astate -> astate = lift2_opt ItvPure.prune_eq
 
 let prune_ne : astate -> astate -> astate = lift2_opt ItvPure.prune_ne
 
-let subst : astate -> int SubstMap.t -> astate
+let subst : astate -> Bound.t SubstMap.t -> astate
 = fun x map ->
   match x with 
     NonBottom x' -> NonBottom (ItvPure.subst x' map)

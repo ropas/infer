@@ -1,3 +1,21 @@
+(*
+ * Copyright (c) 2016 - present 
+ * Kihong Heo (http://ropas.snu.ac.kr/~khheo)
+ * Sungkeun Cho (http://ropas.snu.ac.kr/~skcho)
+ * Kwangkeun Yi (http://ropas.snu.ac.kr/~kwang)
+ * 
+ * ROSAEC(Research On Software Analysis for Error-free Computing) Center
+ * Programming Research Laboratory
+ * Seoul National University, Korea
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ *)
+
+module F = Format
+
 module Allocsite = 
 struct
   include String
@@ -9,7 +27,12 @@ module Loc =
 struct
   type t = Var of Var.t | Allocsite of Allocsite.t
   let pp fmt = function 
-    | Var v -> Var.pp fmt v
+    | Var v -> 
+        Var.pp F.str_formatter v;
+        let s = F.flush_str_formatter () in
+        if s.[0] = '&' then
+          F.fprintf fmt "%s" (String.sub s 1 (String.length s - 1))
+        else F.fprintf fmt "%s" s
     | Allocsite a -> Allocsite.pp fmt a
   let is_var = function Var _ -> true | _ -> false
   let of_var v = Var v
@@ -29,5 +52,8 @@ struct
         iter (fun e -> Format.fprintf fmt "%a," pp_element e) s;
         Format.fprintf fmt "}"
      end)
+
   let bot = initial
+
+  let of_id id = singleton (Loc.of_id id)
 end
