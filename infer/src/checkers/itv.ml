@@ -69,6 +69,21 @@ struct
       pp1 fmt (s1, c1);
       M.iter (fun s c -> F.fprintf fmt " + %a" pp1 (s, c)) (M.remove s1 x)
 
+  let zero : t = M.empty
+
+  let is_zero : t -> bool
+  = fun x ->
+    M.for_all (fun _ v -> v = 0) x
+
+  let is_mod_zero : t -> int -> bool
+  = fun x n ->
+    assert (n <> 0);
+    M.for_all (fun _ v -> v mod n = 0) x
+
+  let neg : t -> t
+  = fun x ->
+    M.map (~-) x
+
   (* Returns (Some n) only when n is not 0. *)
   let is_non_zero : int -> int option
   = fun n ->
@@ -95,6 +110,14 @@ struct
       | Some n, Some m -> is_non_zero (n - m)
     in
     M.merge minus' x y
+
+  let mult_const : t -> int -> t
+  = fun x n ->
+    M.map (( * ) n) x
+
+  let div_const : t -> int -> t
+  = fun x n ->
+    M.map ((/) n) x
 end
 
 module Bound =
@@ -112,6 +135,23 @@ struct
     | _, MInf
     | PInf, _ -> false
     | V (c0, x0), V (c1, x1) -> c0 <= c1 && SymExp.eq x0 x1
+
+  let lt : t -> t -> bool
+  = fun x y ->
+    match x, y with
+    | MInf, V _
+    | MInf, PInf
+    | V _, PInf -> true
+    | V (c0, x0), V (c1, x1) -> c0 < c1 && SymExp.eq x0 x1
+    | _, _ -> false
+
+  let eq : t -> t -> bool
+  = fun x y ->
+    match x, y with
+    | MInf, MInf
+    | PInf, PInf -> true
+    | V (c0, x0), V (c1, x1) -> c0 = c1 && SymExp.eq x0 x1
+    | _, _ -> false
 
   let min : t -> t -> t
   = fun x y ->
@@ -170,9 +210,21 @@ struct
     V (n, SymExp.empty)
 
   let of_sym : SymExp.t -> t
-  = fun s -> V(0, s)
+  = fun s -> V (0, s)
 
   let initial : t = of_int 0
+
+  let zero : t = V (0, SymExp.zero)
+
+  let is_zero : t -> bool
+  = function
+    | V (c, x) -> c = 0 && SymExp.is_zero x
+    | _ -> false
+
+  let is_const : t -> int option
+  = function
+    | V (c, x) when SymExp.is_zero x -> Some c
+    | _ -> None
 
   let plus : t -> t -> t
   = fun x y ->
@@ -195,6 +247,31 @@ struct
     | PInf, _
     | _, MInf -> PInf
     | V (c1, x1), V (c2, x2) -> V (c1 - c2, SymExp.minus x1 x2)
+
+  let mult_const : t -> int -> t
+  = fun x n ->
+    assert (n <> 0);
+    match x with
+    | MInf -> if n > 0 then MInf else PInf
+    | PInf -> if n > 0 then PInf else MInf
+    | V (c, x') -> V (c * n, SymExp.mult_const x' n)
+
+  let div_const : t -> int -> t option
+  = fun x n ->
+    if n = 0 then Some zero else
+      match x with
+      | MInf -> Some (if n > 0 then MInf else PInf)
+      | PInf -> Some (if n > 0 then PInf else MInf)
+      | V (c, x') ->
+          if c mod n = 0 && SymExp.is_mod_zero x' n then
+            Some (V (c / n, SymExp.div_const x' n))
+          else None
+
+  let neg : t -> t
+  = function
+    | MInf -> PInf
+    | PInf -> MInf
+    | V (c, x) -> V (-c, SymExp.neg x)
 end
 
 module ItvPure =
@@ -235,6 +312,40 @@ struct
 
   let pos : astate = (Bound.of_int 1, Bound.PInf)
 
+  let zero : astate = of_int 0
+
+  let one : astate = of_int 1
+
+  let true_sem : astate = one
+
+  let false_sem : astate = zero
+
+  let unknown_bool : astate = (Bound.of_int 0, Bound.of_int 1)
+
+  let is_true : astate -> bool
+  = fun (l, u) ->
+    Bound.le (Bound.of_int 1) l || Bound.le u (Bound.of_int (-1))
+
+  let is_false : astate -> bool
+  = fun (l, u) ->
+    Bound.is_zero l && Bound.is_zero u
+
+  let is_const : astate -> int option
+  = fun (l, u) ->
+    match Bound.is_const l, Bound.is_const u with
+    | Some n, Some m when n = m -> Some n
+    | _, _ -> None
+
+  let neg : astate -> astate
+  = fun (l, u) ->
+    (Bound.neg u, Bound.neg l)
+
+  let lnot : astate -> astate
+  = fun x ->
+    if is_true x then false_sem else
+    if is_false x then true_sem else
+      unknown_bool
+
   let plus : astate -> astate -> astate
   = fun (l1, u1) (l2, u2) ->
     (Bound.plus l1 l2, Bound.plus u1 u2)
@@ -242,6 +353,106 @@ struct
   let minus : astate -> astate -> astate
   = fun (l1, u1) (l2, u2) ->
     (Bound.minus l1 u2, Bound.minus u1 l2)
+
+  let mult_const : astate -> int -> astate
+  = fun (l, u) n ->
+    if n = 0 then zero else
+      let l' = Bound.mult_const l n in
+      let u' = Bound.mult_const u n in
+      if n > 0 then (l', u') else (u', l')
+
+  (* Returns a correct value only when all coefficients are divided by
+     n without remainder. *)
+  let div_const : astate -> int -> astate option
+  = fun (l, u) n ->
+    match Bound.div_const l n, Bound.div_const u n with
+    | Some l', Some u' -> Some (if n >=0 then (l', u') else (u', l'))
+    | _, _ -> None
+
+  let mult : astate -> astate -> astate
+  = fun x y ->
+    match is_const x, is_const y with
+    | _, Some n -> mult_const x n
+    | Some n, _ -> mult_const y n
+    | None, None -> top
+
+  let div : astate -> astate -> astate
+  = fun x y ->
+    match is_const y with
+    | Some n ->
+        (match div_const x n with
+         | Some x' -> x'
+         | None -> top)
+    | None -> top
+
+  (* x % [0,0] does nothing. *)
+  let mod_sem : astate -> astate -> astate
+  = fun x y ->
+    match is_const x, is_const y with
+    | Some n, Some m -> if m = 0 then x else of_int (n mod m)
+    | _, Some m -> (Bound.of_int (-m), Bound.of_int m)
+    | _, None -> top
+
+  (* x << [-1,-1] does nothing. *)
+  let shiftlt : astate -> astate -> astate
+  = fun x y ->
+    match is_const y with
+    | Some n -> if n >= 0 then mult_const x (1 lsl n) else x
+    | None -> top
+
+  (* x >> [-1,-1] does nothing. *)
+  let shiftrt : astate -> astate -> astate
+  = fun x y ->
+    match is_const y with
+    | Some n ->
+        if n >= 0 then
+          match div_const x (1 lsl n) with
+          | Some x' -> x'
+          | None -> top
+        else x
+    | None -> top
+
+  let lt_sem : astate -> astate -> astate
+  = fun (l1, u1) (l2, u2) ->
+    if Bound.lt u1 l2 then true_sem else
+    if Bound.le u2 l1 then false_sem else
+      unknown_bool
+
+  let gt_sem : astate -> astate -> astate
+  = fun x y -> lt_sem y x
+
+  let le_sem : astate -> astate -> astate
+  = fun (l1, u1) (l2, u2) ->
+    if Bound.le u1 l2 then true_sem else
+    if Bound.lt u2 l1 then false_sem else
+      unknown_bool
+
+  let ge_sem : astate -> astate -> astate
+  = fun x y -> le_sem y x
+
+  let eq_sem : astate -> astate -> astate
+  = fun (l1, u1) (l2, u2) ->
+    if Bound.eq l1 u1 && Bound.eq u1 l2 && Bound.eq l2 u2 then true_sem else
+    if Bound.lt u1 l2 || Bound.lt u2 l1 then false_sem else
+      unknown_bool
+
+  let ne_sem : astate -> astate -> astate
+  = fun (l1, u1) (l2, u2) ->
+    if Bound.eq l1 u1 && Bound.eq u1 l2 && Bound.eq l2 u2 then false_sem else
+    if Bound.lt u1 l2 || Bound.lt u2 l1 then true_sem else
+      unknown_bool
+
+  let land_sem : astate -> astate -> astate
+  = fun x y ->
+    if is_true x && is_true y then true_sem else
+    if is_false x || is_false y then false_sem else
+      unknown_bool
+
+  let lor_sem : astate -> astate -> astate
+  = fun x y ->
+    if is_true x || is_true y then true_sem else
+    if is_false x && is_false y then false_sem else
+      unknown_bool
 end
 
 include AbstractDomain.BottomLifted(ItvPure)
@@ -276,35 +487,50 @@ let to_string : astate -> string
   pp F.str_formatter x;
   F.flush_str_formatter ()
 
-let plus : astate -> astate -> astate
-= fun x y ->
-  match x, y with
-  | Bottom, _
-  | _, Bottom -> Bottom
-  | NonBottom x', NonBottom y' -> NonBottom (ItvPure.plus x' y')
+let lift1 : (ItvPure.t -> ItvPure.t) -> astate -> astate
+= fun f -> function
+  | Bottom -> Bottom
+  | NonBottom x -> NonBottom (f x)
 
-let minus : astate -> astate -> astate
-= fun x y ->
+let lift2 : (ItvPure.t -> ItvPure.t -> ItvPure.t) -> astate -> astate -> astate
+= fun f x y ->
   match x, y with
   | Bottom, _
   | _, Bottom -> Bottom
-  | NonBottom x', NonBottom y' -> NonBottom (ItvPure.minus x' y')
+  | NonBottom x, NonBottom y -> NonBottom (f x y)
+
+let plus : astate -> astate -> astate = lift2 ItvPure.plus
+
+let minus : astate -> astate -> astate = lift2 ItvPure.minus
 
 let get_new_sym () = NonBottom (ItvPure.get_new_sym ())
 
-let neg x = raise TODO
-let lnot x = raise TODO
-let mult x y = raise TODO
-let div x y = raise TODO
-let mod_sem x y = raise TODO
-let shiftlt x y = raise TODO
-let shiftrt x y = raise TODO
-let lt_sem x y = raise TODO
-let gt_sem x y = raise TODO
-let le_sem x y = raise TODO
-let ge_sem x y = raise TODO
-let eq_sem x y = raise TODO
-let ne_sem x y = raise TODO
-let land_sem x y = raise TODO
-let lor_sem x y = raise TODO
+let neg : astate -> astate = lift1 ItvPure.neg
 
+let lnot : astate -> astate = lift1 ItvPure.lnot
+
+let mult : astate -> astate -> astate = lift2 ItvPure.mult
+
+let div : astate -> astate -> astate = lift2 ItvPure.div
+
+let mod_sem : astate -> astate -> astate = lift2 ItvPure.mod_sem
+
+let shiftlt : astate -> astate -> astate = lift2 ItvPure.shiftlt
+
+let shiftrt : astate -> astate -> astate = lift2 ItvPure.shiftrt
+
+let lt_sem : astate -> astate -> astate = lift2 ItvPure.lt_sem
+
+let gt_sem : astate -> astate -> astate = lift2 ItvPure.gt_sem
+
+let le_sem : astate -> astate -> astate = lift2 ItvPure.le_sem
+
+let ge_sem : astate -> astate -> astate = lift2 ItvPure.ge_sem
+
+let eq_sem : astate -> astate -> astate = lift2 ItvPure.eq_sem
+
+let ne_sem : astate -> astate -> astate = lift2 ItvPure.ne_sem
+
+let land_sem : astate -> astate -> astate = lift2 ItvPure.land_sem
+
+let lor_sem : astate -> astate -> astate = lift2 ItvPure.lor_sem
