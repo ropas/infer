@@ -177,7 +177,7 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
   let init_conditions astate = conditions := Domain.get_conds astate
   let get_conditions () = !conditions
 
-  let report_error : Tenv.t -> Procdesc.t -> Domain.Conds.t -> Itv.Bound.t SubstMap.t -> unit 
+  let report_error : Tenv.t -> Procdesc.t -> Domain.Conds.t -> Itv.Bound.t SubstMap.t -> Domain.Conds.t
   = fun tenv proc_desc callee_conds subst_map -> 
     let sym_map = SubstMap.fold (fun formal actual map ->
         match formal with 
@@ -192,17 +192,20 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
         Domain.Conds.add (Domain.Conds.subst cond sym_map) conds) callee_conds Domain.Conds.initial
     in
     Domain.Conds.pp F.err_formatter new_conds;
-    Domain.Conds.iter (fun cond ->
+    F.fprintf F.err_formatter "@.@.";
+  (*    let new_conds = Domain.Conds.fold (fun cond conds ->
         let checked = Domain.Conds.check cond in
         if checked <> Itv.one then
-          Checkers.ST.report_error tenv
+          let _ = Checkers.ST.report_error tenv
             (Procdesc.get_proc_name proc_desc)
             proc_desc
             "BUFFER-OVERRUN CHECKER"
             (Domain.Conds.get_location cond)
             (Domain.Conds.string_of_cond cond)
-        else ()) new_conds;
-    ()
+          in
+          conds
+        else Domain.Conds.add cond conds) new_conds Domain.Conds.initial in*)
+    new_conds
 
   let check_bo tenv callee_pdesc params caller_mem callee_mem callee_cond loc =
     match callee_pdesc with 
@@ -223,7 +226,7 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
               else map) SubstMap.empty formals actuals
         in
         report_error tenv pdesc callee_cond subst_map
-    | _ -> ()
+    | _ -> callee_cond
     
   let exec_instr ((mem, conds) as astate) { ProcData.pdesc; tenv; extras } node (instr : Sil.instr) = 
     Sil.pp_instr Utils.pe_text F.err_formatter instr;
@@ -247,13 +250,15 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
     | Call ((Some (id, _) as ret), Const (Cfun callee_pname), params, loc, _) ->
         let callee = extras callee_pname in
         let call_site = CallSite.make callee_pname loc in
+        let old_conds = get_conditions () in
         let (callee_mem, callee_cond) = 
           match Summary.read_summary tenv pdesc callee_pname with
           | Some astate -> astate
           | None -> handle_unknown_call ret callee_pname params node astate
         in
-        check_bo tenv callee params mem callee_mem callee_cond loc;
-        (Domain.Mem.add (Loc.of_var (Var.of_id id)) (Domain.Mem.find (Loc.of_var (Var.of_pvar (Pvar.get_ret_pvar callee_pname))) callee_mem) mem, get_conditions ())
+        let new_conds = check_bo tenv callee params mem callee_mem callee_cond loc in
+        (Domain.Mem.add (Loc.of_var (Var.of_id id)) (Domain.Mem.find (Loc.of_var (Var.of_pvar (Pvar.get_ret_pvar callee_pname))) callee_mem) mem, 
+         Domain.Conds.join old_conds new_conds)
     | Call (_, _, params, loc, _) -> astate
     | Declare_locals (locals, _) -> 
         let mem = IList.fold_left (fun (mem,c) (pvar, typ) ->
@@ -309,8 +314,12 @@ let report_error : Tenv.t -> Procdesc.t -> Domain.Conds.t -> Itv.Bound.t SubstMa
 
 
 let checker ({ Callbacks.get_proc_desc; Callbacks.tenv; proc_desc } as callback) =
+
   let post = Interprocedural.checker callback get_proc_desc in
   match post with 
-    Some post -> 
+    Some post ->
+      F.fprintf F.err_formatter "Final @.@.";
+      Domain.pp F.err_formatter post;
+      F.fprintf F.err_formatter "@.@.";
       report_error tenv proc_desc (Domain.get_conds post) SubstMap.empty
   | _ -> ()
