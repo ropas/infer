@@ -72,7 +72,7 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
   = fun arr idx astate ->
     let size = eval arr astate |> Domain.Val.get_array_blk |> ArrayBlk.sizeof in
     let idx = eval idx astate |> Domain.Val.get_itv in
-    conditions := Domain.Conds.add ~size ~idx !conditions
+    conditions := Domain.Conds.add_bo_safety ~size ~idx !conditions
 
   and eval_unop : Unop.t -> Exp.t -> Domain.Mem.astate -> Domain.Val.astate 
   = fun unop e mem -> 
@@ -164,6 +164,51 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
   let init_conditions astate = conditions := Domain.get_conds astate
   let get_conditions () = !conditions
 
+  module SubstMap = Map.Make(struct type t = Itv.Bound.t let compare = Pervasives.compare end)
+  let report_error : Tenv.t -> Procdesc.t -> Domain.Conds.t -> Itv.Bound.t SubstMap.t -> unit 
+  = fun tenv proc_desc callee_conds subst_map -> 
+    let sym_map = SubstMap.fold (fun formal actual map ->
+        match formal, actual with 
+          Itv.Bound.V (0, se1), Itv.Bound.V (c, se2) when Itv.SymExp.cardinal se1 = 1 && Itv.SymExp.cardinal se2 = 0 -> 
+            let (symbol, coeff) = Itv.SymExp.choose se1 in
+            if coeff = 1 then
+              Itv.SubstMap.add symbol c map
+            else map
+        | _ -> map) subst_map Itv.SubstMap.empty
+    in
+    let new_conds = Domain.Conds.fold (fun cond conds -> 
+        Domain.Conds.add (Domain.Conds.subst cond sym_map) conds) callee_conds Domain.Conds.initial
+    in
+    Domain.Conds.pp F.err_formatter new_conds;
+    Domain.Conds.iter (fun cond ->
+        let checked = Domain.Conds.check cond in
+        if checked <> Itv.one then
+          Checkers.ST.report_error tenv
+            (Procdesc.get_proc_name proc_desc)
+            proc_desc
+            "CHECKERS_MY_SIMPLE_CHECKER"
+            Location.dummy
+            "A description of my simple checker"
+        else ()) new_conds;
+    ()
+
+  let check_bo tenv callee_pdesc params caller_mem callee_mem callee_cond = 
+    match callee_pdesc with 
+      Some pdesc ->
+        let formals = get_formals pdesc |> IList.map (fun (p, _) -> let loc = Loc.of_pvar p in Domain.Mem.find loc callee_mem) in
+        let actuals = IList.map (fun (p, _) -> eval p caller_mem) params in
+        let subst_map = IList.fold_left2 (fun map formal actual ->
+              let formal_itv = Domain.Val.get_itv formal in
+              let actual_itv = Domain.Val.get_itv actual in
+              if formal_itv <> Itv.bot && actual_itv <> Itv.bot then
+                map 
+                |> SubstMap.add (Itv.lb formal_itv) (Itv.lb actual_itv)
+                |> SubstMap.add (Itv.ub formal_itv) (Itv.ub actual_itv)
+              else map) SubstMap.empty formals actuals
+        in
+        report_error tenv pdesc callee_cond subst_map
+    | _ -> ()
+    
   let exec_instr ((mem, conds) as astate) { ProcData.pdesc; tenv; extras } node (instr : Sil.instr) = 
     Sil.pp_instr Utils.pe_text F.err_formatter instr;
     prerr_newline ();
@@ -182,17 +227,18 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
         astate
     | Call (Some (id, _), Const (Cfun callee_pname), params, loc, _) ->
         let callee = extras callee_pname in
-        (match callee with 
+(*        (match callee with 
           Some pdesc -> 
             let formals = get_formals pdesc in
             IList.iter (fun (f,typ) -> Pvar.pp pe_text F.err_formatter f) formals
-         | _ -> ());
+         | _ -> ());*)
         let call_site = CallSite.make callee_pname loc in
         let (callee_mem, callee_cond) = 
           match Summary.read_summary tenv pdesc callee_pname with
           | Some astate -> astate
           | None -> handle_unknown_call callee_pname params node Domain.initial
         in
+        check_bo tenv callee params mem callee_mem callee_cond;
         (Domain.Mem.add (Loc.of_var (Var.of_id id)) (Domain.Mem.find (Loc.of_var (Var.of_pvar (Pvar.get_ret_pvar callee_pname))) callee_mem) mem, get_conditions ())
     | Call (_, _, params, loc, _) -> astate
     | Declare_locals (locals, _) -> 

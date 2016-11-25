@@ -1,8 +1,6 @@
 module F = Format
 module L = Logging
 
-exception TODO
-
 (* TODO: Due to the side-effect of the symbol numbers, we may have to
    place the sym_size outside of the Itv module. *)
 let sym_size = ref 0
@@ -24,6 +22,8 @@ struct
     F.fprintf fmt "s$%d" x
 end
 
+module SubstMap = Map.Make(struct type t = Symbol.t let compare = Symbol.compare end)
+
 module SymExp =
 struct
   module M = Map.Make(Symbol)
@@ -31,6 +31,12 @@ struct
   type t = int M.t
 
   let empty : t = M.empty
+
+  let add = M.add
+  let cardinal = M.cardinal 
+  let choose = M.choose 
+  let fold = M.fold 
+  let mem = M.mem
 
   let initial : t = empty
 
@@ -126,6 +132,19 @@ struct
     | MInf
     | V of int * SymExp.t
     | PInf
+
+  let subst x map =
+    match x with
+      V (c, se) -> 
+        let (c', se') = SymExp.fold (fun sym coeff (c, se) ->
+            try
+              let concrete = SubstMap.find sym map in
+              (c + (concrete * coeff), se)
+            with Not_found -> 
+              (c, SymExp.add sym coeff se)) se (c, SymExp.empty)
+        in
+        V (c', se')
+    | _ -> x
 
   let le : t -> t -> bool
   = fun x y ->
@@ -280,6 +299,11 @@ struct
   type t = astate
 
   let initial : astate = (Bound.initial, Bound.initial)
+
+  let lb = fst
+  let ub = snd 
+
+  let subst x map = (Bound.subst (lb x) map, Bound.subst (ub x) map)
 
   let (<=) : lhs:astate -> rhs:astate -> bool
   = fun ~lhs:(l1, u1) ~rhs:(l2, u2) ->
@@ -463,6 +487,9 @@ let bot = initial
 
 let top = NonBottom ItvPure.top
 
+let lb = function NonBottom x -> ItvPure.lb x | _ -> raise (Failure "lower bound of bottom")
+let ub = function NonBottom x -> ItvPure.ub x | _ -> raise (Failure "upper bound of bottom")
+
 let of_int : int -> astate
 = fun n ->
   NonBottom (ItvPure.of_int n)
@@ -534,3 +561,9 @@ let ne_sem : astate -> astate -> astate = lift2 ItvPure.ne_sem
 let land_sem : astate -> astate -> astate = lift2 ItvPure.land_sem
 
 let lor_sem : astate -> astate -> astate = lift2 ItvPure.lor_sem
+
+let subst : astate -> int SubstMap.t -> astate
+= fun x map ->
+  match x with 
+    NonBottom x' -> NonBottom (ItvPure.subst x' map)
+  | _ -> x
