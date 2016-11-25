@@ -336,6 +336,8 @@ struct
 
   let pos : astate = (Bound.of_int 1, Bound.PInf)
 
+  let nat : astate = (Bound.of_int 0, Bound.PInf)
+
   let zero : astate = of_int 0
 
   let one : astate = of_int 1
@@ -500,8 +502,7 @@ let one : astate = of_int 1
 
 let pos : astate = NonBottom ItvPure.pos
 
-(* TODO *)
-let nat : astate = bot
+let nat : astate = NonBottom ItvPure.nat
 
 let le : lhs:astate -> rhs:astate -> bool = (<=)
 
