@@ -23,10 +23,10 @@ struct
 
   let pp : F.formatter -> t -> unit
   = fun fmt x ->
-    F.fprintf fmt "s_%d" x
+    F.fprintf fmt "s$%d" x
 end
 
-module Coeff =
+module SymExp =
 struct
   module M = Map.Make(Symbol)
 
@@ -45,6 +45,10 @@ struct
   = fun x y ->
     M.for_all (fun s v -> v <= find s y) x
 
+  let get_new : unit -> t 
+  = fun () ->
+    M.add (Symbol.get_new ()) 1 empty
+
   (* TODO: Not efficient.  Modify the function if it runs too slow. *)
   let eq : t -> t -> bool
   = fun x y ->
@@ -52,21 +56,27 @@ struct
 
   let pp1 : F.formatter -> (Symbol.t * int) -> unit
   = fun fmt (s, c) ->
-    F.fprintf fmt "%d%a" c Symbol.pp s
+    if c = 0 then ()
+    else if c = 1 then 
+      F.fprintf fmt "%a" Symbol.pp s
+    else if c < 0 then
+      F.fprintf fmt "(%d)x%a" c Symbol.pp s
+    else 
+      F.fprintf fmt "%dx%a" c Symbol.pp s
 
   let pp : F.formatter -> t -> unit
   = fun fmt x ->
     if M.cardinal x = 0 then F.fprintf fmt "empty" else
       let (s1, c1) = M.min_binding x in
       pp1 fmt (s1, c1);
-      M.iter (fun s c -> F.fprintf fmt "+%a" pp1 (s, c)) (M.remove s1 x)
+      M.iter (fun s c -> F.fprintf fmt " + %a" pp1 (s, c)) (M.remove s1 x)
 end
 
 module Bound =
 struct
   type t =
     | MInf
-    | V of int * Coeff.t
+    | V of int * SymExp.t
     | PInf
 
   let le : t -> t -> bool
@@ -76,7 +86,7 @@ struct
     | _, PInf -> true
     | _, MInf
     | PInf, _ -> false
-    | V (c0, x0), V (c1, x1) -> c0 <= c1 && Coeff.eq x0 x1
+    | V (c0, x0), V (c1, x1) -> c0 <= c1 && SymExp.eq x0 x1
 
   let min : t -> t -> t
   = fun x y ->
@@ -86,7 +96,7 @@ struct
     | PInf, _ -> y
     | _, PInf -> x
     | V (c0, x0), V (c1, x1) ->
-        if Coeff.eq x0 x1 then V (min c0 c1, x0) else MInf
+        if SymExp.eq x0 x1 then V (min c0 c1, x0) else MInf
 
   let max : t -> t -> t
   = fun x y ->
@@ -96,7 +106,7 @@ struct
     | MInf, _ -> y
     | _, MInf -> x
     | V (c0, x0), V (c1, x1) ->
-        if Coeff.eq x0 x1 then V (max c0 c1, x0) else PInf
+        if SymExp.eq x0 x1 then V (max c0 c1, x0) else PInf
 
   let widen_l : t -> t -> t
   = fun x y ->
@@ -106,7 +116,7 @@ struct
     | MInf, _
     | _, MInf -> MInf
     | V (c0, x0), V (c1, x1) ->
-        if c0 <= c1 && Coeff.eq x0 x1 then x else MInf
+        if c0 <= c1 && SymExp.eq x0 x1 then x else MInf
 
   let widen_u : t -> t -> t
   = fun x y ->
@@ -116,21 +126,26 @@ struct
     | PInf, _
     | _, PInf -> PInf
     | V (c0, x0), V (c1, x1) ->
-        if c0 >= c1 && Coeff.eq x0 x1 then x else PInf
+        if c0 >= c1 && SymExp.eq x0 x1 then x else PInf
 
   let pp : F.formatter -> t -> unit
   = fun fmt -> function
     | MInf -> F.fprintf fmt "-oo"
     | PInf -> F.fprintf fmt "+oo"
     | V (c, x) ->
-        if Coeff.le x Coeff.empty then
+        if SymExp.le x SymExp.empty then
           F.fprintf fmt "%d" c
+        else if c = 0 then
+          F.fprintf fmt "%a" SymExp.pp x
         else
-          F.fprintf fmt "%d+%a" c Coeff.pp x
+          F.fprintf fmt "%a + %d" SymExp.pp x c
 
   let of_int : int -> t
   = fun n ->
-    V (n, Coeff.empty)
+    V (n, SymExp.empty)
+
+  let of_sym : SymExp.t -> t
+  = fun s -> V(0, s)
 
   let initial : t = of_int 0
 end
@@ -138,6 +153,7 @@ end
 module ItvPure =
 struct
   type astate = Bound.t * Bound.t
+  type t = astate 
 
   let initial : astate = (Bound.initial, Bound.initial)
 
@@ -160,6 +176,13 @@ struct
   let of_int : int -> astate
   = fun n ->
     (Bound.of_int n, Bound.of_int n)
+  
+  let get_new_sym : unit -> t
+  = fun () -> 
+    (* just for pretty printing *)
+    let lower = Bound.of_sym (SymExp.get_new ()) in
+    let upper = Bound.of_sym (SymExp.get_new ()) in
+    (lower, upper)
 end
 
 include AbstractDomain.BottomLifted(ItvPure)
@@ -192,3 +215,5 @@ let to_string x = raise TODO
 let plus x y =  raise TODO
 
 let minus x y =  raise TODO
+
+let get_new_sym () = NonBottom (ItvPure.get_new_sym ())

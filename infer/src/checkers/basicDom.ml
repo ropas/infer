@@ -14,6 +14,8 @@ struct
   let is_var = function Var _ -> true | _ -> false
   let of_var v = Var v
   let of_allocsite a = Allocsite a
+  let of_pvar pvar = Var (Var.of_pvar pvar)
+  let of_id id = Var (Var.of_id id)
 end
 
 module PowLoc = 

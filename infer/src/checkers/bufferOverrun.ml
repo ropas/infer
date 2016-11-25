@@ -18,7 +18,7 @@ module Summary = Summary.Make (struct
 module TransferFunctions (CFG : ProcCfg.S) = struct
   module CFG = CFG
   module Domain = BufferOverrunDomain
-  type extras = ProcData.no_extras
+  type extras = Procname.t -> Procdesc.t option
 
   exception Not_implemented 
 
@@ -118,7 +118,12 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
     if can_strong_update ploc then Domain.strong_update_mem ploc v s
     else Domain.weak_update_mem ploc v s
 
-  let exec_instr astate { ProcData.pdesc; tenv } node (instr : Sil.instr) = 
+  let get_formals : Procdesc.t -> (Pvar.t * Typ.t) list
+  = fun pdesc ->
+    let proc_name = Procdesc.get_proc_name pdesc in
+    Procdesc.get_formals pdesc |> IList.map (fun (name, typ) -> (Pvar.mk name proc_name, typ))
+
+  let exec_instr astate { ProcData.pdesc; tenv; extras } node (instr : Sil.instr) = 
     Sil.pp_instr Utils.pe_text F.err_formatter instr;
     prerr_newline ();
     Domain.pp F.err_formatter astate;
@@ -142,8 +147,17 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
         |>
         (* make sure it's not Bottom: we made a function call so this needs initialization *)
         at_least_bottom*)
-      astate
+        astate
+    | Call (ret, Const (Cfun callee_pname), params, loc, _) when extras callee_pname = None -> (* unknown function *)
+        prerr_endline "UNKNOWN FUNCTION";
+        astate
     | Call (Some (id, _), Const (Cfun callee_pname), params, loc, _) ->
+        let callee = extras callee_pname in
+        (match callee with 
+          Some pdesc -> 
+            let formals = get_formals pdesc in
+            IList.iter (fun (f,typ) -> Pvar.pp pe_text F.err_formatter f) formals
+         | _ -> ());
         let call_site = CallSite.make callee_pname loc in
         let callee_state = 
           match Summary.read_summary tenv pdesc callee_pname with
@@ -153,11 +167,18 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
         Domain.add_mem (Loc.of_var (Var.of_id id)) (Domain.find_mem (Loc.of_var (Var.of_pvar (Pvar.get_ret_pvar callee_pname))) callee_state) astate
     | Call (_, _, params, loc, _) -> astate
     | Declare_locals (locals, _) -> 
-        IList.fold_left (fun (astate,c) (pvar, typ) ->
+        let astate = IList.fold_left (fun (astate,c) (pvar, typ) ->
             match typ with 
               Typ.Tarray (_, _) ->
                 (declare_array pdesc node (Loc.of_var (Var.of_pvar pvar)) typ c 1 astate, c+1)
-            | _ -> (astate, c)) (astate, 1) locals |> fst
+            | _ -> (astate, c)) (astate, 1) locals 
+          |> fst
+        in
+        IList.fold_left (fun (astate,c) (pvar, typ) -> 
+            match typ with
+              Typ.Tint _ -> (Domain.add_mem (Loc.of_pvar pvar) (Domain.Val.get_new_sym ()) astate, c+1)
+            | _ -> (astate, c) (* TODO *)) (astate, 0) (get_formals pdesc)
+        |> fst
     | Remove_temps _ | Abstract _ | Nullify _ -> astate
 end
 
@@ -169,6 +190,6 @@ module Analyzer =
 
 module Interprocedural = Analyzer.Interprocedural (Summary)
 
-let checker ({ Callbacks.tenv; proc_desc } as callback) =
-  let post = Interprocedural.checker callback ProcData.empty_extras in
+let checker ({ Callbacks.get_proc_desc; Callbacks.tenv; proc_desc } as callback) =
+  let post = Interprocedural.checker callback get_proc_desc in
   ()

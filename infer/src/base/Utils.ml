@@ -671,3 +671,6 @@ let realpath path =
     let realpath = Core.Std.Filename.realpath path in
     Hashtbl.add realpath_cache path realpath;
     realpath
+
+(** Aux functions *)
+let flip f x y = f y x
