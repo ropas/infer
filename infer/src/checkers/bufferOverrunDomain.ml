@@ -93,7 +93,7 @@ struct
 
   let pp : F.formatter -> astate -> unit
   = fun fmt x ->
-    F.fprintf fmt "@[";
+    F.fprintf fmt "@[<hov 0>";
     (match x with
      | [] -> F.fprintf fmt "true"
      | c :: tl ->
@@ -210,10 +210,17 @@ struct
 
   include PrettyPrintable.MakePPMap(Ord)
 
-  (* TODO: Revise format not to use "\n". *)
+  let pp_collection ~pp_item fmt c =
+    let pp_collection fmt c =
+      let pp_sep fmt () = F.fprintf fmt ",@," in
+      F.pp_print_list ~pp_sep pp_item fmt c in
+    F.fprintf fmt "%a" pp_collection c
+
   let pp ~pp_value fmt m =
-    let pp_item fmt (k, v) = F.fprintf fmt "%a -> %a\n" Ord.pp_key k pp_value v in
-    PrettyPrintable.pp_collection ~pp_item fmt (bindings m)
+    let pp_item fmt (k, v) = F.fprintf fmt "%a -> %a" Ord.pp_key k pp_value v in
+    F.fprintf fmt "@[<v 2>{ ";
+    pp_collection ~pp_item fmt (bindings m);
+    F.fprintf fmt " }@]"
 end
 
 module Mem = 
@@ -236,6 +243,9 @@ struct
 end
 
 include AbstractDomain.Pair(Mem)(Conds)
+
+let pp fmt (m, c) =
+  F.fprintf fmt "@[<v 2>( %a,@,%a )@]" Mem.pp m Conds.pp c
 
 let get_mem : astate -> Mem.astate
 = fun s ->
