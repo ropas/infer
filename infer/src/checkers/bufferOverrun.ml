@@ -126,10 +126,16 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
     ArrayBlk.make allocsite offset size stride nullpos
     |> Domain.Val.of_array_blk
 
-  let handle_unknown_call callee_pname params node astate = 
+  let handle_unknown_call ret callee_pname params node astate = 
     match Procname.get_method callee_pname with
       "malloc" -> prerr_endline "print malloc"; astate
-    | _ -> astate
+    | _ ->
+      (match ret with 
+         Some (id, _) -> 
+          prerr_endline "handle";
+          let ret_loc = Loc.of_var (Var.of_pvar (Pvar.get_ret_pvar callee_pname)) in
+          (Domain.Mem.add ret_loc Domain.Val.top_itv (Domain.get_mem astate), Domain.get_conds astate)
+       | None -> astate)
 
   let rec declare_array pdesc node loc typ inst_num dimension mem = 
     match typ with 
@@ -186,9 +192,9 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
           Checkers.ST.report_error tenv
             (Procdesc.get_proc_name proc_desc)
             proc_desc
-            "CHECKERS_MY_SIMPLE_CHECKER"
+            "BUFFER-OVERRUN CHECKER"
             Location.dummy
-            "A description of my simple checker"
+            "buffer overrun"
         else ()) new_conds;
     ()
 
@@ -214,7 +220,9 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
     prerr_newline ();
     Domain.pp F.err_formatter astate;
     prerr_newline ();
-
+(*    L.out_debug "%a\n" (Sil.pp_instr pe_text) instr;
+    L.out_debug "%a\n" Domain.pp astate;
+*)
     init_conditions astate;
     match instr with
     | Load (id, exp, _, loc) ->
@@ -222,21 +230,13 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
     | Store (exp1, _, exp2, loc) ->
         (update_mem (eval_lv exp1 mem) (eval exp2 mem) mem, get_conditions ())
     | Prune (exp, loc, _, _) -> astate
-    | Call (ret, Const (Cfun callee_pname), params, loc, _) when extras callee_pname = None -> (* unknown function *)
-        prerr_endline "UNKNOWN FUNCTION";
-        astate
-    | Call (Some (id, _), Const (Cfun callee_pname), params, loc, _) ->
+    | Call ((Some (id, _) as ret), Const (Cfun callee_pname), params, loc, _) ->
         let callee = extras callee_pname in
-(*        (match callee with 
-          Some pdesc -> 
-            let formals = get_formals pdesc in
-            IList.iter (fun (f,typ) -> Pvar.pp pe_text F.err_formatter f) formals
-         | _ -> ());*)
         let call_site = CallSite.make callee_pname loc in
         let (callee_mem, callee_cond) = 
           match Summary.read_summary tenv pdesc callee_pname with
           | Some astate -> astate
-          | None -> handle_unknown_call callee_pname params node Domain.initial
+          | None -> handle_unknown_call ret callee_pname params node astate
         in
         check_bo tenv callee params mem callee_mem callee_cond;
         (Domain.Mem.add (Loc.of_var (Var.of_id id)) (Domain.Mem.find (Loc.of_var (Var.of_pvar (Pvar.get_ret_pvar callee_pname))) callee_mem) mem, get_conditions ())

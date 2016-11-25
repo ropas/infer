@@ -90,6 +90,8 @@ struct
   let get_pow_loc (_,x,_) = x
   let get_array_blk (_,_,x) = x
 
+  let top_itv = (Itv.top, PowLoc.bot, ArrayBlk.bot)
+
   let of_int : int -> astate
   = fun n ->
     (Itv.of_int n, PowLoc.bot, ArrayBlk.bot)
