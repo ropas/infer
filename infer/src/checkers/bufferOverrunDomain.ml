@@ -83,12 +83,9 @@ struct
 
   let pp : F.formatter -> astate -> unit
   = fun fmt x ->
+    let pp_sep fmt () = F.fprintf fmt " @,/\\ " in
     F.fprintf fmt "@[<hov 0>";
-    (match x with
-     | [] -> F.fprintf fmt "true"
-     | c :: tl ->
-         pp1 fmt c;
-         List.iter (fun c -> F.fprintf fmt " @,/\\ %a" pp1 c) tl);
+    F.pp_print_list ~pp_sep pp1 fmt x;
     F.fprintf fmt "@]"
 end
 
