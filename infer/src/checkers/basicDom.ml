@@ -55,5 +55,6 @@ struct
 
   let bot = initial
 
+  let of_pvar pvar = singleton (Loc.of_pvar pvar)
   let of_id id = singleton (Loc.of_id id)
 end
