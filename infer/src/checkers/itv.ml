@@ -551,10 +551,12 @@ struct
     | Some x' -> prune_comp Binop.Ge x' y
 
   let prune_ne : astate -> astate -> astate option
-  = fun x y ->
-    match prune_comp Binop.Lt x y with
-    | None -> None
-    | Some x' -> prune_comp Binop.Gt x' y
+  = fun x (l, u) ->
+    if not (Bound.eq l Bound.PInf)
+    && not (Bound.eq u Bound.MInf)
+    && Bound.eq l u
+    then prune x (l, u)
+    else Some x
 end
 
 include AbstractDomain.BottomLifted(ItvPure)
