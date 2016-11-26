@@ -217,15 +217,73 @@ struct
     PowLoc.fold (fun x -> add x (Val.join v (find x mem))) locs mem
 end
 
-include AbstractDomain.Pair(Mem)(ConditionSet)
+module TempAlias =
+struct
+  module M = Map.Make(Ident)
 
-let pp fmt (m, c) =
-  F.fprintf fmt "@[<v 2>( %a,@,%a )@]" Mem.pp m ConditionSet.pp c
+  type astate = Pvar.t M.t
 
-let get_mem : astate -> Mem.astate
-= fun s ->
-  fst s
+  let initial : astate = M.empty
 
-let get_conds : astate -> ConditionSet.astate
-= fun s ->
-  snd s
+  let (<=) : lhs:astate -> rhs:astate -> bool
+  = fun ~lhs ~rhs ->
+    let is_in_rhs k v =
+      match M.find k rhs with
+      | v' -> Pvar.equal v v'
+      | exception Not_found -> false
+    in
+    M.for_all is_in_rhs lhs
+
+  let join : astate -> astate -> astate
+  = fun x y ->
+    let join_v _ v1_opt v2_opt =
+      match v1_opt, v2_opt with
+      | None, None -> None
+      | Some v, None
+      | None, Some v -> Some v
+      | Some v1, Some v2 -> if Pvar.equal v1 v2 then Some v1 else None
+    in
+    M.merge join_v x y
+
+  let widen : prev:astate -> next:astate -> num_iters:int -> astate
+  = fun ~prev ~next ~num_iters:_ ->
+    join prev next
+
+  let pp : F.formatter -> astate -> unit
+  = fun fmt x ->
+    let pp_sep fmt () = F.fprintf fmt ", @," in
+    let pp1 fmt (k, v) =
+      F.fprintf fmt "%a=%a" (Ident.pp Utils.pe_text) k (Pvar.pp Utils.pe_text) v
+    in
+    F.fprintf fmt "@[<hov 0>";
+    F.pp_print_list ~pp_sep pp1 fmt (M.bindings x);
+    F.fprintf fmt "@]"
+
+  let load : Ident.t -> Exp.t -> astate -> astate
+  = fun id exp m ->
+    match exp with
+    | Exp.Lvar x -> M.add id x m
+    | _ -> m
+
+  let store : Exp.t -> Exp.t -> astate -> astate
+  = fun e _ m ->
+    match e with
+    | Exp.Lvar x -> M.filter (fun _ y -> not (Pvar.equal x y)) m
+    | _ -> m
+
+  let find : Ident.t -> astate -> Pvar.t option
+  = fun k m ->
+    try Some (M.find k m) with Not_found -> None
+end
+
+include AbstractDomain.Pair3(Mem)(ConditionSet)(TempAlias)
+
+let pp fmt (m, c, ta) =
+  F.fprintf fmt "@[<v 2>( %a,@,%a,@,%a )@]" Mem.pp m ConditionSet.pp c
+    TempAlias.pp ta
+
+let get_mem : astate -> Mem.astate = fst
+
+let get_conds : astate -> ConditionSet.astate = snd
+
+let get_temp_alias : astate -> TempAlias.astate = trd
