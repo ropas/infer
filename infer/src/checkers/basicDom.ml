@@ -25,8 +25,9 @@ end
 
 module Loc = 
 struct
-  type t = Var of Var.t | Allocsite of Allocsite.t
-  let pp fmt = function 
+  type t = Var of Var.t | Allocsite of Allocsite.t | Field of t * Ident.fieldname
+
+  let rec pp fmt = function 
     | Var v -> 
         Var.pp F.str_formatter v;
         let s = F.flush_str_formatter () in
@@ -34,11 +35,13 @@ struct
           F.fprintf fmt "%s" (String.sub s 1 (String.length s - 1))
         else F.fprintf fmt "%s" s
     | Allocsite a -> Allocsite.pp fmt a
+    | Field (l, f) -> F.fprintf fmt "%a.%a" pp l Ident.pp_fieldname f
   let is_var = function Var _ -> true | _ -> false
   let of_var v = Var v
   let of_allocsite a = Allocsite a
   let of_pvar pvar = Var (Var.of_pvar pvar)
   let of_id id = Var (Var.of_id id)
+  let append_field l f = Field (l, f)
 end
 
 module PowLoc = 
@@ -56,4 +59,5 @@ struct
   let bot = initial
 
   let of_id id = singleton (Loc.of_id id)
+  let append_field ploc fn = fold (fun l -> add (Loc.append_field l fn)) ploc empty
 end
