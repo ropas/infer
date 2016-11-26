@@ -43,13 +43,13 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
   let eval_const : Const.t -> Domain.Val.astate = function 
     | Const.Cint intlit -> 
         Domain.Val.of_int (IntLit.to_int intlit)
-    | _ -> Domain.Val.of_int (-999)
+    | _ -> Domain.Val.of_int (-999) (* TODO *)
 
   let sizeof : Typ.t -> int
   = fun t ->
     (* TODO *)
     4
-  let conditions = ref Domain.Conds.initial
+  let conditions = ref Domain.ConditionSet.initial
 
   let rec eval : Exp.t -> Domain.Mem.astate -> Location.t -> Domain.Val.astate
   = fun exp mem loc ->
@@ -81,7 +81,7 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
   = fun arr idx loc ->
     let size = arr |> Domain.Val.get_array_blk |> ArrayBlk.sizeof in
     let idx = idx |> Domain.Val.get_itv in
-    conditions := Domain.Conds.add_bo_safety ~size ~idx !conditions loc
+    conditions := Domain.ConditionSet.add_bo_safety ~size ~idx loc !conditions
 
   and eval_unop
     : Unop.t -> Exp.t -> Domain.Mem.astate -> Location.t -> Domain.Val.astate
@@ -284,7 +284,7 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
 
   let init_conditions astate = conditions := Domain.get_conds astate
   let get_conditions () = !conditions
-
+(*
   let report_error : Tenv.t -> Procdesc.t -> Domain.Conds.t -> Itv.Bound.t SubstMap.t -> Domain.Conds.t
   = fun tenv proc_desc callee_conds subst_map -> 
     let sym_map = SubstMap.fold (fun formal actual map ->
@@ -293,8 +293,8 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
             let (symbol, coeff) = Itv.SymExp.choose se1 in
             if coeff = 1 then
               Itv.SubstMap.add symbol actual map
-            else map
-        | _ -> map) subst_map Itv.SubstMap.empty
+            else (* impossible *) map
+        | _ -> (* impossible *) map) subst_map Itv.SubstMap.empty
     in
     let new_conds = Domain.Conds.fold (fun cond conds -> 
         Domain.Conds.add (Domain.Conds.subst cond sym_map) conds) callee_conds Domain.Conds.initial
@@ -314,8 +314,8 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
           conds
         else Domain.Conds.add cond conds) new_conds Domain.Conds.initial in*)
     new_conds
-
-  let check_bo tenv callee_pdesc params caller_mem callee_mem callee_cond loc =
+*)
+  let check_bo tenv callee_pdesc params caller_mem callee_mem callee_conds loc =
     match callee_pdesc with 
       Some pdesc ->
         let formals =
@@ -324,17 +324,24 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
             (fun (p, _) -> Domain.Mem.find (Loc.of_pvar p) callee_mem)
         in
         let actuals = IList.map (fun (p, _) -> eval p caller_mem loc) params in
-        let subst_map = IList.fold_left2 (fun map formal actual ->
+        let pairs = IList.fold_left2 (fun l formal actual ->
               let formal_itv = Domain.Val.get_itv formal in
               let actual_itv = Domain.Val.get_itv actual in
-              if formal_itv <> Itv.bot && actual_itv <> Itv.bot then
-                map 
-                |> SubstMap.add (Itv.lb formal_itv) (Itv.lb actual_itv)
-                |> SubstMap.add (Itv.ub formal_itv) (Itv.ub actual_itv)
-              else map) SubstMap.empty formals actuals
+             (Itv.lb formal_itv, Itv.lb actual_itv) 
+             :: (Itv.ub formal_itv, Itv.ub actual_itv) :: l) [] formals actuals
         in
-        report_error tenv pdesc callee_cond subst_map
-    | _ -> callee_cond
+        let subst_map : Itv.Bound.t Itv.SubstMap.t = 
+            IList.fold_left (fun map (formal, actual) ->
+              match formal with 
+                Itv.Bound.V (0, se1) when Itv.SymExp.cardinal se1 = 1 -> 
+                  let (symbol, coeff) = Itv.SymExp.choose se1 in
+                  if coeff = 1 then
+                    Itv.SubstMap.add symbol actual map
+                  else (* impossible *) map
+              | _ -> (* impossible *) map) Itv.SubstMap.empty pairs
+        in
+        Domain.ConditionSet.subst callee_conds subst_map
+    | _ -> callee_conds
     
   let exec_instr ((mem, conds) as astate) { ProcData.pdesc; tenv; extras } node (instr : Sil.instr) = 
     Domain.pp F.err_formatter astate;
@@ -345,21 +352,15 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
     init_conditions astate;
     match instr with
     | Load (id, exp, _, loc) ->
-        prerr_endline "load";
         let locs = eval exp mem loc |> Domain.Val.get_pow_loc in
         let v = Domain.Mem.find_set locs mem in
         (Domain.Mem.add (Loc.of_var (Var.of_id id)) v mem,
          get_conditions ())
     | Store (exp1, _, exp2, loc) ->
-        prerr_endline "store";
         let locs = eval exp1 mem loc |> Domain.Val.get_pow_loc in
         (update_mem locs (eval exp2 mem loc) mem,
          get_conditions ())
     | Prune (exp, loc, _, _) -> (prune exp mem loc, get_conditions ())
-    | Call (ret, Const (Cfun callee_pname), params, loc, _)
-      when extras callee_pname = None -> (* unknown function *)
-        prerr_endline "UNKNOWN FUNCTION";
-        astate
     | Call ((Some (id, _) as ret), Const (Cfun callee_pname), params, loc, _) ->
         let callee = extras callee_pname in
         let call_site = CallSite.make callee_pname loc in
@@ -371,7 +372,7 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
         in
         let new_conds = check_bo tenv callee params mem callee_mem callee_cond loc in
         (Domain.Mem.add (Loc.of_var (Var.of_id id)) (Domain.Mem.find (Loc.of_var (Var.of_pvar (Pvar.get_ret_pvar callee_pname))) callee_mem) mem, 
-         Domain.Conds.join old_conds new_conds)
+         Domain.ConditionSet.join old_conds new_conds)
     | Call (_, _, params, loc, _) -> astate
     | Declare_locals (locals, _) -> 
         let mem = IList.fold_left (fun (mem,c) (pvar, typ) ->
@@ -398,32 +399,19 @@ module Analyzer =
 module Interprocedural = Analyzer.Interprocedural (Summary)
 module Domain = BufferOverrunDomain
 
-let report_error : Tenv.t -> Procdesc.t -> Domain.Conds.t -> Itv.Bound.t SubstMap.t -> unit 
+let report_error : Tenv.t -> Procdesc.t -> Domain.ConditionSet.t -> Itv.Bound.t SubstMap.t -> unit 
   = fun tenv proc_desc callee_conds subst_map -> 
-    let sym_map = SubstMap.fold (fun formal actual map ->
-        match formal with 
-          Itv.Bound.V (0, se1) when Itv.SymExp.cardinal se1 = 1 -> 
-            let (symbol, coeff) = Itv.SymExp.choose se1 in
-            if coeff = 1 then
-              Itv.SubstMap.add symbol actual map
-            else map
-        | _ -> map) subst_map Itv.SubstMap.empty
-    in
-    let new_conds = Domain.Conds.fold (fun cond conds -> 
-        Domain.Conds.add (Domain.Conds.subst cond sym_map) conds) callee_conds Domain.Conds.initial
-    in
-    Domain.Conds.pp F.err_formatter new_conds;
-    Domain.Conds.iter (fun cond ->
-        let checked = Domain.Conds.check cond in
-        if checked <> Itv.one then
+    Domain.ConditionSet.pp F.err_formatter callee_conds;
+    Domain.ConditionSet.iter (fun cond ->
+        let safe = Domain.Condition.check cond in
+        if not safe then
           Checkers.ST.report_error tenv
             (Procdesc.get_proc_name proc_desc)
             proc_desc
             "BUFFER-OVERRUN CHECKER"
-            (Domain.Conds.get_location cond)
-            (Domain.Conds.string_of_cond cond)
-        else ()) new_conds;
-    ()
+            (Domain.Condition.get_location cond)
+            (Domain.Condition.to_string cond)
+        else ()) callee_conds
 
 
 let checker ({ Callbacks.get_proc_desc; Callbacks.tenv; proc_desc } as callback) =

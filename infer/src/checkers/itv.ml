@@ -149,8 +149,12 @@ struct
     | V of int * SymExp.t
     | PInf
 
-  let subst formal map =
-    match formal with
+  let is_symbolic = function 
+    | MInf | PInf -> false 
+    | V (_, se) -> SymExp.cardinal se > 0
+
+  let subst callee_cond map =
+    match callee_cond with
       V (c, se) -> 
         SymExp.fold (fun sym coeff new_bound ->
             match new_bound with
@@ -160,12 +164,11 @@ struct
                 let target = SubstMap.find sym map in
                 match target with 
                   MInf | PInf -> target
-                | V (target_c, target_se) when SymExp.cardinal target_se = 0 ->
-                    V (c' + (target_c * coeff), se')
-                | _ -> V (c', SymExp.add sym coeff se')
+                | V (target_c, target_se) ->
+                    V (c' + (target_c * coeff), SymExp.plus se' target_se)
               with Not_found -> 
                 V (c', SymExp.add sym coeff se')) se (V (c, SymExp.empty))
-    | _ -> formal
+    | _ -> callee_cond
 
   let le : t -> t -> bool
   = fun x y ->
@@ -393,6 +396,9 @@ struct
     | Some n, Some m when n = m -> Some n
     | _, _ -> None
 
+  let is_symbolic : astate -> bool 
+  = fun (lb, ub) -> Bound.is_symbolic lb || Bound.is_symbolic ub
+
   let neg : astate -> astate
   = fun (l, u) ->
     (Bound.neg u, Bound.neg l)
@@ -573,6 +579,10 @@ let one : astate = of_int 1
 let pos : astate = NonBottom ItvPure.pos
 
 let nat : astate = NonBottom ItvPure.nat
+
+let is_symbolic : astate -> bool = function 
+  | NonBottom x -> ItvPure.is_symbolic x
+  | Bottom -> false
 
 let le : lhs:astate -> rhs:astate -> bool = (<=)
 

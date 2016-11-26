@@ -19,100 +19,44 @@ open BasicDom
 module F = Format
 module L = Logging
 
-(* Set of safety conditions
+module Condition = 
+struct 
+  type t = { idx : Itv.astate; size : Itv.astate; loc : Location.t }
 
-   It collects all the B.O. safety conditions in the function, in
-   terms of symbol. *)
-module Conds =
+  let compare = compare
+  let pp fmt e = 
+    F.fprintf fmt "%a < %a" Itv.pp e.idx Itv.pp e.size
+  let get_location e = e.loc
+  let make ~idx ~size loc = { idx; size; loc }
+  let check c = 
+    let not_overrun = Itv.lt_sem c.idx c.size in 
+    let not_underrun = Itv.le_sem Itv.zero c.idx in
+    (not_overrun = Itv.one) && (not_underrun = Itv.one)
+
+  let subst x subst_map = { idx = Itv.subst x.idx subst_map; size = Itv.subst x.size subst_map; loc = x.loc }
+  let to_string x = "Offset : " ^ Itv.to_string x.idx ^ " Size : " ^ Itv.to_string x.size
+end
+
+module ConditionSet = 
 struct
-  type rel_t =
-    | Le of Itv.astate * Itv.astate
-    | Lt of Itv.astate * Itv.astate
-    | Eq of Itv.astate * Itv.astate
+  module PPSet = PrettyPrintable.MakePPSet(struct include Condition let pp_element = pp end)
+  include AbstractDomain.FiniteSet (PPSet)
+  
+  let add_bo_safety ~idx ~size loc cond = 
+    add (Condition.make ~idx ~size loc) cond
+  
+  let subst : astate -> Itv.Bound.t Itv.SubstMap.t -> astate
+  = fun x subst_map -> 
+    fold (fun e -> add (Condition.subst e subst_map)) x empty
 
-  type cond = {rel: rel_t; loc: Location.t}
-
-  (* TODO: Check the condition list is short.  If it is not, we may
-     have to use set instead of list. *)
-  type astate = cond list
-
-  type t = astate
-
-  let initial : astate = []
-
-  let get_location : cond -> Location.t
-  = fun c -> c.loc 
-
-  (* TODO: Duplication checks may be required. *)
-  let add x conds = x :: conds
-
-  let add_bo_safety ~idx ~size conds loc =
-    {rel = Le (Itv.zero, idx); loc}
-    :: {rel = Lt (idx, size); loc}
-    :: conds
-
-  (* TODO: As of now, we do not use logical implications among
-     conditions for order. *)
-  let (<=) : lhs:astate -> rhs:astate -> bool
-  = fun ~lhs ~rhs ->
-    List.for_all (fun c -> List.mem c rhs) lhs
-
-  let subst : cond -> Itv.Bound.t Itv.SubstMap.t -> cond 
-  = fun cond map ->
-    let r =
-      match cond.rel with
-      | Le (l,r) -> Le (Itv.subst l map, Itv.subst r map)
-      | Lt (l,r) -> Lt (Itv.subst l map, Itv.subst r map)
-      | Eq (l,r) -> Eq (Itv.subst l map, Itv.subst r map)
-    in
-    {cond with rel = r}
-
-  (* TODO: generalize *)
-  let string_of_cond cond =
-    match cond.rel with
-    | Le (_, r) -> "Offset : " ^ Itv.to_string r
-    | Lt (l, r) -> "Offset : " ^ Itv.to_string l ^ " Size : " ^ Itv.to_string r
-    | _ -> ""
-
-  let check : cond -> Itv.astate
-  = fun cond ->
-    match cond.rel with
-    | Le (l,r) -> Itv.le_sem l r
-    | Lt (l,r) -> Itv.lt_sem l r
-    | Eq (l,r) -> Itv.eq_sem l r
-
-  let fold : (cond -> 'a -> 'a) -> astate -> 'a -> 'a
-  = fun f l init ->
-    List.fold_left (fun acc e -> f e acc) init l
-
-  let iter : (cond -> unit) -> astate -> unit
-  = fun f l ->
-    List.iter f l
-
-  let join : astate -> astate -> astate
-  = fun x y ->
-    fold (fun c acc -> if List.mem c acc then acc else c :: acc) y x
-
-  (* TODO: We expect that the growing of conditions is finite by the
-     widening of Itv. *)
-  let widen : prev:astate -> next:astate -> num_iters:int -> astate
-  = fun ~prev ~next ~num_iters:_ ->
-    join next prev
-
-  let pp1 : F.formatter -> cond -> unit
-  = fun fmt cond ->
-    (match cond.rel with
-     | Le (x, y) -> F.fprintf fmt "%a <= %a" Itv.pp x Itv.pp y
-     | Lt (x, y) -> F.fprintf fmt "%a < %a" Itv.pp x Itv.pp y
-     | Eq (x, y) -> F.fprintf fmt "%a = %a" Itv.pp x Itv.pp y);
-    F.fprintf fmt " at %a" Location.pp cond.loc
-
+(* Sungkeun's version
   let pp : F.formatter -> astate -> unit
   = fun fmt x ->
     let pp_sep fmt () = F.fprintf fmt " @,/\\ " in
     F.fprintf fmt "@[<hov 0>";
-    F.pp_print_list ~pp_sep pp1 fmt x;
+    F.pp_print_list ~pp_sep pp_element fmt (elements x);
     F.fprintf fmt "@]"
+*)    
 end
 
 module Val =
@@ -273,15 +217,15 @@ struct
     PowLoc.fold (fun x -> add x (Val.join v (find x mem))) locs mem
 end
 
-include AbstractDomain.Pair(Mem)(Conds)
+include AbstractDomain.Pair(Mem)(ConditionSet)
 
 let pp fmt (m, c) =
-  F.fprintf fmt "@[<v 2>( %a,@,%a )@]" Mem.pp m Conds.pp c
+  F.fprintf fmt "@[<v 2>( %a,@,%a )@]" Mem.pp m ConditionSet.pp c
 
 let get_mem : astate -> Mem.astate
 = fun s ->
   fst s
 
-let get_conds : astate -> Conds.astate
+let get_conds : astate -> ConditionSet.astate
 = fun s ->
   snd s
