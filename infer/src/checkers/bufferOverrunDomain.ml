@@ -103,81 +103,49 @@ struct
   = fun (n, x, a) ->
     (Itv.lnot n, x, a)
 
-  let plus : astate -> astate -> astate
-  = fun (n1, x1, a1) (n2, _, _) ->
-    (Itv.plus n1 n2, x1, a1)
+  let itv_lift : (Itv.t -> Itv.t -> Itv.t) -> astate -> astate -> astate
+  = fun f (n1, x1, a1) (n2, _, _) ->
+    (f n1 n2, x1, a1)
 
-  let minus : astate -> astate -> astate
-  = fun (n1, x1, a1) (n2, _, _) ->
-    (Itv.minus n1 n2, x1, a1)
+  let plus : astate -> astate -> astate = itv_lift Itv.plus
 
-  let mult : astate -> astate -> astate
-  = fun (n1, x1, a1) (n2, _, _) ->
-    (Itv.mult n1 n2, x1, a1)
+  let minus : astate -> astate -> astate = itv_lift Itv.minus
 
-  let div : astate -> astate -> astate
-  = fun (n1, x1, a1) (n2, _, _) ->
-    (Itv.div n1 n2, x1, a1)
+  let mult : astate -> astate -> astate = itv_lift Itv.mult
 
-  let mod_sem : astate -> astate -> astate
-  = fun (n1, x1, a1) (n2, _, _) ->
-    (Itv.mod_sem n1 n2, x1, a1)
+  let div : astate -> astate -> astate = itv_lift Itv.div
 
-  let shiftlt : astate -> astate -> astate
-  = fun (n1, x1, a1) (n2, _, _) ->
-    (Itv.shiftlt n1 n2, x1, a1)
+  let mod_sem : astate -> astate -> astate = itv_lift Itv.mod_sem
 
-  let shiftrt : astate -> astate -> astate
-  = fun (n1, x1, a1) (n2, _, _) ->
-    (Itv.shiftrt n1 n2, x1, a1)
+  let shiftlt : astate -> astate -> astate = itv_lift Itv.shiftlt
 
-  let lt_sem : astate -> astate -> astate
-  = fun (n1, x1, a1) (n2, _, _) ->
-    (Itv.lt_sem n1 n2, x1, a1)
+  let shiftrt : astate -> astate -> astate = itv_lift Itv.shiftrt
 
-  let gt_sem : astate -> astate -> astate
-  = fun (n1, x1, a1) (n2, _, _) ->
-    (Itv.gt_sem n1 n2, x1, a1)
+  let lt_sem : astate -> astate -> astate = itv_lift Itv.lt_sem
 
-  let le_sem : astate -> astate -> astate
-  = fun (n1, x1, a1) (n2, _, _) ->
-    (Itv.le_sem n1 n2, x1, a1)
+  let gt_sem : astate -> astate -> astate = itv_lift Itv.gt_sem
 
-  let ge_sem : astate -> astate -> astate
-  = fun (n1, x1, a1) (n2, _, _) ->
-    (Itv.ge_sem n1 n2, x1, a1)
+  let le_sem : astate -> astate -> astate = itv_lift Itv.le_sem
 
-  let eq_sem : astate -> astate -> astate
-  = fun (n1, x1, a1) (n2, _, _) ->
-    (Itv.eq_sem n1 n2, x1, a1)
+  let ge_sem : astate -> astate -> astate = itv_lift Itv.ge_sem
 
-  let ne_sem : astate -> astate -> astate
-  = fun (n1, x1, a1) (n2, _, _) ->
-    (Itv.ne_sem n1 n2, x1, a1)
+  let eq_sem : astate -> astate -> astate = itv_lift Itv.eq_sem
 
-  let land_sem : astate -> astate -> astate
-  = fun (n1, x1, a1) (n2, _, _) ->
-    (Itv.land_sem n1 n2, x1, a1)
+  let ne_sem : astate -> astate -> astate = itv_lift Itv.ne_sem
 
-  let lor_sem : astate -> astate -> astate
-  = fun (n1, x1, a1) (n2, _, _) ->
-    (Itv.lor_sem n1 n2, x1, a1)
+  let land_sem : astate -> astate -> astate = itv_lift Itv.land_sem
 
-  let prune : astate -> astate -> astate
-  = fun (n1, x1, a1) (n2, _, _) ->
-    (Itv.prune n1 n2, x1, a1)
+  let lor_sem : astate -> astate -> astate = itv_lift Itv.lor_sem
+
+  let prune : astate -> astate -> astate = itv_lift Itv.prune
 
   let prune_comp : Binop.t -> astate -> astate -> astate
-  = fun c (n1, x1, a1) (n2, _, _) ->
-    (Itv.prune_comp c n1 n2, x1, a1)
+  = fun c ->
+    itv_lift (Itv.prune_comp c)
 
-  let prune_eq : astate -> astate -> astate
-  = fun (n1, x1, a1) (n2, _, _) ->
-    (Itv.prune_eq n1 n2, x1, a1)
+  let prune_eq : astate -> astate -> astate = itv_lift (Itv.prune_eq)
 
-  let prune_ne : astate -> astate -> astate
-  = fun (n1, x1, a1) (n2, _, _) ->
-    (Itv.prune_ne n1 n2, x1, a1)
+  let prune_ne : astate -> astate -> astate = itv_lift (Itv.prune_ne)
 end
 
 module PPMap = 
