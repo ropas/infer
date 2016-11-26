@@ -151,7 +151,7 @@ let plus_null_pos : astate -> Itv.t -> astate
 = fun arr i ->
   map (fun a -> ArrInfo.plus_null_pos a i) arr
 
-let pow_loc_of_array : astate -> PowLoc.t = fun array ->
+let get_pow_loc : astate -> PowLoc.t = fun array ->
   let pow_loc_of_allocsite k _ acc = PowLoc.add (Loc.of_allocsite k) acc in
   fold pow_loc_of_allocsite array PowLoc.bot
 

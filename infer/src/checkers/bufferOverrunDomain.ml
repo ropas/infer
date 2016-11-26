@@ -70,6 +70,7 @@ struct
   let get_itv (x,_,_) = x
   let get_pow_loc (_,x,_) = x
   let get_array_blk (_,_,x) = x
+  let get_all_locs (_,p,a) = ArrayBlk.get_pow_loc a |> PowLoc.join p 
 
   let top_itv = (Itv.top, PowLoc.bot, ArrayBlk.bot)
 

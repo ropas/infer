@@ -64,14 +64,15 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
     (* Type cast *)
 (*    | Cast Typ.t t *)
     (* A field offset, the type is the surrounding struct type *)
-(*    | Lfield t Ident.fieldname Typ.t *)
+    | Exp.Lfield (e, fn, _) ->
+        eval e mem loc |> Domain.Val.get_pow_loc |> flip PowLoc.append_field fn |> Domain.Val.of_pow_loc
     | Exp.Lindex (e1, e2) -> 
         let arr = eval e1 mem loc |> Domain.Val.get_pow_loc |> flip Domain.Mem.find_set mem in
         let idx = eval e2 mem loc in
         add_condition arr idx loc;
         arr
         |> Domain.Val.get_array_blk 
-        |> ArrayBlk.pow_loc_of_array
+        |> ArrayBlk.get_pow_loc
         |> Domain.Val.of_pow_loc
     | Exp.Sizeof (typ, _, _) -> Domain.Val.of_int (sizeof typ)
 (*    | Exp.Exn _ -> 
@@ -99,7 +100,7 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
     let v1 = eval e1 mem loc in
     let v2 = eval e2 mem loc in
     match binop with
-    | Binop.PlusA -> Domain.Val.plus v1 v2
+    | Binop.PlusA -> prerr_endline "plusA"; Domain.Val.plus v1 v2
     | Binop.PlusPI -> raise Not_implemented
     | Binop.MinusA -> Domain.Val.minus v1 v2
     | Binop.MinusPI -> raise Not_implemented
@@ -138,19 +139,33 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
     let nullpos = Itv.of_int 0 in (* TODO *)
     ArrayBlk.make allocsite offset size stride nullpos
     |> Domain.Val.of_array_blk
+  
+  (* heuristic *)
+  let get_malloc_info = function
+    | Exp.BinOp (Binop.Mult, Exp.Sizeof (typ, _, _), ((Exp.Const _) as size)) -> (typ, size)
+    | Exp.Sizeof (typ, _, _) -> (typ, Exp.one)
+    | _ -> raise Not_implemented
 
-  let handle_unknown_call ret callee_pname params node astate = 
+  let model_malloc pdesc ret callee_pname params node mem = 
+    match ret with 
+      Some (id, _) -> 
+        let ret_loc = Loc.of_var (Var.of_pvar (Pvar.get_ret_pvar callee_pname)) in
+        let (typ, size) = get_malloc_info (IList.hd params |> fst) in
+        Domain.Mem.add ret_loc (eval_array_alloc pdesc node typ size 0 1 mem) mem
+    | _ -> mem
+
+  let handle_unknown_call pdesc ret callee_pname params node (mem, conds, ta) =
     match Procname.get_method callee_pname with
-      "malloc" -> prerr_endline "print malloc"; astate
+    | "malloc" ->
+        (model_malloc pdesc ret callee_pname params node mem, conds, ta)
     | _ ->
-      (match ret with 
-         Some (id, _) -> 
-          prerr_endline "handle";
-          let ret_loc = Loc.of_var (Var.of_pvar (Pvar.get_ret_pvar callee_pname)) in
-          (Domain.Mem.add ret_loc Domain.Val.top_itv (Domain.get_mem astate),
-           Domain.get_conds astate,
-           Domain.get_temp_alias astate)
-       | None -> astate)
+        (match ret with
+           Some (id, _) ->
+             let ret_loc =
+               Loc.of_var (Var.of_pvar (Pvar.get_ret_pvar callee_pname))
+             in
+             (Domain.Mem.add ret_loc Domain.Val.top_itv mem, conds, ta)
+         | None -> (mem, conds, ta))
 
   let rec declare_array pdesc node loc typ inst_num dimension mem = 
     match typ with 
@@ -307,37 +322,7 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
 
   let init_conditions astate = conditions := Domain.get_conds astate
   let get_conditions () = !conditions
-(*
-  let report_error : Tenv.t -> Procdesc.t -> Domain.Conds.t -> Itv.Bound.t SubstMap.t -> Domain.Conds.t
-  = fun tenv proc_desc callee_conds subst_map -> 
-    let sym_map = SubstMap.fold (fun formal actual map ->
-        match formal with 
-          Itv.Bound.V (0, se1) when Itv.SymExp.cardinal se1 = 1 -> 
-            let (symbol, coeff) = Itv.SymExp.choose se1 in
-            if coeff = 1 then
-              Itv.SubstMap.add symbol actual map
-            else (* impossible *) map
-        | _ -> (* impossible *) map) subst_map Itv.SubstMap.empty
-    in
-    let new_conds = Domain.Conds.fold (fun cond conds -> 
-        Domain.Conds.add (Domain.Conds.subst cond sym_map) conds) callee_conds Domain.Conds.initial
-    in
-    Domain.Conds.pp F.err_formatter new_conds;
-    F.fprintf F.err_formatter "@.@.";
-  (*    let new_conds = Domain.Conds.fold (fun cond conds ->
-        let checked = Domain.Conds.check cond in
-        if checked <> Itv.one then
-          let _ = Checkers.ST.report_error tenv
-            (Procdesc.get_proc_name proc_desc)
-            proc_desc
-            "BUFFER-OVERRUN CHECKER"
-            (Domain.Conds.get_location cond)
-            (Domain.Conds.string_of_cond cond)
-          in
-          conds
-        else Domain.Conds.add cond conds) new_conds Domain.Conds.initial in*)
-    new_conds
-*)
+
   let check_bo tenv callee_pdesc params caller_mem callee_mem callee_conds loc =
     match callee_pdesc with 
       Some pdesc ->
@@ -350,8 +335,10 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
         let pairs = IList.fold_left2 (fun l formal actual ->
               let formal_itv = Domain.Val.get_itv formal in
               let actual_itv = Domain.Val.get_itv actual in
-             (Itv.lb formal_itv, Itv.lb actual_itv) 
-             :: (Itv.ub formal_itv, Itv.ub actual_itv) :: l) [] formals actuals
+              if formal_itv <> Itv.bot && actual_itv <> Itv.bot then 
+                (Itv.lb formal_itv, Itv.lb actual_itv) 
+                :: (Itv.ub formal_itv, Itv.ub actual_itv) :: l
+              else l) [] formals actuals
         in
         let subst_map : Itv.Bound.t Itv.SubstMap.t = 
             IList.fold_left (fun map (formal, actual) ->
@@ -376,13 +363,13 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
     init_conditions astate;
     match instr with
     | Load (id, exp, _, loc) ->
-        let locs = eval exp mem loc |> Domain.Val.get_pow_loc in
+        let locs = eval exp mem loc |> Domain.Val.get_all_locs in
         let v = Domain.Mem.find_set locs mem in
         (Domain.Mem.add (Loc.of_var (Var.of_id id)) v mem,
          get_conditions (),
          Domain.TempAlias.load id exp ta)
     | Store (exp1, _, exp2, loc) ->
-        let locs = eval exp1 mem loc |> Domain.Val.get_pow_loc in
+        let locs = eval exp1 mem loc |> Domain.Val.get_all_locs in
         (update_mem locs (eval exp2 mem loc) mem,
          get_conditions (),
          Domain.TempAlias.store exp1 exp2 ta)
@@ -395,7 +382,7 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
         let (callee_mem, callee_cond, _) =
           match Summary.read_summary tenv pdesc callee_pname with
           | Some astate -> astate
-          | None -> handle_unknown_call ret callee_pname params node astate
+          | None -> handle_unknown_call pdesc ret callee_pname params node astate
         in
         let new_conds = check_bo tenv callee params mem callee_mem callee_cond loc in
         (Domain.Mem.add (Loc.of_var (Var.of_id id))
