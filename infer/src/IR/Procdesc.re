@@ -327,7 +327,8 @@ type t = {
   mutable nodes: list Node.t, /** list of nodes of this procedure */
   mutable nodes_num: int, /** number of nodes */
   mutable start_node: Node.t, /** start node of this procedure */
-  mutable exit_node: Node.t /** exit node of ths procedure */
+  mutable exit_node: Node.t, /** exit node of ths procedure */
+  mutable loop_heads: option NodeSet.t /** loop head nodes of this procedure */
 };
 
 
@@ -336,7 +337,14 @@ let from_proc_attributes called_from_cfg::called_from_cfg attributes => {
   if (not called_from_cfg) {
     assert false
   };
-  {attributes, nodes: [], nodes_num: 0, start_node: Node.dummy (), exit_node: Node.dummy ()}
+  {
+    attributes,
+    nodes: [],
+    nodes_num: 0,
+    start_node: Node.dummy (),
+    exit_node: Node.dummy (),
+    loop_heads: None
+  }
 };
 
 
@@ -545,26 +553,34 @@ let node_set_succs_exn pdesc (node: Node.t) succs exn =>
   | _ => set_succs_exn_base node succs exn
   };
 
-/* TODO: save calculated loop heads */
-let rec set_loop_head visited heads wl =>
-  switch wl {
-  | [] => heads
-  | [(n, ancester), ...wl'] =>
-    if (NodeSet.mem n visited) {
-      if (NodeSet.mem n ancester) {
-        set_loop_head visited (NodeSet.add n heads) wl'
+let get_loop_heads pdesc => {
+  let rec set_loop_head_rec visited heads wl =>
+    switch wl {
+    | [] => heads
+    | [(n, ancester), ...wl'] =>
+      if (NodeSet.mem n visited) {
+        if (NodeSet.mem n ancester) {
+          set_loop_head_rec visited (NodeSet.add n heads) wl'
+        } else {
+          set_loop_head_rec visited heads wl'
+        }
       } else {
-        set_loop_head visited heads wl'
+        let ancester = NodeSet.add n ancester;
+        let works = IList.map (fun m => (m, ancester)) (Node.get_succs n);
+        set_loop_head_rec (NodeSet.add n visited) heads (works @ wl')
       }
-    } else {
-      let ancester = NodeSet.add n ancester;
-      let works = IList.map (fun m => (m, ancester)) (Node.get_succs n);
-      set_loop_head (NodeSet.add n visited) heads (works @ wl')
-    }
-  };
+    };
+  let start_wl = [(get_start_node pdesc, NodeSet.empty)];
+  let lh = set_loop_head_rec NodeSet.empty NodeSet.empty start_wl;
+  pdesc.loop_heads = Some lh;
+  lh
+};
 
 let is_loop_head pdesc (node: Node.t) => {
-  let start_wl = [(get_start_node pdesc, NodeSet.empty)];
-  let loop_heads = set_loop_head NodeSet.empty NodeSet.empty start_wl;
-  NodeSet.mem node loop_heads
+  let lh =
+    switch pdesc.loop_heads {
+    | Some lh => lh
+    | None => get_loop_heads pdesc
+    };
+  NodeSet.mem node lh
 };
