@@ -544,3 +544,27 @@ let node_set_succs_exn pdesc (node: Node.t) succs exn =>
     set_succs_exn_base node' [exit_node] exn
   | _ => set_succs_exn_base node succs exn
   };
+
+/* TODO: save calculated loop heads */
+let rec set_loop_head visited heads wl =>
+  switch wl {
+  | [] => heads
+  | [(n, ancester), ...wl'] =>
+    if (NodeSet.mem n visited) {
+      if (NodeSet.mem n ancester) {
+        set_loop_head visited (NodeSet.add n heads) wl'
+      } else {
+        set_loop_head visited heads wl'
+      }
+    } else {
+      let ancester = NodeSet.add n ancester;
+      let works = IList.map (fun m => (m, ancester)) (Node.get_succs n);
+      set_loop_head (NodeSet.add n visited) heads (works @ wl')
+    }
+  };
+
+let is_loop_head pdesc (node: Node.t) => {
+  let start_wl = [(get_start_node pdesc, NodeSet.empty)];
+  let loop_heads = set_loop_head NodeSet.empty NodeSet.empty start_wl;
+  NodeSet.mem node loop_heads
+};

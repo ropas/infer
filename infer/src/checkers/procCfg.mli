@@ -65,6 +65,8 @@ module type S = sig
   val nodes : t -> node list
 
   val from_pdesc : Procdesc.t -> t
+
+  val is_loop_head : Procdesc.t -> node -> bool
 end
 
 module DefaultNode : Node with type t = Procdesc.Node.t and type id = Procdesc.Node.id

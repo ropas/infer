@@ -68,6 +68,7 @@ module MockProcCfg = struct
   let exit_node _ = assert false
   let proc_desc _ = assert false
   let from_pdesc _ = assert false
+  let is_loop_head _ = assert false
 end
 
 module S = Scheduler.ReversePostorder (MockProcCfg)

@@ -279,3 +279,5 @@ let set_start_node: t => Node.t => unit;
 
 /** indicate that we have performed preanalysis on the CFG assoociated with [t] */
 let signal_did_preanalysis: t => unit;
+
+let is_loop_head: t => Node.t => bool;
