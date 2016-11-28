@@ -43,12 +43,31 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
   let eval_const : Const.t -> Domain.Val.astate = function 
     | Const.Cint intlit -> 
         Domain.Val.of_int (IntLit.to_int intlit)
+    | Const.Cfloat f -> f |> int_of_float |> Domain.Val.of_int 
     | _ -> Domain.Val.of_int (-999) (* TODO *)
 
-  let sizeof : Typ.t -> int
-  = fun t ->
-    (* TODO *)
-    4
+  let sizeof_ikind : Typ.ikind -> int = function 
+    | Typ.IChar | Typ.ISChar | Typ.IUChar | Typ.IBool -> 1
+    | Typ.IInt | Typ.IUInt -> 4
+    | Typ.IShort | Typ.IUShort -> 2
+    | Typ.ILong | Typ.IULong -> 4
+    | Typ.ILongLong | Typ.IULongLong -> 8
+    | Typ.I128 | Typ.IU128 -> 16
+
+  let sizeof_fkind : Typ.fkind -> int = function
+    | Typ.FFloat -> 4
+    | Typ.FDouble | Typ.FLongDouble -> 8
+
+  (* NOTE: assume 32bit machine *)
+  let rec sizeof : Typ.t -> int = function
+    | Typ.Tint ikind -> sizeof_ikind ikind
+    | Typ.Tfloat fkind -> sizeof_fkind fkind
+    | Typ.Tvoid -> 1
+    | Typ.Tptr (_, _) -> 4
+    | Typ.Tstruct _ -> 4 (* TODO *)
+    | Typ.Tarray (typ, Some ilit) -> (sizeof typ) * (IntLit.to_int ilit)
+    | _ -> 4
+
   let conditions = ref Domain.ConditionSet.initial
 
   let rec eval : Exp.t -> Domain.Mem.astate -> Location.t -> Domain.Val.astate
@@ -61,9 +80,7 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
     | Exp.UnOp (uop, e, _) -> eval_unop uop e mem loc
     | Exp.BinOp (bop, e1, e2) -> eval_binop bop e1 e2 mem loc
     | Exp.Const c -> eval_const c
-    (* Type cast *)
-(*    | Cast Typ.t t *)
-    (* A field offset, the type is the surrounding struct type *)
+    | Exp.Cast (_, e) -> eval e mem loc
     | Exp.Lfield (e, fn, _) ->
         eval e mem loc |> Domain.Val.get_pow_loc |> flip PowLoc.append_field fn |> Domain.Val.of_pow_loc
     | Exp.Lindex (e1, e2) -> 
@@ -135,8 +152,8 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
     let allocsite = get_allocsite pdesc node inst_num dimension in
     let offset = Itv.of_int 0 in
     let size = eval size mem (CFG.loc node) |> Domain.Val.get_itv in
-    let stride = Itv.of_int 4 in (* TODO *)
-    let nullpos = Itv.of_int 0 in (* TODO *)
+    let stride = sizeof typ |> Itv.of_int in
+    let nullpos = Itv.nat in
     ArrayBlk.make allocsite offset size stride nullpos
     |> Domain.Val.of_array_blk
   
@@ -148,7 +165,7 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
 
   let model_malloc pdesc ret callee_pname params node mem = 
     match ret with 
-      Some (id, _) -> 
+      Some (_, _) -> 
         let ret_loc = Loc.of_var (Var.of_pvar (Pvar.get_ret_pvar callee_pname)) in
         let (typ, size) = get_malloc_info (IList.hd params |> fst) in
         Domain.Mem.add ret_loc (eval_array_alloc pdesc node typ size 0 1 mem) mem
@@ -160,7 +177,7 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
         (model_malloc pdesc ret callee_pname params node mem, conds, ta)
     | _ ->
         (match ret with
-           Some (id, _) ->
+           Some (_, _) ->
              let ret_loc =
                Loc.of_var (Var.of_pvar (Pvar.get_ret_pvar callee_pname))
              in
@@ -323,7 +340,7 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
   let init_conditions astate = conditions := Domain.get_conds astate
   let get_conditions () = !conditions
 
-  let check_bo tenv callee_pdesc params caller_mem callee_mem callee_conds loc =
+  let check_bo callee_pdesc params caller_mem callee_mem callee_conds loc =
     match callee_pdesc with 
       Some pdesc ->
         let formals =
@@ -377,19 +394,18 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
         (prune exp ta loc mem, get_conditions (), ta)
     | Call ((Some (id, _) as ret), Const (Cfun callee_pname), params, loc, _) ->
         let callee = extras callee_pname in
-        let call_site = CallSite.make callee_pname loc in
         let old_conds = get_conditions () in
         let (callee_mem, callee_cond, _) =
           match Summary.read_summary tenv pdesc callee_pname with
           | Some astate -> astate
           | None -> handle_unknown_call pdesc ret callee_pname params node astate
         in
-        let new_conds = check_bo tenv callee params mem callee_mem callee_cond loc in
+        let new_conds = check_bo callee params mem callee_mem callee_cond loc in
         (Domain.Mem.add (Loc.of_var (Var.of_id id))
            (Domain.Mem.find (Loc.of_var (Var.of_pvar (Pvar.get_ret_pvar callee_pname))) callee_mem) mem, 
          Domain.ConditionSet.join old_conds new_conds,
          ta)
-    | Call (_, _, params, loc, _) -> astate
+    | Call (_, _, _, _, _) -> astate
     | Declare_locals (locals, _) -> 
         let mem = IList.fold_left (fun (mem, c) (pvar, typ) ->
             match typ with 
@@ -415,8 +431,8 @@ module Analyzer =
 module Interprocedural = Analyzer.Interprocedural (Summary)
 module Domain = BufferOverrunDomain
 
-let report_error : Tenv.t -> Procdesc.t -> Domain.ConditionSet.t -> Itv.Bound.t SubstMap.t -> unit 
-  = fun tenv proc_desc callee_conds subst_map -> 
+let report_error : Tenv.t -> Procdesc.t -> Domain.ConditionSet.t -> unit 
+  = fun tenv proc_desc callee_conds -> 
     Domain.ConditionSet.pp F.err_formatter callee_conds;
     Domain.ConditionSet.iter (fun cond ->
         let safe = Domain.Condition.check cond in
@@ -438,5 +454,5 @@ let checker ({ Callbacks.get_proc_desc; Callbacks.tenv; proc_desc } as callback)
       F.fprintf F.err_formatter "Final @.@.";
       Domain.pp F.err_formatter post;
       F.fprintf F.err_formatter "@.@.";
-      report_error tenv proc_desc (Domain.get_conds post) SubstMap.empty
+      report_error tenv proc_desc (Domain.get_conds post)
   | _ -> ()
