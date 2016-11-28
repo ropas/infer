@@ -103,8 +103,10 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
   = fun arr idx loc ->
     let size = arr |> Domain.Val.get_array_blk |> ArrayBlk.sizeof in
     let offset = arr |> Domain.Val.get_array_blk |> ArrayBlk.offsetof in
-    let idx = idx |> Domain.Val.get_itv in
-    conditions := Domain.ConditionSet.add_bo_safety ~size ~idx:(Itv.plus offset idx) loc !conditions
+    let idx = idx |> Domain.Val.get_itv |> Itv.plus offset in
+    if size <> Itv.bot && idx <> Itv.bot then 
+      conditions := Domain.ConditionSet.add_bo_safety ~size ~idx loc !conditions
+    else ()
 
   and eval_unop
     : Unop.t -> Exp.t -> Domain.Mem.astate -> Location.t -> Domain.Val.astate
@@ -123,8 +125,9 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
     let v2 = eval e2 mem loc in
     match binop with
     | Binop.PlusA ->
-        add_condition v1 v2 loc;
         let deref_v1 = deref v1 mem in
+        add_condition v1 v2 loc;
+        add_condition deref_v1 v2 loc;
         Domain.Val.join (Domain.Val.plus v1 v2) (Domain.Val.plus_pi deref_v1 v2)
     | Binop.PlusPI -> Domain.Val.plus_pi v1 v2
     | Binop.MinusA ->
