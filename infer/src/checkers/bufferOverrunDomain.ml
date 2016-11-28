@@ -29,9 +29,11 @@ struct
   let get_location e = e.loc
   let make ~idx ~size loc = { idx; size; loc }
   let check c = 
-    let not_overrun = Itv.lt_sem c.idx c.size in 
-    let not_underrun = Itv.le_sem Itv.zero c.idx in
-    (not_overrun = Itv.one) && (not_underrun = Itv.one)
+    if Itv.is_symbolic c.idx || Itv.is_symbolic c.size then true
+    else 
+      let not_overrun = Itv.lt_sem c.idx c.size in 
+      let not_underrun = Itv.le_sem Itv.zero c.idx in
+      (not_overrun = Itv.one) && (not_underrun = Itv.one)
 
   let subst x subst_map = { idx = Itv.subst x.idx subst_map; size = Itv.subst x.size subst_map; loc = x.loc }
   let to_string x = "Offset : " ^ Itv.to_string x.idx ^ " Size : " ^ Itv.to_string x.size

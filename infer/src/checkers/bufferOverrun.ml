@@ -102,8 +102,9 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
   and add_condition : Domain.Val.t -> Domain.Val.t -> Location.t -> unit
   = fun arr idx loc ->
     let size = arr |> Domain.Val.get_array_blk |> ArrayBlk.sizeof in
+    let offset = arr |> Domain.Val.get_array_blk |> ArrayBlk.offsetof in
     let idx = idx |> Domain.Val.get_itv in
-    conditions := Domain.ConditionSet.add_bo_safety ~size ~idx loc !conditions
+    conditions := Domain.ConditionSet.add_bo_safety ~size ~idx:(Itv.plus offset idx) loc !conditions
 
   and eval_unop
     : Unop.t -> Exp.t -> Domain.Mem.astate -> Location.t -> Domain.Val.astate
@@ -122,6 +123,7 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
     let v2 = eval e2 mem loc in
     match binop with
     | Binop.PlusA ->
+        add_condition v1 v2 loc;
         let deref_v1 = deref v1 mem in
         Domain.Val.join (Domain.Val.plus v1 v2) (Domain.Val.plus_pi deref_v1 v2)
     | Binop.PlusPI -> Domain.Val.plus_pi v1 v2
@@ -158,12 +160,10 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
     |> Allocsite.make
 
   let eval_array_alloc
-    : Procdesc.t -> CFG.node -> Typ.t -> Exp.t -> int -> int
-      -> Domain.Mem.astate -> Domain.Val.astate
-  = fun pdesc node typ size inst_num dimension mem ->
+    : Procdesc.t -> CFG.node -> Typ.t -> Itv.astate -> Itv.astate -> int -> int
+      -> Domain.Val.astate
+  = fun pdesc node typ offset size inst_num dimension ->
     let allocsite = get_allocsite pdesc node inst_num dimension in
-    let offset = Itv.of_int 0 in
-    let size = eval size mem (CFG.loc node) |> Domain.Val.get_itv in
     let stride = sizeof typ |> Itv.of_int in
     let nullpos = Itv.nat in
     ArrayBlk.make allocsite offset size stride nullpos
@@ -180,7 +180,8 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
       Some (_, _) -> 
         let ret_loc = Loc.of_var (Var.of_pvar (Pvar.get_ret_pvar callee_pname)) in
         let (typ, size) = get_malloc_info (IList.hd params |> fst) in
-        Domain.Mem.add ret_loc (eval_array_alloc pdesc node typ size 0 1 mem) mem
+        let size = eval size mem (CFG.loc node) |> Domain.Val.get_itv in
+        Domain.Mem.add ret_loc (eval_array_alloc pdesc node typ Itv.zero size 0 1) mem
     | _ -> mem
 
   let handle_unknown_call pdesc ret callee_pname params node (mem, conds, ta) =
@@ -196,20 +197,19 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
              (Domain.Mem.add ret_loc Domain.Val.top_itv mem, conds, ta)
          | None -> (mem, conds, ta))
 
-  let rec declare_array pdesc node loc typ inst_num dimension mem = 
+  let rec declare_array pdesc node loc typ len inst_num dimension mem = 
+    let size = IntLit.to_int len |> Itv.of_int in
+    let mem = Domain.Mem.add loc (eval_array_alloc pdesc node typ Itv.zero size inst_num dimension) mem in
+    let loc = Loc.of_allocsite (get_allocsite pdesc node inst_num dimension) in
     match typ with 
       Typ.Tarray (typ, Some len) -> 
-(*      prerr_endline "Tarray";
-        IntLit.pp F.err_formatter len;
-          Loc.pp  F.err_formatter loc;
-          Typ.pp_full pe_text F.err_formatter typ;
-*)
-        let size = Exp.Const (Const.Cint len) in
-        let mem = Domain.Mem.add loc (eval_array_alloc pdesc node typ size inst_num dimension mem) mem in
-        let loc = Loc.of_allocsite (get_allocsite pdesc node inst_num dimension) in
-        declare_array pdesc node loc typ inst_num (dimension + 1) mem
+        declare_array pdesc node loc typ len inst_num (dimension + 1) mem
     | _ -> mem
 
+  let declare_symolic_array pdesc node loc typ inst_num dimension mem =
+    let (offset, size) = (Itv.get_new_sym (), Itv.get_new_sym ()) in
+    Domain.Mem.add loc (eval_array_alloc pdesc node typ offset size inst_num dimension) mem
+     
   let can_strong_update ploc =
     if PowLoc.cardinal ploc = 1 then 
       let lv = PowLoc.choose ploc in
@@ -364,10 +364,29 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
         let pairs = IList.fold_left2 (fun l formal actual ->
               let formal_itv = Domain.Val.get_itv formal in
               let actual_itv = Domain.Val.get_itv actual in
-              if formal_itv <> Itv.bot && actual_itv <> Itv.bot then 
-                (Itv.lb formal_itv, Itv.lb actual_itv) 
-                :: (Itv.ub formal_itv, Itv.ub actual_itv) :: l
-              else l) [] formals actuals
+              let formal_arr = Domain.Val.get_array_blk formal in
+              let actual_arr = Domain.Val.get_pow_loc actual |> flip Domain.Mem.find_set caller_mem |> Domain.Val.get_array_blk in
+              let formal_arr_offset = formal_arr |> ArrayBlk.offsetof in
+              let formal_arr_size = formal_arr |> ArrayBlk.sizeof in
+              let actual_arr_offset = actual_arr |> ArrayBlk.offsetof in
+              let actual_arr_size = actual_arr |> ArrayBlk.sizeof in
+              l
+              |> (fun l -> 
+                  if formal_itv <> Itv.bot && actual_itv <> Itv.bot then 
+                    (Itv.lb formal_itv, Itv.lb actual_itv) 
+                    :: (Itv.ub formal_itv, Itv.ub actual_itv) :: l
+                  else l)
+              |> (fun l -> 
+                  if formal_arr_offset <> Itv.bot && actual_arr_offset <> Itv.bot then                   
+                    (Itv.lb formal_arr_offset, Itv.lb actual_arr_offset)
+                    :: (Itv.ub formal_arr_offset, Itv.ub actual_arr_offset) :: l
+                  else l)
+              |> (fun l -> 
+                  if formal_arr_size <> Itv.bot && actual_arr_size <> Itv.bot then 
+                    (Itv.lb formal_arr_size, Itv.lb actual_arr_size)
+                    :: (Itv.ub formal_arr_size, Itv.ub actual_arr_size) :: l
+                  else l)
+            ) [] formals actuals
         in
         let subst_map : Itv.Bound.t Itv.SubstMap.t = 
             IList.fold_left (fun map (formal, actual) ->
@@ -381,7 +400,7 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
         in
         Domain.ConditionSet.subst callee_conds subst_map
     | _ -> callee_conds
-    
+
   let exec_instr ((mem, conds, ta) as astate) { ProcData.pdesc; tenv; extras }
       node (instr : Sil.instr) =
     Domain.pp F.err_formatter astate;
@@ -419,16 +438,19 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
          ta)
     | Call (_, _, _, _, _) -> astate
     | Declare_locals (locals, _) -> 
+        (* static array allocation *)
         let mem = IList.fold_left (fun (mem, c) (pvar, typ) ->
             match typ with 
-              Typ.Tarray (_, _) ->
-                (declare_array pdesc node (Loc.of_var (Var.of_pvar pvar)) typ c 1 mem, c+1)
+              Typ.Tarray (typ, Some len) ->
+                (declare_array pdesc node (Loc.of_var (Var.of_pvar pvar)) typ len c 1 mem, c+1)
             | _ -> (mem, c)) (mem, 1) locals 
           |> fst
         in
         IList.fold_left (fun (mem, c) (pvar, typ) ->
             match typ with
               Typ.Tint _ -> (Domain.Mem.add (Loc.of_pvar pvar) (Domain.Val.get_new_sym ()) mem, c+1)
+            | Typ.Tptr (typ, _) ->  
+                (declare_symolic_array pdesc node (Loc.of_var (Var.of_pvar pvar)) typ c 1 mem, c+1)
             | _ -> (mem, c) (* TODO *)) (mem, 0) (get_formals pdesc)
         |> (fun (mem, _) -> (mem, conds, ta))
     | Remove_temps _ | Abstract _ | Nullify _ -> astate
