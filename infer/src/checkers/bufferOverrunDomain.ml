@@ -204,7 +204,14 @@ end
 module Mem = 
 struct
   include AbstractDomain.Map(PPMap)(Val)
-  let find l m = try find l m with Not_found -> Val.bot
+  let find l m =
+    let l' =
+      match l with
+      | Loc.Var x when Loc.is_pvar_in_reg x -> Loc.PVarHeap x
+      | _ -> l
+    in
+    try find l' m with
+    | Not_found -> Val.bot
 
   let find_set : PowLoc.t -> astate -> Val.astate
   = fun locs mem -> 
