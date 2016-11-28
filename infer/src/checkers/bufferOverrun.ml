@@ -80,7 +80,14 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
     (* Pure variable: it is not an lvalue *)
     | Exp.Var id -> Domain.Mem.find (Var.of_id id |> Loc.of_var) mem
     (* The address of a program variable *)
-    | Exp.Lvar pvar -> pvar |> PowLoc.of_pvar_heap |> Domain.Val.of_pow_loc
+    | Exp.Lvar pvar ->
+        let reg_l = pvar |> Loc.of_pvar_reg in
+        let array_v =
+          mem |> Domain.Mem.find reg_l |> Domain.Val.get_array_blk
+          |> Domain.Val.of_array_blk
+        in
+        let heap_v = pvar |> PowLoc.of_pvar_heap |> Domain.Val.of_pow_loc in
+        Domain.Val.join array_v heap_v
     | Exp.UnOp (uop, e, _) -> eval_unop uop e mem loc
     | Exp.BinOp (bop, e1, e2) -> eval_binop bop e1 e2 mem loc
     | Exp.Const c -> eval_const c

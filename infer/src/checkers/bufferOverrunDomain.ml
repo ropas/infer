@@ -205,13 +205,15 @@ module Mem =
 struct
   include AbstractDomain.Map(PPMap)(Val)
   let find l m =
-    let l' =
-      match l with
-      | Loc.Var x when Loc.is_pvar_in_reg x -> Loc.PVarHeap x
-      | _ -> l
+    let v =
+      try find l m with
+      | Not_found -> Val.bot
     in
-    try find l' m with
-    | Not_found -> Val.bot
+    match l with
+    | Loc.Var x when Loc.is_pvar_in_reg x ->
+        let pvar_v = Val.of_pow_loc (PowLoc.singleton (Loc.PVarHeap x)) in
+        Val.join v pvar_v
+    | _ -> v
 
   let find_set : PowLoc.t -> astate -> Val.astate
   = fun locs mem -> 
