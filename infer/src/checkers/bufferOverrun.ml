@@ -195,7 +195,7 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
 
   let handle_unknown_call pdesc ret callee_pname params node (mem, conds, ta) =
     match Procname.get_method callee_pname with
-    | "malloc" ->
+    | "malloc" | "__new_array" ->
         (model_malloc pdesc ret callee_pname params node mem, conds, ta)
     | _ ->
         (match ret with
