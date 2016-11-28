@@ -117,9 +117,14 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
     let v1 = eval e1 mem loc in
     let v2 = eval e2 mem loc in
     match binop with
-    | Binop.PlusA -> prerr_endline "plusA"; Domain.Val.plus v1 v2
+    | Binop.PlusA ->
+        Domain.Val.join (Domain.Val.plus v1 v2) (Domain.Val.plus_pi v1 v2)
     | Binop.PlusPI -> Domain.Val.plus_pi v1 v2
-    | Binop.MinusA -> Domain.Val.minus v1 v2
+    | Binop.MinusA ->
+        Domain.Val.joins
+          [ Domain.Val.minus v1 v2
+          ; Domain.Val.minus_pi v1 v2
+          ; Domain.Val.minus_pp v1 v2 ]
     | Binop.MinusPI -> Domain.Val.minus_pi v1 v2
     | Binop.MinusPP -> Domain.Val.minus_pp v1 v2
     | Binop.Mult -> Domain.Val.mult v1 v2
