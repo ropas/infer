@@ -69,6 +69,12 @@ struct
 
   let bot = initial
 
+  let rec joins : astate list -> astate
+  = function
+    | [] -> bot
+    | [a] -> a
+    | a :: b -> join a (joins b)
+
   let get_itv (x,_,_) = x
   let get_pow_loc (_,x,_) = x
   let get_array_blk (_,_,x) = x
@@ -158,7 +164,7 @@ struct
     (n1, x1, ArrayBlk.minus_offset a1 n2)
 
   let minus_pp : astate -> astate -> astate
-  = fun (n1, x1, a1) (_, _, a2) ->
+  = fun (_, x1, a1) (_, _, a2) ->
     (ArrayBlk.diff a1 a2, x1, a1)
 end
 
