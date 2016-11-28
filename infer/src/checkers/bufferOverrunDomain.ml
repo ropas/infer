@@ -182,38 +182,30 @@ struct
     (ArrayBlk.diff a1 a2, PowLoc.bot, ArrayBlk.bot)
 end
 
-module PPMap = 
-struct 
-  module Ord = struct include Loc let compare = compare let pp_key = pp end
-
-  include PrettyPrintable.MakePPMap(Ord)
-
-  let pp_collection ~pp_item fmt c =
-    let pp_collection fmt c =
-      let pp_sep fmt () = F.fprintf fmt ",@," in
-      F.pp_print_list ~pp_sep pp_item fmt c in
-    F.fprintf fmt "%a" pp_collection c
-
-  let pp ~pp_value fmt m =
-    let pp_item fmt (k, v) = F.fprintf fmt "%a -> %a" Ord.pp_key k pp_value v in
-    F.fprintf fmt "@[<v 2>{ ";
-    pp_collection ~pp_item fmt (bindings m);
-    F.fprintf fmt " }@]"
-end
-
-module Mem = 
+module Stack = 
 struct
+  module PPMap = 
+  struct 
+    module Ord = struct include Loc let compare = compare let pp_key = pp end
+
+    include PrettyPrintable.MakePPMap(Ord)
+
+    let pp_collection ~pp_item fmt c =
+      let pp_collection fmt c =
+        let pp_sep fmt () = F.fprintf fmt ",@," in
+        F.pp_print_list ~pp_sep pp_item fmt c in
+      F.fprintf fmt "%a" pp_collection c
+
+    let pp ~pp_value fmt m =
+      let pp_item fmt (k, v) = F.fprintf fmt "%a -> %a" Ord.pp_key k pp_value v in
+      F.fprintf fmt "@[<v 2>{ ";
+      pp_collection ~pp_item fmt (bindings m);
+      F.fprintf fmt " }@]"
+  end
   include AbstractDomain.Map(PPMap)(Val)
   let find l m =
-    let v =
       try find l m with
       | Not_found -> Val.bot
-    in
-    match l with
-    | Loc.Var x when Loc.is_pvar_in_reg x ->
-        let pvar_v = Val.of_pow_loc (PowLoc.singleton (Loc.PVarHeap x)) in
-        Val.join v pvar_v
-    | _ -> v
 
   let find_set : PowLoc.t -> astate -> Val.astate
   = fun locs mem -> 
@@ -227,6 +219,61 @@ struct
   let weak_update : PowLoc.t -> Val.astate -> astate -> astate
   = fun locs v mem ->
     PowLoc.fold (fun x -> add x (Val.join v (find x mem))) locs mem
+end
+
+module Heap = 
+struct
+  module PPMap = 
+  struct 
+    module Ord = struct include Loc let compare = compare let pp_key = pp end
+
+    include PrettyPrintable.MakePPMap(Ord)
+
+    let pp_collection ~pp_item fmt c =
+      let pp_collection fmt c =
+        let pp_sep fmt () = F.fprintf fmt ",@," in
+        F.pp_print_list ~pp_sep pp_item fmt c in
+      F.fprintf fmt "%a" pp_collection c
+
+    let pp ~pp_value fmt m =
+      let pp_item fmt (k, v) = F.fprintf fmt "%a -> %a" Ord.pp_key k pp_value v in
+      F.fprintf fmt "@[<v 2>{ ";
+      pp_collection ~pp_item fmt (bindings m);
+      F.fprintf fmt " }@]"
+  end
+
+  include AbstractDomain.Map(PPMap)(Val)
+  let find l m =
+      try find l m with
+      | Not_found -> Val.bot
+
+  let find_set : PowLoc.t -> astate -> Val.astate
+  = fun locs mem -> 
+    let find_join loc acc = Val.join acc (find loc mem) in
+    PowLoc.fold find_join locs Val.bot
+
+  let strong_update : PowLoc.t -> Val.astate -> astate -> astate
+  = fun locs v mem ->
+    PowLoc.fold (fun x -> add x v) locs mem
+
+  let weak_update : PowLoc.t -> Val.astate -> astate -> astate
+  = fun locs v mem ->
+    PowLoc.fold (fun x -> add x (Val.join v (find x mem))) locs mem
+end
+
+module Mem = 
+struct
+  include AbstractDomain.Pair(Stack)(Heap)
+  let find_stack k m = Stack.find k (fst m)
+  let find_stack_set k m = Stack.find_set k (fst m)
+  let find_heap k m = Heap.find k (snd m)
+  let find_heap_set k m = Heap.find_set k (snd m)
+  let add_stack k v m = (Stack.add k v (fst m), snd m)
+  let add_heap k v m = (fst m, Heap.add k v (snd m))
+  let strong_update_stack p v m = (Stack.strong_update p v (fst m), snd m)
+  let strong_update_heap p v m = (fst m, Heap.strong_update p v (snd m))
+  let weak_update_stack p v m = (Stack.weak_update p v (fst m), snd m)
+  let weak_update_heap p v m = (fst m, Heap.weak_update p v (snd m))
 end
 
 module TempAlias =

@@ -70,35 +70,38 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
 
   let conditions = ref Domain.ConditionSet.initial
 
+  let rec eval_lv e mem loc =
+    match e with
+    | Exp.Var id -> Var.of_id id |> Loc.of_var |> PowLoc.singleton
+    | Exp.Lvar pvar -> pvar |> Loc.of_pvar |> PowLoc.singleton
+    
   let rec eval : Exp.t -> Domain.Mem.astate -> Location.t -> Domain.Val.astate
   = fun exp mem loc ->
     match exp with
-    (* Pure variable: it is not an lvalue *)
-    | Exp.Var id -> Domain.Mem.find (Var.of_id id |> Loc.of_var) mem
-    (* The address of a program variable *)
-    | Exp.Lvar pvar ->
-        let reg_l = pvar |> Loc.of_pvar_reg in
-        let array_v =
-          mem |> Domain.Mem.find reg_l |> Domain.Val.get_array_blk
-          |> Domain.Val.of_array_blk
-        in
-        let heap_v = pvar |> PowLoc.of_pvar_heap |> Domain.Val.of_pow_loc in
-        Domain.Val.join array_v heap_v
+    | Exp.Var id -> Domain.Mem.find_stack (Var.of_id id |> Loc.of_var) mem
+    | Exp.Lvar pvar -> 
+        let ploc = pvar |> Loc.of_pvar |> PowLoc.singleton in
+        let arr = Domain.Mem.find_stack_set ploc mem in
+        ploc |> Domain.Val.of_pow_loc |> Domain.Val.join arr
     | Exp.UnOp (uop, e, _) -> eval_unop uop e mem loc
     | Exp.BinOp (bop, e1, e2) -> eval_binop bop e1 e2 mem loc
     | Exp.Const c -> eval_const c
     | Exp.Cast (_, e) -> eval e mem loc
     | Exp.Lfield (e, fn, _) ->
-        eval e mem loc |> Domain.Val.get_pow_loc |> flip PowLoc.append_field fn |> Domain.Val.of_pow_loc
+        eval e mem loc |> Domain.Val.get_all_locs |> flip PowLoc.append_field fn |> Domain.Val.of_pow_loc
     | Exp.Lindex (e1, e2) -> 
-        let v1 = eval e1 mem loc in
-        let arr = Domain.Val.join (v1 |> Domain.Val.get_pow_loc |> flip Domain.Mem.find_set mem) v1 in
+        let locs = eval_lv e1 mem loc in
+        let idx = eval e2 mem loc in
+        let arr = Domain.Mem.find_stack_set locs mem in
+        add_condition arr idx loc;
+        arr |> Domain.Val.get_array_blk |> ArrayBlk.get_pow_loc |> Domain.Val.of_pow_loc 
+(*        let arr = Domain.Val.join (v1 |> Domain.Val.get_pow_loc |> flip Domain.Mem.find_stack_se mem) v1 in
         let idx = eval e2 mem loc in
         add_condition arr idx loc;
         arr
         |> Domain.Val.get_array_blk 
         |> ArrayBlk.get_pow_loc
-        |> Domain.Val.of_pow_loc
+        |> Domain.Val.of_pow_loc*)
     | Exp.Sizeof (typ, _, _) -> Domain.Val.of_int (sizeof typ)
 (*    | Exp.Exn _ -> 
     | Exp.Closure _ -> *)
@@ -186,27 +189,25 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
 
   let model_malloc pdesc ret callee_pname params node mem = 
     match ret with 
-      Some (_, _) -> 
-        let ret_loc = Loc.of_pvar_heap (Pvar.get_ret_pvar callee_pname) in
+      Some (id, _) -> 
         let (typ, size) = get_malloc_info (IList.hd params |> fst) in
         let size = eval size mem (CFG.loc node) |> Domain.Val.get_itv in
-        Domain.Mem.add ret_loc (eval_array_alloc pdesc node typ Itv.zero size 0 1) mem
+        Domain.Mem.add_stack (Loc.of_id id) (eval_array_alloc pdesc node typ Itv.zero size 0 1) mem
     | _ -> mem
 
-  let handle_unknown_call pdesc ret callee_pname params node (mem, conds, ta) =
+  let handle_unknown_call pdesc ret callee_pname params node mem =
     match Procname.get_method callee_pname with
     | "malloc" | "__new_array" ->
-        (model_malloc pdesc ret callee_pname params node mem, conds, ta)
+        model_malloc pdesc ret callee_pname params node mem
     | _ ->
         (match ret with
-           Some (_, _) ->
-             let ret_loc = Loc.of_pvar_heap (Pvar.get_ret_pvar callee_pname) in
-             (Domain.Mem.add ret_loc Domain.Val.top_itv mem, conds, ta)
-         | None -> (mem, conds, ta))
+           Some (id, _) ->
+             Domain.Mem.add_stack (Loc.of_id id) Domain.Val.top_itv mem
+         | None -> mem)
 
   let rec declare_array pdesc node loc typ len inst_num dimension mem = 
     let size = IntLit.to_int len |> Itv.of_int in
-    let mem = Domain.Mem.add loc (eval_array_alloc pdesc node typ Itv.zero size inst_num dimension) mem in
+    let mem = Domain.Mem.add_stack loc (eval_array_alloc pdesc node typ Itv.zero size inst_num dimension) mem in
     let loc = Loc.of_allocsite (get_allocsite pdesc node inst_num dimension) in
     match typ with 
       Typ.Tarray (typ, Some len) -> 
@@ -215,7 +216,7 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
 
   let declare_symolic_array pdesc node loc typ inst_num dimension mem =
     let (offset, size) = (Itv.get_new_sym (), Itv.get_new_sym ()) in
-    Domain.Mem.add loc (eval_array_alloc pdesc node typ offset size inst_num dimension) mem
+    Domain.Mem.add_heap loc (eval_array_alloc pdesc node typ offset size inst_num dimension) mem
      
   let can_strong_update ploc =
     if PowLoc.cardinal ploc = 1 then 
@@ -225,9 +226,9 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
 
   let update_mem : PowLoc.t -> Domain.Val.t -> Domain.Mem.astate -> Domain.Mem.astate
   = fun ploc v s ->
-    if can_strong_update ploc then Domain.Mem.strong_update ploc v s
-    else Domain.Mem.weak_update ploc v s
-
+    if can_strong_update ploc then Domain.Mem.strong_update_heap ploc v s
+    else Domain.Mem.weak_update_heap ploc v s
+(*
   let prune_unop
     : Exp.t -> Domain.TempAlias.astate -> Domain.Mem.astate -> Domain.Mem.astate
   = fun e ta mem ->
@@ -236,7 +237,7 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
         (match Domain.TempAlias.find x ta with
          | Some x' ->
              let lv = PowLoc.of_pvar_heap x' in
-             let v = Domain.Mem.find_set lv mem in
+             let v = Domain.Mem.find_heap_set lv mem in
              let v' = Domain.Val.prune v Domain.Val.zero in
              update_mem lv v' mem
          | None -> mem)
@@ -244,7 +245,7 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
         (match Domain.TempAlias.find x ta with
          | Some x' ->
              let lv = PowLoc.of_pvar_heap x' in
-             let v = Domain.Mem.find_set lv mem in
+             let v = Domain.Mem.find_heap_set lv mem in
              let v' = (Domain.Val.get_itv Domain.Val.zero,
                        Domain.Val.get_pow_loc v,
                        Domain.Val.get_array_blk v) in
@@ -264,7 +265,7 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
         (match Domain.TempAlias.find x ta with
          | Some x' ->
              let lv = PowLoc.of_pvar_heap x' in
-             let v = Domain.Mem.find_set lv mem in
+             let v = Domain.Mem.find_heap_set lv mem in
              let v' = Domain.Val.prune_comp comp v (eval e' mem loc) in
              update_mem lv v' mem
          | None -> mem)
@@ -272,7 +273,7 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
         (match Domain.TempAlias.find x ta with
          | Some x' ->
              let lv = PowLoc.of_pvar_heap x' in
-             let v = Domain.Mem.find_set lv mem in
+             let v = Domain.Mem.find_heap_set lv mem in
              let v' = Domain.Val.prune_eq v (eval e' mem loc) in
              update_mem lv v' mem
          | None -> mem)
@@ -280,7 +281,7 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
         (match Domain.TempAlias.find x ta with
          | Some x' ->
              let lv = PowLoc.of_pvar_heap x' in
-             let v = Domain.Mem.find_set lv mem in
+             let v = Domain.Mem.find_heap_set lv mem in
              let v' = Domain.Val.prune_ne v (eval e' mem loc) in
              update_mem lv v' mem
          | None -> mem)
@@ -350,7 +351,7 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
     | Exp.UnOp (Unop.LNot, Exp.BinOp (Binop.Ne as c, e1, e2), _) ->
         prune (Exp.BinOp (comp_not c, e1, e2)) ta loc mem
     | _ -> mem
-
+*)
   let get_formals : Procdesc.t -> (Pvar.t * Typ.t) list
   = fun pdesc ->
     let proc_name = Procdesc.get_proc_name pdesc in
@@ -366,18 +367,14 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
         let formals =
           get_formals pdesc
           |> IList.map
-            (fun (p, _) -> Domain.Mem.find (Loc.of_pvar_heap p) callee_mem)
+            (fun (p, _) -> Domain.Mem.find_heap (Loc.of_pvar p) callee_mem)
         in
         let actuals = IList.map (fun (p, _) -> eval p caller_mem loc) params in
         let pairs = IList.fold_left2 (fun l formal actual ->
-              F.fprintf F.err_formatter "Formal";
-              Domain.Val.pp F.err_formatter formal;
-              F.fprintf F.err_formatter "Actual";
-              Domain.Val.pp F.err_formatter actual;
               let formal_itv = Domain.Val.get_itv formal in
               let actual_itv = Domain.Val.get_itv actual in
               let formal_arr = Domain.Val.get_array_blk formal in
-              let actual_arr = Domain.Val.get_pow_loc actual |> flip Domain.Mem.find_set caller_mem |> Domain.Val.get_array_blk in
+              let actual_arr = Domain.Val.get_array_blk actual in
               let formal_arr_offset = formal_arr |> ArrayBlk.offsetof in
               let formal_arr_size = formal_arr |> ArrayBlk.sizeof in
               let actual_arr_offset = actual_arr |> ArrayBlk.offsetof in
@@ -403,7 +400,7 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
         let subst_map : Itv.Bound.t Itv.SubstMap.t = 
             IList.fold_left (fun map (formal, actual) ->
               match formal with 
-                Itv.Bound.V (0, se1) when Itv.SymExp.cardinal se1 = 1 -> 
+                Itv.Bound.V (0, se1) when Itv.SymExp.cardinal se1 > 0 -> 
                   let (symbol, coeff) = Itv.SymExp.choose se1 in
                   if coeff = 1 then
                     Itv.SubstMap.add symbol actual map
@@ -426,8 +423,8 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
       match instr with
       | Load (id, exp, _, loc) ->
           let locs = eval exp mem loc |> Domain.Val.get_all_locs in
-          let v = Domain.Mem.find_set locs mem in
-          (Domain.Mem.add (Loc.of_var (Var.of_id id)) v mem,
+          let v = Domain.Mem.find_heap_set locs mem in
+          (Domain.Mem.add_stack (Loc.of_var (Var.of_id id)) v mem,
            get_conditions (),
            Domain.TempAlias.load id exp ta)
       | Store (exp1, _, exp2, loc) ->
@@ -436,20 +433,24 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
            get_conditions (),
            Domain.TempAlias.store exp1 exp2 ta)
       | Prune (exp, loc, _, _) ->
-          (prune exp ta loc mem, get_conditions (), ta)
-      | Call ((Some (id, _) as ret), Const (Cfun callee_pname), params, loc, _) ->
+(*          (prune exp ta loc mem, get_conditions (), ta)*)
+          astate
+      | Call (ret, Const (Cfun callee_pname), params, loc, _) ->
           let callee = extras callee_pname in
           let old_conds = get_conditions () in
-          let (callee_mem, callee_cond, _) =
+          begin
             match Summary.read_summary tenv pdesc callee_pname with
-            | Some astate -> astate
-            | None -> handle_unknown_call pdesc ret callee_pname params node astate
-          in
-          let new_conds = check_bo callee params mem callee_mem callee_cond loc in
-          (Domain.Mem.add (Loc.of_var (Var.of_id id))
-             (Domain.Mem.find (Loc.of_pvar_heap (Pvar.get_ret_pvar callee_pname)) callee_mem) mem, 
-           Domain.ConditionSet.join old_conds new_conds,
-           ta)
+            | Some (callee_mem, callee_cond, _) -> 
+              let new_conds = check_bo callee params mem callee_mem callee_cond loc in
+              let new_mem = 
+                match ret with Some (id,_) -> 
+                  Domain.Mem.add_stack (Loc.of_var (Var.of_id id))
+                   (Domain.Mem.find_heap (Loc.of_pvar (Pvar.get_ret_pvar callee_pname)) callee_mem) mem
+                | _ -> mem
+              in
+              (new_mem, Domain.ConditionSet.join old_conds new_conds, ta)
+            | None -> (handle_unknown_call pdesc ret callee_pname params node mem, old_conds, ta)
+          end
       | Call (_, _, _, _, _) -> astate
       | Declare_locals (locals, _) ->
           (* static array allocation *)
@@ -462,9 +463,9 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
           in
           IList.fold_left (fun (mem, c) (pvar, typ) ->
               match typ with
-                Typ.Tint _ -> (Domain.Mem.add (Loc.of_pvar_heap pvar) (Domain.Val.get_new_sym ()) mem, c+1)
+                Typ.Tint _ -> (Domain.Mem.add_heap (Loc.of_pvar pvar) (Domain.Val.get_new_sym ()) mem, c+1)
               | Typ.Tptr (typ, _) ->
-                  (declare_symolic_array pdesc node (Loc.of_pvar_heap pvar) typ c 1 mem, c+1)
+                  (declare_symolic_array pdesc node (Loc.of_pvar pvar) typ c 1 mem, c+1)
               | _ -> (mem, c) (* TODO *)) (mem, 0) (get_formals pdesc)
           |> (fun (mem, _) -> (mem, conds, ta))
       | Remove_temps _ | Abstract _ | Nullify _ -> astate

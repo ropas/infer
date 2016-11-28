@@ -49,7 +49,7 @@ struct
   let is_pvar_in_heap = function PVarHeap _ -> true | _ -> false
   let of_var v = Var v
   let of_allocsite a = Allocsite a
-  let of_pvar_reg pvar = Var (Var.of_pvar pvar)
+  let of_pvar pvar = Var (Var.of_pvar pvar)
   let of_pvar_heap pvar = PVarHeap (Var.of_pvar pvar)
   let of_id id = Var (Var.of_id id)
   let append_field l f = Field (l, f)
@@ -69,7 +69,7 @@ struct
 
   let bot = initial
 
-  let of_pvar_reg pvar = singleton (Loc.of_pvar_reg pvar)
+  let of_pvar_reg pvar = singleton (Loc.of_pvar pvar)
   let of_pvar_heap pvar = singleton (Loc.of_pvar_heap pvar)
   let of_id id = singleton (Loc.of_id id)
   let append_field ploc fn = fold (fun l -> add (Loc.append_field l fn)) ploc empty
