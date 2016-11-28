@@ -97,6 +97,11 @@ struct
   let set_null_pos arr i = { arr with null_pos = i }
   let plus_null_pos arr i = { arr with null_pos = Itv.plus arr.null_pos i }
 
+  let diff arr1 arr2 =
+    let i1 = Itv.mult arr1.offset arr1.stride in
+    let i2 = Itv.mult arr2.offset arr2.stride in
+    Itv.minus i1 i2
+
   let pp fmt arr = 
     Format.fprintf fmt "offset : %a, size : %a, stride : %a" Itv.pp arr.offset Itv.pp arr.size Itv.pp arr.stride
 end
@@ -150,6 +155,15 @@ let set_null_pos : astate -> Itv.t -> astate
 let plus_null_pos : astate -> Itv.t -> astate
 = fun arr i ->
   map (fun a -> ArrInfo.plus_null_pos a i) arr
+
+let diff : astate -> astate -> Itv.t
+= fun arr1 arr2 ->
+  let diff_join k a2 acc =
+    match find k arr1 with
+    | a1 -> Itv.join acc (ArrInfo.diff a1 a2)
+    | exception Not_found -> acc
+  in
+  fold diff_join arr2 Itv.bot
 
 let get_pow_loc : astate -> PowLoc.t = fun array ->
   let pow_loc_of_allocsite k _ acc = PowLoc.add (Loc.of_allocsite k) acc in

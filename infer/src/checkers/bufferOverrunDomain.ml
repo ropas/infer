@@ -148,6 +148,18 @@ struct
   let prune_eq : astate -> astate -> astate = itv_lift (Itv.prune_eq)
 
   let prune_ne : astate -> astate -> astate = itv_lift (Itv.prune_ne)
+
+  let plus_pi : astate -> astate -> astate
+  = fun (n1, x1, a1) (n2, _, _) ->
+    (n1, x1, ArrayBlk.plus_offset a1 n2)
+
+  let minus_pi : astate -> astate -> astate
+  = fun (n1, x1, a1) (n2, _, _) ->
+    (n1, x1, ArrayBlk.minus_offset a1 n2)
+
+  let minus_pp : astate -> astate -> astate
+  = fun (n1, x1, a1) (_, _, a2) ->
+    (ArrayBlk.diff a1 a2, x1, a1)
 end
 
 module PPMap = 
