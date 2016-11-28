@@ -464,7 +464,7 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
               match typ with
                 Typ.Tint _ -> (Domain.Mem.add (Loc.of_pvar_heap pvar) (Domain.Val.get_new_sym ()) mem, c+1)
               | Typ.Tptr (typ, _) ->
-                  (declare_symolic_array pdesc node (Loc.of_var (Var.of_pvar pvar)) typ c 1 mem, c+1)
+                  (declare_symolic_array pdesc node (Loc.of_pvar_heap pvar) typ c 1 mem, c+1)
               | _ -> (mem, c) (* TODO *)) (mem, 0) (get_formals pdesc)
           |> (fun (mem, _) -> (mem, conds, ta))
       | Remove_temps _ | Abstract _ | Nullify _ -> astate
