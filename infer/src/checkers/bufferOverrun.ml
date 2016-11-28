@@ -102,11 +102,11 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
     | _ -> raise Not_implemented
   and add_condition : Domain.Val.t -> Domain.Val.t -> Location.t -> unit
   = fun arr idx loc ->
-(*    F.fprintf F.err_formatter "@.@.add_condition";
+    F.fprintf F.err_formatter "@.@.add_condition";
     Domain.Val.pp F.err_formatter arr;
     F.fprintf F.err_formatter "@.@.";
     Domain.Val.pp F.err_formatter idx;
-    F.fprintf F.err_formatter "@.@.";*)
+    F.fprintf F.err_formatter "@.@.";
     let size = arr |> Domain.Val.get_array_blk |> ArrayBlk.sizeof in
     let offset = arr |> Domain.Val.get_array_blk |> ArrayBlk.offsetof in
     let idx = idx |> Domain.Val.get_itv |> Itv.plus offset in
@@ -180,9 +180,10 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
   
   (* heuristic *)
   let get_malloc_info = function
-    | Exp.BinOp (Binop.Mult, Exp.Sizeof (typ, _, _), ((Exp.Const _) as size)) -> (typ, size)
+    | Exp.BinOp (Binop.Mult, Exp.Sizeof (typ, _, _), ((Exp.Const _) as size))
+    | Exp.BinOp (Binop.Mult, ((Exp.Const _) as size), Exp.Sizeof (typ, _, _)) -> (typ, size)
     | Exp.Sizeof (typ, _, _) -> (typ, Exp.one)
-    | _ -> raise Not_implemented
+    | x -> (Typ.Tint Typ.IChar, x)
 
   let model_malloc pdesc ret callee_pname params node mem = 
     match ret with 
