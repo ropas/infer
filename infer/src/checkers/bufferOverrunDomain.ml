@@ -113,7 +113,7 @@ struct
 
   let itv_lift : (Itv.t -> Itv.t -> Itv.t) -> astate -> astate -> astate
   = fun f (n1, x1, a1) (n2, _, _) ->
-    (f n1 n2, x1, a1)
+    (f n1 n2, PowLoc.bot, ArrayBlk.bot)
 
   let plus : astate -> astate -> astate = itv_lift Itv.plus
 
