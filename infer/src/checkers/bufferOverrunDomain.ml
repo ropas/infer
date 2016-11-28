@@ -110,12 +110,18 @@ struct
     (Itv.lnot n, x, a)
 
   let itv_lift : (Itv.t -> Itv.t -> Itv.t) -> astate -> astate -> astate
-  = fun f (n1, x1, a1) (n2, _, _) ->
-    (f n1 n2, x1, a1)
+  = fun f (n1, _, _) (n2, _, _) ->
+    (f n1 n2, PowLoc.bot, ArrayBlk.bot)
 
-  let plus : astate -> astate -> astate = itv_lift Itv.plus
+  let plus : astate -> astate -> astate
+  = fun (n1, _, a1) (n2, _, _) ->
+    (Itv.plus n1 n2, PowLoc.bot, ArrayBlk.plus_offset a1 n2)
 
-  let minus : astate -> astate -> astate = itv_lift Itv.minus
+  let minus : astate -> astate -> astate
+  = fun (n1, _, a1) (n2, _, a2) ->
+    let n = Itv.join (Itv.minus n1 n2) (ArrayBlk.diff a1 a2) in
+    let a = ArrayBlk.minus_offset a1 n2 in
+    (n, PowLoc.bot, a)
 
   let mult : astate -> astate -> astate = itv_lift Itv.mult
 
