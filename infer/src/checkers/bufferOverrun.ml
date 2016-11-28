@@ -70,6 +70,10 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
 
   let conditions = ref Domain.ConditionSet.initial
 
+  let deref : Domain.Val.astate -> Domain.Mem.astate -> Domain.Val.astate
+  = fun v mem ->
+    v |> Domain.Val.get_pow_loc |> flip Domain.Mem.find_set mem
+
   let rec eval : Exp.t -> Domain.Mem.astate -> Location.t -> Domain.Val.astate
   = fun exp mem loc ->
     match exp with
@@ -118,13 +122,16 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
     let v2 = eval e2 mem loc in
     match binop with
     | Binop.PlusA ->
-        Domain.Val.join (Domain.Val.plus v1 v2) (Domain.Val.plus_pi v1 v2)
+        let deref_v1 = deref v1 mem in
+        Domain.Val.join (Domain.Val.plus v1 v2) (Domain.Val.plus_pi deref_v1 v2)
     | Binop.PlusPI -> Domain.Val.plus_pi v1 v2
     | Binop.MinusA ->
+        let deref_v1 = deref v1 mem in
+        let deref_v2 = deref v2 mem in
         Domain.Val.joins
           [ Domain.Val.minus v1 v2
-          ; Domain.Val.minus_pi v1 v2
-          ; Domain.Val.minus_pp v1 v2 ]
+          ; Domain.Val.minus_pi deref_v1 v2
+          ; Domain.Val.minus_pp deref_v1 deref_v2 ]
     | Binop.MinusPI -> Domain.Val.minus_pi v1 v2
     | Binop.MinusPP -> Domain.Val.minus_pp v1 v2
     | Binop.Mult -> Domain.Val.mult v1 v2
