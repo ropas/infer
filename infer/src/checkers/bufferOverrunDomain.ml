@@ -115,6 +115,11 @@ struct
   = fun f (n1, _, _) (n2, _, _) ->
     (f n1 n2, PowLoc.bot, ArrayBlk.bot)
 
+  let lift_itv_func_preserve
+    : (Itv.t -> Itv.t -> Itv.t) -> astate -> astate -> astate
+  = fun f (n1, x1, a1) (n2, _, _) ->
+    (f n1 n2, x1, a1)
+
   let plus : astate -> astate -> astate
   = fun (n1, _, a1) (n2, _, _) ->
     (Itv.plus n1 n2, PowLoc.bot, ArrayBlk.plus_offset a1 n2)
@@ -151,15 +156,18 @@ struct
 
   let lor_sem : astate -> astate -> astate = lift_itv_func Itv.lor_sem
 
-  let prune : astate -> astate -> astate = lift_itv_func Itv.prune
+  let prune : astate -> astate -> astate =
+    lift_itv_func_preserve Itv.prune
 
   let prune_comp : Binop.t -> astate -> astate -> astate
   = fun c ->
-    lift_itv_func (Itv.prune_comp c)
+    lift_itv_func_preserve (Itv.prune_comp c)
 
-  let prune_eq : astate -> astate -> astate = lift_itv_func Itv.prune_eq
+  let prune_eq : astate -> astate -> astate =
+    lift_itv_func_preserve Itv.prune_eq
 
-  let prune_ne : astate -> astate -> astate = lift_itv_func Itv.prune_ne
+  let prune_ne : astate -> astate -> astate =
+    lift_itv_func_preserve Itv.prune_ne
 
   let plus_pi : astate -> astate -> astate
   = fun (_, _, a1) (n2, _, _) ->
