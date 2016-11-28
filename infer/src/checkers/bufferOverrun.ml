@@ -70,10 +70,6 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
 
   let conditions = ref Domain.ConditionSet.initial
 
-  let deref : Domain.Val.astate -> Domain.Mem.astate -> Domain.Val.astate
-  = fun v mem ->
-    v |> Domain.Val.get_pow_loc |> flip Domain.Mem.find_set mem
-
   let rec eval : Exp.t -> Domain.Mem.astate -> Location.t -> Domain.Val.astate
   = fun exp mem loc ->
     match exp with
