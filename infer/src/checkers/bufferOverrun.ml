@@ -378,6 +378,10 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
         in
         let actuals = IList.map (fun (p, _) -> eval p caller_mem loc) params in
         let pairs = IList.fold_left2 (fun l formal actual ->
+              F.fprintf F.err_formatter "Formal";
+              Domain.Val.pp F.err_formatter formal;
+              F.fprintf F.err_formatter "Actual";
+              Domain.Val.pp F.err_formatter actual;
               let formal_itv = Domain.Val.get_itv formal in
               let actual_itv = Domain.Val.get_itv actual in
               let formal_arr = Domain.Val.get_array_blk formal in
@@ -450,7 +454,7 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
         in
         let new_conds = check_bo callee params mem callee_mem callee_cond loc in
         (Domain.Mem.add (Loc.of_var (Var.of_id id))
-           (Domain.Mem.find (Loc.of_var (Var.of_pvar (Pvar.get_ret_pvar callee_pname))) callee_mem) mem, 
+           (Domain.Mem.find (Loc.of_pvar_heap (Pvar.get_ret_pvar callee_pname)) callee_mem) mem, 
          Domain.ConditionSet.join old_conds new_conds,
          ta)
     | Call (_, _, _, _, _) -> astate
@@ -465,7 +469,7 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
         in
         IList.fold_left (fun (mem, c) (pvar, typ) ->
             match typ with
-              Typ.Tint _ -> (Domain.Mem.add (Loc.of_pvar_reg pvar) (Domain.Val.get_new_sym ()) mem, c+1)
+              Typ.Tint _ -> (Domain.Mem.add (Loc.of_pvar_heap pvar) (Domain.Val.get_new_sym ()) mem, c+1)
             | Typ.Tptr (typ, _) ->  
                 (declare_symolic_array pdesc node (Loc.of_var (Var.of_pvar pvar)) typ c 1 mem, c+1)
             | _ -> (mem, c) (* TODO *)) (mem, 0) (get_formals pdesc)
