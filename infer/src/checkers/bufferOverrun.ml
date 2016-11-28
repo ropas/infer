@@ -419,54 +419,59 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
     Domain.pp F.err_formatter astate;
     F.fprintf F.err_formatter "@.@.";
     Sil.pp_instr Utils.pe_text F.err_formatter instr;
-    F.fprintf F.err_formatter "@.";
+    F.fprintf F.err_formatter "@.@.";
 
     init_conditions astate;
-    match instr with
-    | Load (id, exp, _, loc) ->
-        let locs = eval exp mem loc |> Domain.Val.get_all_locs in
-        let v = Domain.Mem.find_set locs mem in
-        (Domain.Mem.add (Loc.of_var (Var.of_id id)) v mem,
-         get_conditions (),
-         Domain.TempAlias.load id exp ta)
-    | Store (exp1, _, exp2, loc) ->
-        let locs = eval exp1 mem loc |> Domain.Val.get_all_locs in
-        (update_mem locs (eval exp2 mem loc) mem,
-         get_conditions (),
-         Domain.TempAlias.store exp1 exp2 ta)
-    | Prune (exp, loc, _, _) ->
-        (prune exp ta loc mem, get_conditions (), ta)
-    | Call ((Some (id, _) as ret), Const (Cfun callee_pname), params, loc, _) ->
-        let callee = extras callee_pname in
-        let old_conds = get_conditions () in
-        let (callee_mem, callee_cond, _) =
-          match Summary.read_summary tenv pdesc callee_pname with
-          | Some astate -> astate
-          | None -> handle_unknown_call pdesc ret callee_pname params node astate
-        in
-        let new_conds = check_bo callee params mem callee_mem callee_cond loc in
-        (Domain.Mem.add (Loc.of_var (Var.of_id id))
-           (Domain.Mem.find (Loc.of_pvar_heap (Pvar.get_ret_pvar callee_pname)) callee_mem) mem, 
-         Domain.ConditionSet.join old_conds new_conds,
-         ta)
-    | Call (_, _, _, _, _) -> astate
-    | Declare_locals (locals, _) -> 
-        (* static array allocation *)
-        let mem = IList.fold_left (fun (mem, c) (pvar, typ) ->
-            match typ with 
-              Typ.Tarray (typ, Some len) ->
-                (declare_array pdesc node (Loc.of_var (Var.of_pvar pvar)) typ len c 1 mem, c+1)
-            | _ -> (mem, c)) (mem, 1) locals 
-          |> fst
-        in
-        IList.fold_left (fun (mem, c) (pvar, typ) ->
-            match typ with
-              Typ.Tint _ -> (Domain.Mem.add (Loc.of_pvar_heap pvar) (Domain.Val.get_new_sym ()) mem, c+1)
-            | Typ.Tptr (typ, _) ->  
-                (declare_symolic_array pdesc node (Loc.of_var (Var.of_pvar pvar)) typ c 1 mem, c+1)
-            | _ -> (mem, c) (* TODO *)) (mem, 0) (get_formals pdesc)
-        |> (fun (mem, _) -> (mem, conds, ta))
-    | Remove_temps _ | Abstract _ | Nullify _ -> astate
+    let astate =
+      match instr with
+      | Load (id, exp, _, loc) ->
+          let locs = eval exp mem loc |> Domain.Val.get_all_locs in
+          let v = Domain.Mem.find_set locs mem in
+          (Domain.Mem.add (Loc.of_var (Var.of_id id)) v mem,
+           get_conditions (),
+           Domain.TempAlias.load id exp ta)
+      | Store (exp1, _, exp2, loc) ->
+          let locs = eval exp1 mem loc |> Domain.Val.get_all_locs in
+          (update_mem locs (eval exp2 mem loc) mem,
+           get_conditions (),
+           Domain.TempAlias.store exp1 exp2 ta)
+      | Prune (exp, loc, _, _) ->
+          (prune exp ta loc mem, get_conditions (), ta)
+      | Call ((Some (id, _) as ret), Const (Cfun callee_pname), params, loc, _) ->
+          let callee = extras callee_pname in
+          let old_conds = get_conditions () in
+          let (callee_mem, callee_cond, _) =
+            match Summary.read_summary tenv pdesc callee_pname with
+            | Some astate -> astate
+            | None -> handle_unknown_call pdesc ret callee_pname params node astate
+          in
+          let new_conds = check_bo callee params mem callee_mem callee_cond loc in
+          (Domain.Mem.add (Loc.of_var (Var.of_id id))
+             (Domain.Mem.find (Loc.of_var (Var.of_pvar (Pvar.get_ret_pvar callee_pname))) callee_mem) mem, 
+           Domain.ConditionSet.join old_conds new_conds,
+           ta)
+      | Call (_, _, _, _, _) -> astate
+      | Declare_locals (locals, _) ->
+          (* static array allocation *)
+          let mem = IList.fold_left (fun (mem, c) (pvar, typ) ->
+              match typ with
+                Typ.Tarray (typ, Some len) ->
+                  (declare_array pdesc node (Loc.of_var (Var.of_pvar pvar)) typ len c 1 mem, c+1)
+              | _ -> (mem, c)) (mem, 1) locals
+                    |> fst
+          in
+          IList.fold_left (fun (mem, c) (pvar, typ) ->
+              match typ with
+                Typ.Tint _ -> (Domain.Mem.add (Loc.of_pvar_reg pvar) (Domain.Val.get_new_sym ()) mem, c+1)
+              | Typ.Tptr (typ, _) ->
+                  (declare_symolic_array pdesc node (Loc.of_var (Var.of_pvar pvar)) typ c 1 mem, c+1)
+              | _ -> (mem, c) (* TODO *)) (mem, 0) (get_formals pdesc)
+          |> (fun (mem, _) -> (mem, conds, ta))
+      | Remove_temps _ | Abstract _ | Nullify _ -> astate
+    in
+    Domain.pp F.err_formatter astate;
+    F.fprintf F.err_formatter "@.@.";
+    astate
 end
 
 module Analyzer =
