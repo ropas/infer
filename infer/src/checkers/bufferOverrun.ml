@@ -88,7 +88,8 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
     | Exp.Lfield (e, fn, _) ->
         eval e mem loc |> Domain.Val.get_pow_loc |> flip PowLoc.append_field fn |> Domain.Val.of_pow_loc
     | Exp.Lindex (e1, e2) -> 
-        let arr = eval e1 mem loc |> Domain.Val.get_pow_loc |> flip Domain.Mem.find_set mem in
+        let v1 = eval e1 mem loc in
+        let arr = Domain.Val.join (v1 |> Domain.Val.get_pow_loc |> flip Domain.Mem.find_set mem) v1 in
         let idx = eval e2 mem loc in
         add_condition arr idx loc;
         arr
@@ -101,6 +102,11 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
     | _ -> raise Not_implemented
   and add_condition : Domain.Val.t -> Domain.Val.t -> Location.t -> unit
   = fun arr idx loc ->
+(*    F.fprintf F.err_formatter "@.@.add_condition";
+    Domain.Val.pp F.err_formatter arr;
+    F.fprintf F.err_formatter "@.@.";
+    Domain.Val.pp F.err_formatter idx;
+    F.fprintf F.err_formatter "@.@.";*)
     let size = arr |> Domain.Val.get_array_blk |> ArrayBlk.sizeof in
     let offset = arr |> Domain.Val.get_array_blk |> ArrayBlk.offsetof in
     let idx = idx |> Domain.Val.get_itv |> Itv.plus offset in
