@@ -356,6 +356,7 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
   let get_conditions () = !conditions
 
   let check_bo callee_pdesc params caller_mem callee_mem callee_conds loc =
+    try 
     match callee_pdesc with 
       Some pdesc ->
         let formals =
@@ -403,6 +404,7 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
         in
         Domain.ConditionSet.subst callee_conds subst_map
     | _ -> callee_conds
+  with _ -> callee_conds
 
   let exec_instr ((mem, conds, ta) as astate) { ProcData.pdesc; tenv; extras }
       node (instr : Sil.instr) =
