@@ -109,7 +109,7 @@ struct
   = fun (n, x, a) ->
     (Itv.lnot n, x, a)
 
-  let itv_lift : (Itv.t -> Itv.t -> Itv.t) -> astate -> astate -> astate
+  let lift_itv_func : (Itv.t -> Itv.t -> Itv.t) -> astate -> astate -> astate
   = fun f (n1, _, _) (n2, _, _) ->
     (f n1 n2, PowLoc.bot, ArrayBlk.bot)
 
@@ -123,53 +123,53 @@ struct
     let a = ArrayBlk.minus_offset a1 n2 in
     (n, PowLoc.bot, a)
 
-  let mult : astate -> astate -> astate = itv_lift Itv.mult
+  let mult : astate -> astate -> astate = lift_itv_func Itv.mult
 
-  let div : astate -> astate -> astate = itv_lift Itv.div
+  let div : astate -> astate -> astate = lift_itv_func Itv.div
 
-  let mod_sem : astate -> astate -> astate = itv_lift Itv.mod_sem
+  let mod_sem : astate -> astate -> astate = lift_itv_func Itv.mod_sem
 
-  let shiftlt : astate -> astate -> astate = itv_lift Itv.shiftlt
+  let shiftlt : astate -> astate -> astate = lift_itv_func Itv.shiftlt
 
-  let shiftrt : astate -> astate -> astate = itv_lift Itv.shiftrt
+  let shiftrt : astate -> astate -> astate = lift_itv_func Itv.shiftrt
 
-  let lt_sem : astate -> astate -> astate = itv_lift Itv.lt_sem
+  let lt_sem : astate -> astate -> astate = lift_itv_func Itv.lt_sem
 
-  let gt_sem : astate -> astate -> astate = itv_lift Itv.gt_sem
+  let gt_sem : astate -> astate -> astate = lift_itv_func Itv.gt_sem
 
-  let le_sem : astate -> astate -> astate = itv_lift Itv.le_sem
+  let le_sem : astate -> astate -> astate = lift_itv_func Itv.le_sem
 
-  let ge_sem : astate -> astate -> astate = itv_lift Itv.ge_sem
+  let ge_sem : astate -> astate -> astate = lift_itv_func Itv.ge_sem
 
-  let eq_sem : astate -> astate -> astate = itv_lift Itv.eq_sem
+  let eq_sem : astate -> astate -> astate = lift_itv_func Itv.eq_sem
 
-  let ne_sem : astate -> astate -> astate = itv_lift Itv.ne_sem
+  let ne_sem : astate -> astate -> astate = lift_itv_func Itv.ne_sem
 
-  let land_sem : astate -> astate -> astate = itv_lift Itv.land_sem
+  let land_sem : astate -> astate -> astate = lift_itv_func Itv.land_sem
 
-  let lor_sem : astate -> astate -> astate = itv_lift Itv.lor_sem
+  let lor_sem : astate -> astate -> astate = lift_itv_func Itv.lor_sem
 
-  let prune : astate -> astate -> astate = itv_lift Itv.prune
+  let prune : astate -> astate -> astate = lift_itv_func Itv.prune
 
   let prune_comp : Binop.t -> astate -> astate -> astate
   = fun c ->
-    itv_lift (Itv.prune_comp c)
+    lift_itv_func (Itv.prune_comp c)
 
-  let prune_eq : astate -> astate -> astate = itv_lift (Itv.prune_eq)
+  let prune_eq : astate -> astate -> astate = lift_itv_func Itv.prune_eq
 
-  let prune_ne : astate -> astate -> astate = itv_lift (Itv.prune_ne)
+  let prune_ne : astate -> astate -> astate = lift_itv_func Itv.prune_ne
 
   let plus_pi : astate -> astate -> astate
-  = fun (n1, x1, a1) (n2, _, _) ->
-    (n1, x1, ArrayBlk.plus_offset a1 n2)
+  = fun (_, _, a1) (n2, _, _) ->
+    (Itv.bot, PowLoc.bot, ArrayBlk.plus_offset a1 n2)
 
   let minus_pi : astate -> astate -> astate
-  = fun (n1, x1, a1) (n2, _, _) ->
-    (n1, x1, ArrayBlk.minus_offset a1 n2)
+  = fun (_, _, a1) (n2, _, _) ->
+    (Itv.bot, PowLoc.bot, ArrayBlk.minus_offset a1 n2)
 
   let minus_pp : astate -> astate -> astate
-  = fun (_, x1, a1) (_, _, a2) ->
-    (ArrayBlk.diff a1 a2, x1, a1)
+  = fun (_, _, a1) (_, _, a2) ->
+    (ArrayBlk.diff a1 a2, PowLoc.bot, ArrayBlk.bot)
 end
 
 module PPMap = 
