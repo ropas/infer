@@ -84,9 +84,9 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
     | Exp.Cast (_, e) -> eval e mem loc
     | Exp.Lfield (e, fn, _) ->
         eval e mem loc |> Domain.Val.get_all_locs |> flip PowLoc.append_field fn |> Domain.Val.of_pow_loc
-    | Exp.Lindex (e1, e2) -> 
+    | Exp.Lindex (e1, _) -> 
         let arr = eval e1 mem loc in  (* must have array blk *)
-        let idx = eval e2 mem loc in
+(*        let idx = eval e2 mem loc in*)
         let ploc = arr |> Domain.Val.get_array_blk |> ArrayBlk.get_pow_loc in
         (* if nested array, add the array blk *)
         let arr = Domain.Mem.find_heap_set ploc mem in
@@ -161,7 +161,7 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
     | Exp.Sizeof (typ, _, _) -> (typ, Exp.one)
     | x -> (Typ.Tint Typ.IChar, x)
 
-  let model_malloc pdesc ret callee_pname params node mem = 
+  let model_malloc pdesc ret params node mem = 
     match ret with 
       Some (id, _) -> 
         let (typ, size) = get_malloc_info (IList.hd params |> fst) in
@@ -172,7 +172,7 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
   let handle_unknown_call pdesc ret callee_pname params node mem =
     match Procname.get_method callee_pname with
     | "malloc" | "__new_array" ->
-        model_malloc pdesc ret callee_pname params node mem
+        model_malloc pdesc ret params node mem
     | _ ->
         (match ret with
            Some (id, _) ->
@@ -336,7 +336,7 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
   let init_conditions astate = conditions := Domain.get_conds astate
   let get_conditions () = !conditions
 
-  let check_bo callee_pdesc params caller_mem callee_mem callee_conds loc =
+  let instantiate callee_pdesc callee_pname params caller_mem callee_mem callee_conds loc =
     try 
     match callee_pdesc with 
       Some pdesc ->
@@ -383,9 +383,12 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
                   else (* impossible *) map
               | _ -> (* impossible *) map) Itv.SubstMap.empty pairs
         in
-        Domain.ConditionSet.subst callee_conds subst_map
-    | _ -> callee_conds
-  with _ -> callee_conds
+        let ret_loc = Loc.of_pvar (Pvar.get_ret_pvar callee_pname) in
+        let ret_val = Domain.Mem.find_heap ret_loc callee_mem in
+        let new_ret_val = Domain.Val.subst ret_val subst_map in
+        (Domain.Mem.add_heap ret_loc new_ret_val callee_mem,  Domain.ConditionSet.subst callee_conds subst_map)
+    | _ -> (callee_mem, callee_conds)
+  with _ -> (callee_mem, callee_conds)
 
   let add_condition : Procdesc.t -> CFG.node -> Exp.t -> Location.t -> Domain.Mem.astate -> unit
   = fun pdesc node exp loc mem ->
@@ -441,11 +444,11 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
           begin
             match Summary.read_summary tenv pdesc callee_pname with
             | Some (callee_mem, callee_cond, _) -> 
-              let new_conds = check_bo callee params mem callee_mem callee_cond loc in
+              let (new_mem, new_conds) = instantiate callee callee_pname params mem callee_mem callee_cond loc in
               let new_mem = 
                 match ret with Some (id,_) -> 
                   Domain.Mem.add_stack (Loc.of_var (Var.of_id id))
-                   (Domain.Mem.find_heap (Loc.of_pvar (Pvar.get_ret_pvar callee_pname)) callee_mem) mem
+                   (Domain.Mem.find_heap (Loc.of_pvar (Pvar.get_ret_pvar callee_pname)) new_mem) mem
                 | _ -> mem
               in
               (new_mem, Domain.ConditionSet.join old_conds new_conds, ta)

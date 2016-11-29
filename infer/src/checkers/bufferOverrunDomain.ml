@@ -190,6 +190,9 @@ struct
   let minus_pp : astate -> astate -> astate
   = fun (_, _, a1) (_, _, a2) ->
     (ArrayBlk.diff a1 a2, PowLoc.bot, ArrayBlk.bot)
+
+  let subst (i,p,a) subst_map = 
+    (Itv.subst i subst_map, p, ArrayBlk.subst a subst_map)
 end
 
 module Stack = 
