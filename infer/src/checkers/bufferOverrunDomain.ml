@@ -166,18 +166,18 @@ struct
 
   let lor_sem : astate -> astate -> astate = lift_itv_func Itv.lor_sem
 
-  let prune : astate -> astate -> astate =
-    lift_itv_func_preserve Itv.prune
+  let prune : astate -> astate -> astate
+  = lift_itv_func_preserve Itv.prune
 
   let prune_comp : Binop.t -> astate -> astate -> astate
   = fun c ->
     lift_itv_func_preserve (Itv.prune_comp c)
 
-  let prune_eq : astate -> astate -> astate =
-    lift_itv_func_preserve Itv.prune_eq
+  let prune_eq : astate -> astate -> astate
+  = lift_itv_func_preserve Itv.prune_eq
 
-  let prune_ne : astate -> astate -> astate =
-    lift_itv_func_preserve Itv.prune_ne
+  let prune_ne : astate -> astate -> astate
+  = lift_itv_func_preserve Itv.prune_ne
 
   let plus_pi : astate -> astate -> astate
   = fun (_, _, a1) (n2, _, _) ->

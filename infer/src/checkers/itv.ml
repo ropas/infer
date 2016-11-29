@@ -149,8 +149,12 @@ struct
   (* Returns a symbol when the map contains only one symbol s with the
      coefficient 1. *)
   let one_symbol : t -> Symbol.t option
-  = fun _ ->
-    raise TODO
+  = fun x ->
+    let x = M.filter (fun _ v -> v <> 0) x in
+    if M.cardinal x = 1 then
+      let (k, v) = M.choose x in
+      if v = 1 then Some k else None
+    else None
 
   let is_one_symbol : t -> bool
   = fun x ->
@@ -199,6 +203,7 @@ struct
                   with Not_found -> Linear (c', SymExp.add sym coeff se'))
              | MinMax _ -> raise TODO)
           se (Linear (c, SymExp.empty))
+    | MinMax _ -> raise TODO
     | _ -> callee_cond
 
   let opt_lift : ('a -> 'b -> bool) -> 'a option -> 'b option -> bool
@@ -381,13 +386,34 @@ struct
 
   let prune_l : t -> (t * t) -> t
   = fun x (l, u) ->
-    raise TODO
-    (* if le l x && le x u then plus u one else x *)
+    match plus u one with
+    | Some u' when le l x && le x u -> u'
+    | _ -> x
 
   let prune_u : t -> (t * t) -> t
   = fun x (l, u) ->
-    raise TODO
-    (* if le l x && le x u then minus l one else x *)
+    match minus l one with
+    | Some l' when le l x && le x u -> l'
+    | _ -> x
+
+  let make_min_max : min_max_t -> t -> t -> t option
+  = fun m x y ->
+    match x, y with
+    | Linear (cx, x'), Linear (cy, y')
+      when cy = 0 && SymExp.is_zero x' && SymExp.is_one_symbol y' ->
+        (match SymExp.one_symbol y' with
+         | Some s -> Some (MinMax (m, cx, s))
+         | None -> None)
+    | Linear (cx, x'), Linear (cy, y')
+      when cx = 0 && SymExp.is_zero y' && SymExp.is_one_symbol x' ->
+        (match SymExp.one_symbol x' with
+         | Some s -> Some (MinMax (m, cy, s))
+         | None -> None)
+    | _, _ -> None
+
+  let make_min : t -> t -> t option = make_min_max Min
+
+  let make_max : t -> t -> t option = make_min_max Max
 end
 
 module ItvPure =
@@ -603,21 +629,59 @@ struct
       let x' = (Bound.prune_l l1 y, Bound.prune_u u1 y) in
       if invalid x' then None else Some x'
 
+  let prune_comp_arith : Binop.t -> astate -> astate -> astate option
+  = fun c x (l, u) ->
+    let y_opt =
+      match c with
+      | Binop.Lt -> Some (u, Bound.PInf)
+      | Binop.Gt -> Some (Bound.MInf, l)
+      | Binop.Le ->
+          (match Bound.plus u Bound.one with
+           | Some u' -> Some (u', Bound.PInf)
+           | None -> None)
+      | Binop.Ge ->
+          (match Bound.minus l Bound.one with
+           | Some l' -> Some (Bound.MInf, l')
+           | None -> None)
+      | _ -> assert false
+    in
+    match y_opt with
+    | Some y' -> prune x y'
+    | None -> Some x
+
+  let prune_comp_minmax : Binop.t -> astate -> astate -> astate option
+  = fun c (lx, ux) (l, u) ->
+    match c with
+    | Binop.Lt ->
+        (match Bound.minus u Bound.one with
+         | Some u' ->
+             (match Bound.make_min ux u' with
+              | Some ux' -> Some (lx, ux')
+              | None -> None)
+         | None -> None)
+    | Binop.Gt ->
+        (match Bound.plus l Bound.one with
+         | Some l' ->
+             (match Bound.make_max lx l' with
+              | Some lx' -> Some (lx', ux)
+              | None -> None)
+         | None -> None)
+    | Binop.Le ->
+        (match Bound.make_min ux u with
+         | Some u' -> Some (lx, u')
+         | None -> None)
+    | Binop.Ge ->
+        (match Bound.make_max lx l with
+         | Some l' -> Some (l', ux)
+         | None -> None)
+    | _ -> assert false
+
   let prune_comp : Binop.t -> astate -> astate -> astate option
   = fun c x (l, u) ->
-    raise TODO
-(*
     if not (valid (l, u)) then Some x else
-      let y =
-        match c with
-        | Binop.Lt -> (u, Bound.PInf)
-        | Binop.Gt -> (Bound.MInf, l)
-        | Binop.Le -> (Bound.plus_l u Bound.one, Bound.PInf) (* ??? *)
-        | Binop.Ge -> (Bound.MInf, Bound.minus_u l Bound.one)
-        | _ -> assert (false)
-      in
-      prune x y
-*)
+      let x = Option.default x (prune_comp_arith c x (l, u)) in
+      let x = Option.default x (prune_comp_minmax c x (l, u)) in
+      if invalid x then None else Some x
 
   let prune_eq : astate -> astate -> astate option
   = fun x y ->
