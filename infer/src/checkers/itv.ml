@@ -178,6 +178,13 @@ struct
     | MinMax of min_max_t * int * Symbol.t
     | PInf
 
+  let of_int : int -> t
+  = fun n ->
+    Linear (n, SymExp.empty)
+
+  let of_sym : SymExp.t -> t
+  = fun s -> Linear (0, s)
+
   let is_symbolic = function
     | MInf | PInf -> false
     | Linear (_, se) -> SymExp.cardinal se > 0
@@ -190,20 +197,37 @@ struct
           (fun sym coeff new_bound ->
              match new_bound with
              | MInf | PInf -> new_bound
+             | MinMax _ -> new_bound
              | Linear (c', se') ->
                  (try
                     let target = SubstMap.find sym map in
                     match target with
                     | MInf | PInf -> target
+                    | MinMax _ -> target
                     | Linear (target_c, target_se) ->
                         let c'' = c' + (target_c * coeff) in
                         let se'' = SymExp.plus se' target_se in
                         Linear (c'', se'')
-                    | MinMax _ -> raise TODO
-                  with Not_found -> Linear (c', SymExp.add sym coeff se'))
-             | MinMax _ -> raise TODO)
+                  with Not_found -> Linear (c', SymExp.add sym coeff se')))
           se (Linear (c, SymExp.empty))
-    | MinMax _ -> raise TODO
+    | MinMax (m, c, s) ->
+        (match m, SubstMap.find s map with
+         | Min, MInf -> MInf
+         | Max, MInf -> of_int c
+         | Min, PInf -> of_int c
+         | Max, PInf -> PInf
+         | Min, Linear (c', se') when SymExp.is_zero se' -> of_int (min c c')
+         | Max, Linear (c', se') when SymExp.is_zero se' -> of_int (max c c')
+         | _, Linear (c', se') when c' = 0 && SymExp.is_one_symbol se' ->
+             (match SymExp.one_symbol se' with
+              | Some s' -> MinMax (m, c, s')
+              | None -> callee_cond)
+         | Min, MinMax (Min, c', s') when Symbol.eq s s' ->
+             MinMax (Min, min c c', s)
+         | Max, MinMax (Max, c', s') when Symbol.eq s s' ->
+             MinMax (Max, max c c', s)
+         | _, _ -> callee_cond
+         | exception Not_found -> callee_cond)
     | _ -> callee_cond
 
   let opt_lift : ('a -> 'b -> bool) -> 'a option -> 'b option -> bool
@@ -308,13 +332,6 @@ struct
         else
           F.fprintf fmt "%a + %d" SymExp.pp x c
     | MinMax (m, c, x) -> F.fprintf fmt "%a(%d, %a)" min_max_pp m c Symbol.pp x
-
-  let of_int : int -> t
-  = fun n ->
-    Linear (n, SymExp.empty)
-
-  let of_sym : SymExp.t -> t
-  = fun s -> Linear (0, s)
 
   let initial : t = of_int 0
 
