@@ -27,7 +27,6 @@ module Loc =
 struct
   type t =
     | Var of Var.t
-    | PVarHeap of Var.t
     | Allocsite of Allocsite.t
     | Field of t * Ident.fieldname
 
@@ -38,7 +37,6 @@ struct
         if s.[0] = '&' then
           F.fprintf fmt "%s" (String.sub s 1 (String.length s - 1))
         else F.fprintf fmt "%s" s
-    | PVarHeap v -> Var.pp fmt v;
     | Allocsite a -> Allocsite.pp fmt a
     | Field (l, f) -> F.fprintf fmt "%a.%a" pp l Ident.pp_fieldname f
   let is_var = function Var _ -> true | _ -> false
@@ -46,11 +44,9 @@ struct
     Var.pp F.str_formatter v;
     let s = F.flush_str_formatter () in
     s.[0] = '&'
-  let is_pvar_in_heap = function PVarHeap _ -> true | _ -> false
   let of_var v = Var v
   let of_allocsite a = Allocsite a
   let of_pvar pvar = Var (Var.of_pvar pvar)
-  let of_pvar_heap pvar = PVarHeap (Var.of_pvar pvar)
   let of_id id = Var (Var.of_id id)
   let append_field l f = Field (l, f)
 end
@@ -70,7 +66,6 @@ struct
   let bot = initial
 
   let of_pvar_reg pvar = singleton (Loc.of_pvar pvar)
-  let of_pvar_heap pvar = singleton (Loc.of_pvar_heap pvar)
   let of_id id = singleton (Loc.of_id id)
   let append_field ploc fn = fold (fun l -> add (Loc.append_field l fn)) ploc empty
 end
