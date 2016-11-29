@@ -426,14 +426,16 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
   = fun pdesc node exp loc mem ->
     match exp with 
       Exp.Lindex (e1, e2)
-    | Exp.BinOp (Binop.PlusA, e1, e2) -> 
+    | Exp.BinOp (Binop.PlusA, e1, e2) 
+    | Exp.BinOp (Binop.MinusA, e1, e2) ->
         let arr = eval e1 mem loc in
         let idx = eval e2 mem loc in
+        if Config.debug_mode then(
         F.fprintf F.err_formatter "@.@.add_condition";
         Domain.Val.pp F.err_formatter arr;
         F.fprintf F.err_formatter "@.@.";
         Domain.Val.pp F.err_formatter idx;
-        F.fprintf F.err_formatter "@.@.";
+        F.fprintf F.err_formatter "@.@.");
         let site = get_allocsite pdesc node 0 0 in
         let size = arr |> Domain.Val.get_array_blk |> ArrayBlk.sizeof in
         let offset = arr |> Domain.Val.get_array_blk |> ArrayBlk.offsetof in
@@ -528,7 +530,6 @@ module Domain = BufferOverrunDomain
 
 let report_error : Tenv.t -> Procdesc.t -> Domain.Condition.t Domain.ConditionSet.t -> unit 
   = fun tenv proc_desc callee_conds -> 
-    Domain.ConditionSet.pp F.err_formatter callee_conds;
     Domain.ConditionSet.iter (fun _ cond ->
         let safe = Domain.Condition.check cond in
         if not safe then
@@ -545,8 +546,10 @@ let checker ({ Callbacks.get_proc_desc; Callbacks.tenv; proc_desc } as callback)
   let post = Interprocedural.checker callback get_proc_desc in
   match post with 
     Some post ->
-      F.fprintf F.err_formatter "Final @.@.";
-      Domain.pp F.err_formatter post;
-      F.fprintf F.err_formatter "@.@.";
+      let proc_name = Procdesc.get_proc_name proc_desc in
+      F.fprintf F.err_formatter "@.Summary of %a : @ " Procname.pp proc_name;
+      F.fprintf F.err_formatter "@.";
+      Domain.pp_summary F.err_formatter post;
+      F.fprintf F.err_formatter "@.";
       report_error tenv proc_desc (Domain.get_conds post)
   | _ -> ()

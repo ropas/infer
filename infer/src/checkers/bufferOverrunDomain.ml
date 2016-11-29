@@ -35,7 +35,7 @@ struct
       let not_underrun = Itv.le_sem Itv.zero c.idx in
       (not_overrun = Itv.one) && (not_underrun = Itv.one)
   
-  let (<=) : lhs:astate -> rhs:astate -> bool = fun ~lhs ~rhs -> true
+  let (<=) : lhs:astate -> rhs:astate -> bool = fun ~lhs:_ ~rhs:_ -> true
   let join _ y = y
   let widen ~prev:_ ~next ~num_iters:_ = next
   let initial = { idx = Itv.bot; size = Itv.bot; loc = Location.dummy }
@@ -233,6 +233,11 @@ struct
   let weak_update : PowLoc.t -> Val.astate -> astate -> astate
   = fun locs v mem ->
     PowLoc.fold (fun x -> add x (Val.join v (find x mem))) locs mem
+
+  let pp_summary fmt mem =
+    F.fprintf fmt "@[<hov 2> @ ";
+    iter (fun k v -> F.fprintf fmt "%a -> %a,@." Loc.pp k Val.pp v) mem;
+    F.fprintf fmt "@]"
 end
 
 module Heap = 
@@ -273,6 +278,12 @@ struct
   let weak_update : PowLoc.t -> Val.astate -> astate -> astate
   = fun locs v mem ->
     PowLoc.fold (fun x -> add x (Val.join v (find x mem))) locs mem
+
+  let pp_summary fmt mem =
+    F.fprintf fmt "@[<hov 2> @ ";
+    iter (fun k v -> F.fprintf fmt "%a -> %a, @," Loc.pp k Val.pp v) mem;
+    F.fprintf fmt "@]"
+
 end
 
 module Mem = 
@@ -281,6 +292,13 @@ struct
   let pp : F.formatter -> astate -> unit
   = fun fmt (stack, heap) ->
     F.fprintf fmt "Stack : @ %a, @ Heap : @ %a" Stack.pp stack Heap.pp heap
+  let pp_summary : F.formatter -> astate -> unit
+  = fun fmt (stack, heap) ->
+    F.fprintf fmt "Abstract Memory : @,";
+    F.fprintf fmt "@[<hov 2>";
+    F.fprintf fmt "%a" Stack.pp_summary stack;
+    F.fprintf fmt "%a" Heap.pp_summary heap ;
+    F.fprintf fmt "@]"
   let find_stack k m = Stack.find k (fst m)
   let find_stack_set k m = Stack.find_set k (fst m)
   let find_heap k m = Heap.find k (snd m)
@@ -357,6 +375,9 @@ include AbstractDomain.Pair3(Mem)(ConditionSet)(TempAlias)
 let pp fmt (m, c, ta) =
   F.fprintf fmt "@[<v 2>( %a,@,%a,@,%a )@]" Mem.pp m ConditionSet.pp c
     TempAlias.pp ta
+
+let pp_summary fmt (m, c, _) =
+  F.fprintf fmt "@[<v 2>  %a@,%a@,@]" Mem.pp_summary m ConditionSet.pp c
 
 let get_mem : astate -> Mem.astate = fst
 
