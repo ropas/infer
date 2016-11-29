@@ -44,7 +44,7 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
     | Const.Cint intlit -> 
         Domain.Val.of_int (IntLit.to_int intlit)
     | Const.Cfloat f -> f |> int_of_float |> Domain.Val.of_int 
-    | _ -> Domain.Val.of_int (-999) (* TODO *)
+    | _ -> Domain.Val.bot (* TODO *)
 
   let sizeof_ikind : Typ.ikind -> int = function 
     | Typ.IChar | Typ.ISChar | Typ.IUChar | Typ.IBool -> 1
@@ -443,16 +443,23 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
         else ()
     | _ -> ()
 
- 
+
+  let print_debug_info instr pre post = 
+    if Config.debug_mode then 
+    begin
+      F.fprintf F.err_formatter "Pre-state : @.";
+      Domain.pp F.err_formatter pre;
+      F.fprintf F.err_formatter "@.@.";
+      Sil.pp_instr pe_text F.err_formatter instr;
+      F.fprintf F.err_formatter "@.@.";
+      Domain.pp F.err_formatter post;
+      F.fprintf F.err_formatter "@.@."
+    end
+   
   let exec_instr ((mem, conds, ta) as astate) { ProcData.pdesc; tenv; extras }
       node (instr : Sil.instr) =
-    Domain.pp F.err_formatter astate;
-    F.fprintf F.err_formatter "@.@.";
-    Sil.pp_instr Utils.pe_text F.err_formatter instr;
-    F.fprintf F.err_formatter "@.@.";
-
     init_conditions astate;
-    let astate =
+    let output_astate =
       match instr with
       | Load (id, exp, _, loc) ->
           add_condition pdesc node exp loc mem;
@@ -506,9 +513,8 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
           |> (fun (mem, _) -> (mem, conds, ta))
       | Remove_temps _ | Abstract _ | Nullify _ -> astate
     in
-    Domain.pp F.err_formatter astate;
-    F.fprintf F.err_formatter "@.@.";
-    astate
+    print_debug_info instr astate output_astate;
+    output_astate
 end
 
 module Analyzer =

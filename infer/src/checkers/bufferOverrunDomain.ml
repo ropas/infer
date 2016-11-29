@@ -57,6 +57,7 @@ struct
     map (fun e -> (Condition.subst e subst_map)) x
 
   let pp fmt x = 
+    F.fprintf fmt "Safety Conditions : @ ";
     F.fprintf fmt "{";
     iter (fun _ v -> Condition.pp fmt v) x;
     F.fprintf fmt "}"
@@ -279,7 +280,7 @@ struct
   include AbstractDomain.Pair(Stack)(Heap)
   let pp : F.formatter -> astate -> unit
   = fun fmt (stack, heap) ->
-    F.fprintf fmt "Stack : @ %a, @ Heap : @ %a @" Stack.pp stack Heap.pp heap
+    F.fprintf fmt "Stack : @ %a, @ Heap : @ %a" Stack.pp stack Heap.pp heap
   let find_stack k m = Stack.find k (fst m)
   let find_stack_set k m = Stack.find_set k (fst m)
   let find_heap k m = Heap.find k (snd m)
