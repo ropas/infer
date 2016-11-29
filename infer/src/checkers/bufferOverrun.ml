@@ -545,11 +545,11 @@ let report_error : Tenv.t -> Procdesc.t -> Domain.Condition.t Domain.ConditionSe
 let checker ({ Callbacks.get_proc_desc; Callbacks.tenv; proc_desc } as callback) =
   let post = Interprocedural.checker callback get_proc_desc in
   match post with 
-    Some post ->
+  | Some post ->
       let proc_name = Procdesc.get_proc_name proc_desc in
-      F.fprintf F.err_formatter "@.Summary of %a : @ " Procname.pp proc_name;
-      F.fprintf F.err_formatter "@.";
+      F.fprintf F.err_formatter "@.@[<v 2>Summary of %a :@,@,"
+        Procname.pp proc_name;
       Domain.pp_summary F.err_formatter post;
-      F.fprintf F.err_formatter "@.";
+      F.fprintf F.err_formatter "@]@.";
       report_error tenv proc_desc (Domain.get_conds post)
   | _ -> ()

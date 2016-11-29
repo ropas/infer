@@ -57,19 +57,13 @@ struct
     map (fun e -> (Condition.subst e subst_map)) x
 
   let pp fmt x = 
-    F.fprintf fmt "Safety Conditions : @ ";
-    F.fprintf fmt "{";
-    iter (fun _ v -> Condition.pp fmt v) x;
-    F.fprintf fmt "}"
-
-(* Sungkeun's version
-  let pp : F.formatter -> astate -> unit
-  = fun fmt x ->
-    let pp_sep fmt () = F.fprintf fmt " @,/\\ " in
-    F.fprintf fmt "@[<hov 0>";
-    F.pp_print_list ~pp_sep pp_element fmt (elements x);
+    let pp_sep fmt () = F.fprintf fmt ", @," in
+    let pp_element fmt (_, v) = Condition.pp fmt v in
+    F.fprintf fmt "@[<v 2>Safety Conditions :@,@,";
+    F.fprintf fmt "@[<hov 1>{";
+    F.pp_print_list ~pp_sep pp_element fmt (bindings x);
+    F.fprintf fmt "}@]";
     F.fprintf fmt "@]"
-*)    
 end
 
 module Val =
@@ -235,9 +229,7 @@ struct
     PowLoc.fold (fun x -> add x (Val.join v (find x mem))) locs mem
 
   let pp_summary fmt mem =
-    F.fprintf fmt "@[<hov 2> @ ";
-    iter (fun k v -> F.fprintf fmt "%a -> %a,@." Loc.pp k Val.pp v) mem;
-    F.fprintf fmt "@]"
+    iter (fun k v -> F.fprintf fmt "%a -> %a@," Loc.pp k Val.pp v) mem
 end
 
 module Heap = 
@@ -280,10 +272,7 @@ struct
     PowLoc.fold (fun x -> add x (Val.join v (find x mem))) locs mem
 
   let pp_summary fmt mem =
-    F.fprintf fmt "@[<hov 2> @ ";
-    iter (fun k v -> F.fprintf fmt "%a -> %a, @," Loc.pp k Val.pp v) mem;
-    F.fprintf fmt "@]"
-
+    iter (fun k v -> F.fprintf fmt "%a -> %a@," Loc.pp k Val.pp v) mem
 end
 
 module Mem = 
@@ -294,8 +283,7 @@ struct
     F.fprintf fmt "Stack : @ %a, @ Heap : @ %a" Stack.pp stack Heap.pp heap
   let pp_summary : F.formatter -> astate -> unit
   = fun fmt (stack, heap) ->
-    F.fprintf fmt "Abstract Memory : @,";
-    F.fprintf fmt "@[<hov 2>";
+    F.fprintf fmt "@[<v 2>Abstract Memory :@,@,";
     F.fprintf fmt "%a" Stack.pp_summary stack;
     F.fprintf fmt "%a" Heap.pp_summary heap ;
     F.fprintf fmt "@]"
@@ -377,7 +365,7 @@ let pp fmt (m, c, ta) =
     TempAlias.pp ta
 
 let pp_summary fmt (m, c, _) =
-  F.fprintf fmt "@[<v 2>  %a@,%a@,@]" Mem.pp_summary m ConditionSet.pp c
+  F.fprintf fmt "%a@,%a" Mem.pp_summary m ConditionSet.pp c
 
 let get_mem : astate -> Mem.astate = fst
 
