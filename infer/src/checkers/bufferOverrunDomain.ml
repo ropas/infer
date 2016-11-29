@@ -21,13 +21,13 @@ module L = Logging
 
 module Condition = 
 struct 
-  type t = { idx : Itv.astate; size : Itv.astate; loc : Location.t }
+  type t = { idx : Itv.astate; size : Itv.astate; loc : Location.t; id : string }
   and astate = t
   let compare = compare
   let pp fmt e = 
     F.fprintf fmt "%a < %a at %a" Itv.pp e.idx Itv.pp e.size Location.pp e.loc
   let get_location e = e.loc
-  let make ~idx ~size loc = { idx; size; loc }
+  let make ~idx ~size loc id = { idx; size; loc ; id }
   let check c = 
     if Itv.is_symbolic c.idx || Itv.is_symbolic c.size then true
     else 
@@ -35,33 +35,39 @@ struct
       let not_underrun = Itv.le_sem Itv.zero c.idx in
       (not_overrun = Itv.one) && (not_underrun = Itv.one)
   
-  let (<=) : lhs:astate -> rhs:astate -> bool = fun ~lhs:_ ~rhs:_ -> true
-  let join _ y = y
-  let widen ~prev:_ ~next ~num_iters:_ = next
-  let initial = { idx = Itv.bot; size = Itv.bot; loc = Location.dummy }
-
-  let subst x subst_map = { idx = Itv.subst x.idx subst_map; size = Itv.subst x.size subst_map; loc = x.loc }
+  let subst x subst_map = { idx = Itv.subst x.idx subst_map; size = Itv.subst x.size subst_map; loc = x.loc; id = x.id }
   let to_string x = "Offset : " ^ Itv.to_string x.idx ^ " Size : " ^ Itv.to_string x.size
 end
 
 module ConditionSet = 
 struct
-  module PPMap = PrettyPrintable.MakePPMap(struct include String let pp_key fmt x = F.fprintf fmt "%s" x end)
-  include AbstractDomain.Map (PPMap) (Condition)
+  module PPSet = PrettyPrintable.MakePPSet(struct include Condition let pp_element = pp end)
+  include AbstractDomain.FiniteSet (PPSet)
  
-  let add_bo_safety site ~idx ~size loc cond = 
-    add site (Condition.make ~idx ~size loc) cond
-  
+  let add_bo_safety id ~idx ~size loc cond = 
+    add (Condition.make ~idx ~size loc id) cond
+
+  module Map = Map.Make(struct type t = string let compare = Pervasives.compare end)
+
+  let merge conds = 
+    let map = fold (fun e map -> 
+        let old_cond = try Map.find e.id map with _ -> e in 
+        let new_cond = Condition.make ~idx:(Itv.join old_cond.idx e.idx) 
+            ~size:(Itv.join old_cond.size e.size) e.loc e.id in
+        Map.add e.id new_cond map) conds Map.empty
+    in
+    Map.fold (fun _ v conds -> add v conds) map empty
+
   let subst : astate -> Itv.Bound.t Itv.SubstMap.t -> astate
   = fun x subst_map -> 
-    map (fun e -> (Condition.subst e subst_map)) x
+    fold (fun e -> add (Condition.subst e subst_map)) x empty
 
   let pp fmt x = 
     let pp_sep fmt () = F.fprintf fmt ", @," in
-    let pp_element fmt (_, v) = Condition.pp fmt v in
+    let pp_element fmt v = Condition.pp fmt v in
     F.fprintf fmt "@[<v 2>Safety Conditions :@,@,";
     F.fprintf fmt "@[<hov 1>{";
-    F.pp_print_list ~pp_sep pp_element fmt (bindings x);
+    F.pp_print_list ~pp_sep pp_element fmt (elements x);
     F.fprintf fmt "}@]";
     F.fprintf fmt "@]"
 end

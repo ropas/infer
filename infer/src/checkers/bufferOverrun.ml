@@ -92,9 +92,8 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
         let arr = Domain.Mem.find_heap_set ploc mem in
         Domain.Val.join (Domain.Val.of_pow_loc ploc) arr
     | Exp.Sizeof (typ, _, _) -> Domain.Val.of_int (sizeof typ)
-(*    | Exp.Exn _ -> 
-    | Exp.Closure _ -> *)
-    | _ -> raise Not_implemented
+    | Exp.Exn _ 
+    | Exp.Closure _ -> Domain.Val.bot
  and eval_unop
     : Unop.t -> Exp.t -> Domain.Mem.astate -> Location.t -> Domain.Val.astate
   = fun unop e mem loc ->
@@ -190,7 +189,7 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
         declare_array pdesc node loc typ len inst_num (dimension + 1) mem
     | _ -> mem
 
-  let rec declare_symbolic_array pdesc tenv node loc typ inst_num dimension mem =
+  let declare_symbolic_array pdesc tenv node loc typ inst_num dimension mem =
     let (offset, size) = (Itv.get_new_sym (), Itv.get_new_sym ()) in
     let mem = Domain.Mem.add_heap loc (eval_array_alloc pdesc node typ offset size inst_num dimension) mem in
     match typ with 
@@ -204,7 +203,9 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
               match typ with 
                 Typ.Tint _ | Typ.Tfloat _ -> 
                   Domain.Mem.add_heap field (Domain.Val.get_new_sym ()) mem
-              | Typ.Tptr (typ, _) -> declare_symbolic_array pdesc tenv node field typ (inst_num+1) dimension mem
+              | Typ.Tptr (typ, _) -> 
+                  Domain.Mem.add_heap field (eval_array_alloc pdesc node typ offset size inst_num dimension) mem
+                  (*declare_symbolic_array pdesc tenv node field typ (inst_num+1) dimension mem*)
               | _ -> mem
             ) mem str.StructTyp.fields
         | _ -> mem
@@ -354,7 +355,7 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
   let init_conditions astate = conditions := Domain.get_conds astate
   let get_conditions () = !conditions
 
-  let rec get_matching_pairs : Tenv.t -> Domain.Val.astate -> Domain.Val.astate -> Typ.t -> Domain.Mem.astate -> Domain.Mem.astate -> (Itv.Bound.t * Itv.Bound.t) list
+  let get_matching_pairs : Tenv.t -> Domain.Val.astate -> Domain.Val.astate -> Typ.t -> Domain.Mem.astate -> Domain.Mem.astate -> (Itv.Bound.t * Itv.Bound.t) list
   = fun tenv formal actual typ caller_mem callee_mem ->
     let add_pair itv1 itv2 l =
       if itv1 <> Itv.bot && itv2 <> Itv.bot then
@@ -362,18 +363,20 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
         :: (Itv.ub itv1, Itv.ub itv2) :: l
       else l
     in
-    let formal_itv = Domain.Val.get_itv formal in
-    let actual_itv = Domain.Val.get_itv actual in
-    let formal_arr = Domain.Val.get_array_blk formal in
-    let actual_arr = Domain.Val.get_array_blk actual in
-    let formal_arr_offset = formal_arr |> ArrayBlk.offsetof in
-    let formal_arr_size = formal_arr |> ArrayBlk.sizeof in
-    let actual_arr_offset = actual_arr |> ArrayBlk.offsetof in
-    let actual_arr_size = actual_arr |> ArrayBlk.sizeof in
-    let pairs = 
-      [] |> add_pair formal_itv actual_itv |> add_pair formal_arr_offset actual_arr_offset 
+    let add_pair_val formal actual = 
+      let formal_itv = Domain.Val.get_itv formal in
+      let actual_itv = Domain.Val.get_itv actual in
+      let formal_arr = Domain.Val.get_array_blk formal in
+      let actual_arr = Domain.Val.get_array_blk actual in
+      let formal_arr_offset = formal_arr |> ArrayBlk.offsetof in
+      let formal_arr_size = formal_arr |> ArrayBlk.sizeof in
+      let actual_arr_offset = actual_arr |> ArrayBlk.offsetof in
+      let actual_arr_size = actual_arr |> ArrayBlk.sizeof in
+      add_pair formal_itv actual_itv [] 
+      |> add_pair formal_arr_offset actual_arr_offset 
       |> add_pair formal_arr_size actual_arr_size
     in
+    let pairs = add_pair_val formal actual in
     match typ with 
       Typ.Tptr (Typ.Tstruct typename, _) ->
       begin
@@ -386,7 +389,8 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
               let actual_fields = PowLoc.append_field actual_loc fn in
               let formal = Domain.Mem.find_heap_set formal_fields callee_mem in
               let actual = Domain.Mem.find_heap_set actual_fields caller_mem in
-              (get_matching_pairs tenv formal actual typ caller_mem callee_mem) @ pairs
+              (* (get_matching_pairs tenv formal actual typ caller_mem callee_mem) @ pairs *)
+              add_pair_val formal actual @ pairs
             ) pairs str.StructTyp.fields
         | _ -> pairs
       end
@@ -418,7 +422,7 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
         let ret_loc = Loc.of_pvar (Pvar.get_ret_pvar callee_pname) in
         let ret_val = Domain.Mem.find_heap ret_loc callee_mem in
         let new_ret_val = Domain.Val.subst ret_val subst_map in
-        (Domain.Mem.add_heap ret_loc new_ret_val callee_mem,  Domain.ConditionSet.subst callee_conds subst_map)
+        (Domain.Mem.add_heap ret_loc new_ret_val callee_mem, Domain.ConditionSet.subst callee_conds subst_map)
     | _ -> (callee_mem, callee_conds)
   with _ -> (callee_mem, callee_conds)
 
@@ -528,19 +532,18 @@ module Analyzer =
 module Interprocedural = Analyzer.Interprocedural (Summary)
 module Domain = BufferOverrunDomain
 
-let report_error : Tenv.t -> Procdesc.t -> Domain.Condition.t Domain.ConditionSet.t -> unit 
-  = fun tenv proc_desc callee_conds -> 
-    Domain.ConditionSet.iter (fun _ cond ->
-        let safe = Domain.Condition.check cond in
-        if not safe then
-          Checkers.ST.report_error tenv
-            (Procdesc.get_proc_name proc_desc)
-            proc_desc
-            "BUFFER-OVERRUN CHECKER"
-            (Domain.Condition.get_location cond)
-            (Domain.Condition.to_string cond)
-        else ()) callee_conds
-
+let report_error : Tenv.t -> Procdesc.t -> Domain.ConditionSet.t -> unit 
+= fun tenv proc_desc callee_conds -> 
+  Domain.ConditionSet.iter (fun cond ->
+      let safe = Domain.Condition.check cond in
+      if not safe then
+        Checkers.ST.report_error tenv
+          (Procdesc.get_proc_name proc_desc)
+          proc_desc
+          "BUFFER-OVERRUN CHECKER"
+          (Domain.Condition.get_location cond)
+          (Domain.Condition.to_string cond)
+      else ()) callee_conds
 
 let checker ({ Callbacks.get_proc_desc; Callbacks.tenv; proc_desc } as callback) =
   let post = Interprocedural.checker callback get_proc_desc in
@@ -551,5 +554,5 @@ let checker ({ Callbacks.get_proc_desc; Callbacks.tenv; proc_desc } as callback)
         Procname.pp proc_name;
       Domain.pp_summary F.err_formatter post;
       F.fprintf F.err_formatter "@]@.";
-      report_error tenv proc_desc (Domain.get_conds post)
+      report_error tenv proc_desc (Domain.get_conds post |> Domain.ConditionSet.merge)
   | _ -> ()
