@@ -1,9 +1,9 @@
 (*
- * Copyright (c) 2016 - present 
+ * Copyright (c) 2016 - present
  * Kihong Heo (http://ropas.snu.ac.kr/~khheo)
  * Sungkeun Cho (http://ropas.snu.ac.kr/~skcho)
  * Kwangkeun Yi (http://ropas.snu.ac.kr/~kwang)
- * 
+ *
  * ROSAEC(Research On Software Analysis for Error-free Computing) Center
  * Programming Research Laboratory
  * Seoul National University, Korea
@@ -17,8 +17,8 @@
 module F = Format
 module L = Logging
 
-(* TODO: Due to the side-effect of the symbol numbers, we may have to
-   place the sym_size outside of the Itv module. *)
+exception TODO
+
 let sym_size = ref 0
 
 module Symbol =
@@ -26,6 +26,10 @@ struct
   type t = int
 
   let compare : t -> t -> int = compare
+
+  let eq : t -> t -> bool
+  = fun x y ->
+    compare x y = 0
 
   let get_new : unit -> t
   = fun () ->
@@ -38,7 +42,8 @@ struct
     F.fprintf fmt "s$%d" x
 end
 
-module SubstMap = Map.Make(struct type t = Symbol.t let compare = Symbol.compare end)
+module SubstMap =
+  Map.Make (struct type t = Symbol.t let compare = Symbol.compare end)
 
 module SymExp =
 struct
@@ -49,9 +54,9 @@ struct
   let empty : t = M.empty
 
   let add = M.add
-  let cardinal = M.cardinal 
-  let choose = M.choose 
-  let fold = M.fold 
+  let cardinal = M.cardinal
+  let choose = M.choose
+  let fold = M.fold
   let mem = M.mem
 
   let initial : t = empty
@@ -140,35 +145,68 @@ struct
   let div_const : t -> int -> t
   = fun x n ->
     M.map ((/) n) x
+
+  (* Returns a symbol when the map contains only one symbol s with the
+     coefficient 1. *)
+  let one_symbol : t -> Symbol.t option
+  = fun _ ->
+    raise TODO
+
+  let is_one_symbol : t -> bool
+  = fun x ->
+    match one_symbol x with
+    | Some _ -> true
+    | None -> false
 end
 
 module Bound =
 struct
+  type min_max_t = Min | Max
+
+  let min_max_pp : F.formatter -> min_max_t -> unit
+  = fun fmt -> function
+    | Min -> F.fprintf fmt "min"
+    | Max -> F.fprintf fmt "max"
+
   type t =
     | MInf
-    | V of int * SymExp.t
+    | Linear of int * SymExp.t
+    | MinMax of min_max_t * int * Symbol.t
     | PInf
 
-  let is_symbolic = function 
-    | MInf | PInf -> false 
-    | V (_, se) -> SymExp.cardinal se > 0
+  let is_symbolic = function
+    | MInf | PInf -> false
+    | Linear (_, se) -> SymExp.cardinal se > 0
+    | MinMax _ -> true
 
   let subst callee_cond map =
     match callee_cond with
-      V (c, se) -> 
-        SymExp.fold (fun sym coeff new_bound ->
-            match new_bound with
-              MInf | PInf -> new_bound
-            | V (c', se') ->
-              try
-                let target = SubstMap.find sym map in
-                match target with 
-                  MInf | PInf -> target
-                | V (target_c, target_se) ->
-                    V (c' + (target_c * coeff), SymExp.plus se' target_se)
-              with Not_found -> 
-                V (c', SymExp.add sym coeff se')) se (V (c, SymExp.empty))
+    | Linear (c, se) ->
+        SymExp.fold
+          (fun sym coeff new_bound ->
+             match new_bound with
+             | MInf | PInf -> new_bound
+             | Linear (c', se') ->
+                 (try
+                    let target = SubstMap.find sym map in
+                    match target with
+                    | MInf | PInf -> target
+                    | Linear (target_c, target_se) ->
+                        let c'' = c' + (target_c * coeff) in
+                        let se'' = SymExp.plus se' target_se in
+                        Linear (c'', se'')
+                    | MinMax _ -> raise TODO
+                  with Not_found -> Linear (c', SymExp.add sym coeff se'))
+             | MinMax _ -> raise TODO)
+          se (Linear (c, SymExp.empty))
     | _ -> callee_cond
+
+  let opt_lift : ('a -> 'b -> bool) -> 'a option -> 'b option -> bool
+  = fun f a_opt b_opt ->
+    match a_opt, b_opt with
+    | None, _
+    | _, None -> false
+    | Some a, Some b -> f a b
 
   let le : t -> t -> bool
   = fun x y ->
@@ -177,129 +215,150 @@ struct
     | _, PInf -> true
     | _, MInf
     | PInf, _ -> false
-    | V (c0, x0), V (c1, x1) -> c0 <= c1 && SymExp.eq x0 x1
+    | Linear (c0, x0), Linear (c1, x1) -> c0 <= c1 && SymExp.eq x0 x1
+    | MinMax (Min, c0, x0), MinMax (Min, c1, x1)
+    | MinMax (Max, c0, x0), MinMax (Max, c1, x1) -> c0 <= c1 && Symbol.eq x0 x1
+    | MinMax (Min, c0, x0), Linear (c1, x1) ->
+        (c0 <= c1 && SymExp.is_zero x1)
+        || (c1 = 0 && opt_lift Symbol.eq (SymExp.one_symbol x1) (Some x0))
+    | Linear (c1, x1), MinMax (Max, c0, x0) ->
+        (c1 <= c0 && SymExp.is_zero x1)
+        || (c1 = 0 && opt_lift Symbol.eq (SymExp.one_symbol x1) (Some x0))
+    | MinMax (Min, c0, x0), MinMax (Max, c1, x1) -> c0 <= c1 || Symbol.eq x0 x1
+    | _, _ -> false
 
   let lt : t -> t -> bool
   = fun x y ->
     match x, y with
-    | MInf, V _
+    | MInf, Linear _
+    | MInf, MinMax _
     | MInf, PInf
-    | V _, PInf -> true
-    | V (c0, x0), V (c1, x1) -> c0 < c1 && SymExp.eq x0 x1
+    | Linear _, PInf
+    | MinMax _, PInf -> true
+    | Linear (c0, x0), Linear (c1, x1) -> c0 < c1 && SymExp.eq x0 x1
+    | MinMax (Min, c0, _), Linear (c1, x1) -> c0 < c1 && SymExp.is_zero x1
+    | Linear (c1, x1), MinMax (Max, c0, _) -> c1 < c0 && SymExp.is_zero x1
+    | MinMax (Min, c0, _), MinMax (Max, c1, _) -> c0 < c1
     | _, _ -> false
 
   let eq : t -> t -> bool
   = fun x y ->
-    match x, y with
-    | MInf, MInf
-    | PInf, PInf -> true
-    | V (c0, x0), V (c1, x1) -> c0 = c1 && SymExp.eq x0 x1
-    | _, _ -> false
+    le x y && le y x
 
   let min : t -> t -> t
   = fun x y ->
-    match x, y with
-    | MInf, _
-    | _, MInf -> MInf
-    | PInf, _ -> y
-    | _, PInf -> x
-    | V (c0, x0), V (c1, x1) ->
-        if SymExp.eq x0 x1 then V (min c0 c1, x0) else MInf
+    if le x y then x else
+    if le y x then y else
+      match x, y with
+      | Linear (c0, x0), Linear (c1, x1)
+        when SymExp.is_zero x0 && c1 = 0 && SymExp.is_one_symbol x1 ->
+          (match SymExp.one_symbol x1 with
+           | Some x' -> MinMax (Min, c0, x')
+           | None -> assert false)
+      | Linear (c0, x0), Linear (c1, x1)
+        when SymExp.is_zero x1 && c0 = 0 && SymExp.is_one_symbol x0 ->
+          (match SymExp.one_symbol x0 with
+           | Some x' -> MinMax (Min, c1, x')
+           | None -> assert false)
+      | _, _ -> MInf
 
   let max : t -> t -> t
   = fun x y ->
-    match x, y with
-    | PInf, _
-    | _, PInf -> PInf
-    | MInf, _ -> y
-    | _, MInf -> x
-    | V (c0, x0), V (c1, x1) ->
-        if SymExp.eq x0 x1 then V (max c0 c1, x0) else PInf
+    if le x y then y else
+    if le y x then x else
+      match x, y with
+      | Linear (c0, x0), Linear (c1, x1)
+        when SymExp.is_zero x0 && c1 = 0 && SymExp.is_one_symbol x1 ->
+          (match SymExp.one_symbol x1 with
+           | Some x' -> MinMax (Max, c0, x')
+           | None -> assert false)
+      | Linear (c0, x0), Linear (c1, x1)
+        when SymExp.is_zero x1 && c0 = 0 && SymExp.is_one_symbol x0 ->
+          (match SymExp.one_symbol x0 with
+           | Some x' -> MinMax (Max, c1, x')
+           | None -> assert false)
+      | _, _ -> PInf
 
   let widen_l : t -> t -> t
   = fun x y ->
-    match x, y with
-    | PInf, _
-    | _, PInf -> failwith "Lower bound cannot be +oo."
-    | MInf, _
-    | _, MInf -> MInf
-    | V (c0, x0), V (c1, x1) ->
-        if c0 <= c1 && SymExp.eq x0 x1 then x else MInf
+    if x = PInf || y = PInf then failwith "Lower bound cannot be +oo." else
+    if le x y then x else
+      MInf
 
   let widen_u : t -> t -> t
   = fun x y ->
-    match x, y with
-    | MInf, _
-    | _, MInf -> failwith "Upper bound cannot be -oo."
-    | PInf, _
-    | _, PInf -> PInf
-    | V (c0, x0), V (c1, x1) ->
-        if c0 >= c1 && SymExp.eq x0 x1 then x else PInf
+    if x = MInf || y = MInf then failwith "Upper bound cannot be -oo." else
+    if le y x then x else
+      PInf
 
   let pp : F.formatter -> t -> unit
   = fun fmt -> function
     | MInf -> F.fprintf fmt "-oo"
     | PInf -> F.fprintf fmt "+oo"
-    | V (c, x) ->
+    | Linear (c, x) ->
         if SymExp.le x SymExp.empty then
           F.fprintf fmt "%d" c
         else if c = 0 then
           F.fprintf fmt "%a" SymExp.pp x
         else
           F.fprintf fmt "%a + %d" SymExp.pp x c
+    | MinMax (m, c, x) -> F.fprintf fmt "%a(%d, %a)" min_max_pp m c Symbol.pp x
 
   let of_int : int -> t
   = fun n ->
-    V (n, SymExp.empty)
+    Linear (n, SymExp.empty)
 
   let of_sym : SymExp.t -> t
-  = fun s -> V (0, s)
+  = fun s -> Linear (0, s)
 
   let initial : t = of_int 0
 
-  let zero : t = V (0, SymExp.zero)
+  let zero : t = Linear (0, SymExp.zero)
 
-  let one : t = V (1, SymExp.zero)
+  let one : t = Linear (1, SymExp.zero)
 
   let is_zero : t -> bool
   = function
-    | V (c, x) -> c = 0 && SymExp.is_zero x
+    | Linear (c, x) -> c = 0 && SymExp.is_zero x
     | _ -> false
 
   let is_const : t -> int option
   = function
-    | V (c, x) when SymExp.is_zero x -> Some c
+    | Linear (c, x) when SymExp.is_zero x -> Some c
     | _ -> None
 
-  let plus : t -> t -> t
+  let plus : t -> t -> t option
   = fun x y ->
     match x, y with
     | MInf, PInf
-    | PInf, MInf -> failwith "+oo + -oo is undefined."
-    | MInf, _
-    | _, MInf -> MInf
+    | PInf, MInf -> failwith "Cannot calculate +oo + -oo."
     | PInf, _
-    | _, PInf -> PInf
-    | V (c1, x1), V (c2, x2) -> V (c1 + c2, SymExp.plus x1 x2)
+    | _, PInf -> Some PInf
+    | MInf, _
+    | _, MInf -> Some MInf
+    | Linear (c1, x1), Linear (c2, x2) ->
+        Some (Linear (c1 + c2, SymExp.plus x1 x2))
+    | _, _ -> None
 
-  let minus : t -> t -> t
+  let minus : t -> t -> t option
   = fun x y ->
     match x, y with
-    | MInf, MInf
-    | PInf, PInf -> failwith "+oo - +oo and -oo - -oo are undefined."
-    | MInf, _
-    | _, PInf -> MInf
-    | PInf, _
-    | _, MInf -> PInf
-    | V (c1, x1), V (c2, x2) -> V (c1 - c2, SymExp.minus x1 x2)
+    | PInf, PInf -> failwith "Cannot calculate +oo - +oo."
+    | MInf, MInf -> failwith "Cannot calculate -oo - -oo."
+    | PInf, _ -> Some PInf
+    | MInf, _ -> Some MInf
+    | Linear (c1, x1), Linear (c2, x2) ->
+        Some (Linear (c1 - c2, SymExp.minus x1 x2))
+    | _, _ -> None
 
-  let mult_const : t -> int -> t
+  let mult_const : t -> int -> t option
   = fun x n ->
     assert (n <> 0);
     match x with
-    | MInf -> if n > 0 then MInf else PInf
-    | PInf -> if n > 0 then PInf else MInf
-    | V (c, x') -> V (c * n, SymExp.mult_const x' n)
+    | MInf -> Some (if n > 0 then MInf else PInf)
+    | PInf -> Some (if n > 0 then PInf else MInf)
+    | Linear (c, x') -> Some (Linear (c * n, SymExp.mult_const x' n))
+    | _ -> None
 
   let div_const : t -> int -> t option
   = fun x n ->
@@ -307,24 +366,28 @@ struct
       match x with
       | MInf -> Some (if n > 0 then MInf else PInf)
       | PInf -> Some (if n > 0 then PInf else MInf)
-      | V (c, x') ->
+      | Linear (c, x') ->
           if c mod n = 0 && SymExp.is_mod_zero x' n then
-            Some (V (c / n, SymExp.div_const x' n))
+            Some (Linear (c / n, SymExp.div_const x' n))
           else None
+      | _ -> None
 
-  let neg : t -> t
+  let neg : t -> t option
   = function
-    | MInf -> PInf
-    | PInf -> MInf
-    | V (c, x) -> V (-c, SymExp.neg x)
+    | MInf -> Some PInf
+    | PInf -> Some MInf
+    | Linear (c, x) -> Some (Linear (-c, SymExp.neg x))
+    | MinMax _ -> None
 
   let prune_l : t -> (t * t) -> t
   = fun x (l, u) ->
-    if le l x && le x u then plus u one else x
+    raise TODO
+    (* if le l x && le x u then plus u one else x *)
 
   let prune_u : t -> (t * t) -> t
   = fun x (l, u) ->
-    if le l x && le x u then minus l one else x
+    raise TODO
+    (* if le l x && le x u then minus l one else x *)
 end
 
 module ItvPure =
@@ -335,7 +398,7 @@ struct
   let initial : astate = (Bound.initial, Bound.initial)
 
   let lb = fst
-  let ub = snd 
+  let ub = snd
 
   let subst x map = (Bound.subst (lb x) map, Bound.subst (ub x) map)
 
@@ -396,12 +459,14 @@ struct
     | Some n, Some m when n = m -> Some n
     | _, _ -> None
 
-  let is_symbolic : astate -> bool 
+  let is_symbolic : astate -> bool
   = fun (lb, ub) -> Bound.is_symbolic lb || Bound.is_symbolic ub
 
   let neg : astate -> astate
   = fun (l, u) ->
-    (Bound.neg u, Bound.neg l)
+    let l' = Option.default Bound.MInf (Bound.neg u) in
+    let u' = Option.default Bound.PInf (Bound.neg l) in
+    (l', u')
 
   let lnot : astate -> astate
   = fun x ->
@@ -411,26 +476,41 @@ struct
 
   let plus : astate -> astate -> astate
   = fun (l1, u1) (l2, u2) ->
-    (Bound.plus l1 l2, Bound.plus u1 u2)
+    let l' = Option.default Bound.MInf (Bound.plus l1 l2) in
+    let u' = Option.default Bound.PInf (Bound.plus u1 u2) in
+    (l', u')
 
   let minus : astate -> astate -> astate
   = fun (l1, u1) (l2, u2) ->
-    (Bound.minus l1 u2, Bound.minus u1 l2)
+    let l' = Option.default Bound.MInf (Bound.minus l1 u2) in
+    let u' = Option.default Bound.PInf (Bound.minus u1 l2) in
+    (l', u')
 
   let mult_const : astate -> int -> astate
   = fun (l, u) n ->
     if n = 0 then zero else
-      let l' = Bound.mult_const l n in
-      let u' = Bound.mult_const u n in
-      if n > 0 then (l', u') else (u', l')
+    if n > 0 then
+      let l' = Option.default Bound.MInf (Bound.mult_const l n) in
+      let u' = Option.default Bound.PInf (Bound.mult_const u n) in
+      (l', u')
+    else
+      let l' = Option.default Bound.MInf (Bound.mult_const u n) in
+      let u' = Option.default Bound.PInf (Bound.mult_const l n) in
+      (l', u')
 
   (* Returns a correct value only when all coefficients are divided by
      n without remainder. *)
-  let div_const : astate -> int -> astate option
+  let div_const : astate -> int -> astate
   = fun (l, u) n ->
-    match Bound.div_const l n, Bound.div_const u n with
-    | Some l', Some u' -> Some (if n >=0 then (l', u') else (u', l'))
-    | _, _ -> None
+    assert (n <> 0);
+    if n > 0 then
+      let l' = Option.default Bound.MInf (Bound.div_const l n) in
+      let u' = Option.default Bound.PInf (Bound.div_const u n) in
+      (l', u')
+    else
+      let l' = Option.default Bound.MInf (Bound.div_const u n) in
+      let u' = Option.default Bound.PInf (Bound.div_const l n) in
+      (l', u')
 
   let mult : astate -> astate -> astate
   = fun x y ->
@@ -442,11 +522,8 @@ struct
   let div : astate -> astate -> astate
   = fun x y ->
     match is_const y with
-    | Some n ->
-        (match div_const x n with
-         | Some x' -> x'
-         | None -> top)
-    | None -> top
+    | Some n when n <> 0 -> div_const x n
+    | _ -> top
 
   (* x % [0,0] does nothing. *)
   let mod_sem : astate -> astate -> astate
@@ -467,12 +544,7 @@ struct
   let shiftrt : astate -> astate -> astate
   = fun x y ->
     match is_const y with
-    | Some n ->
-        if n >= 0 then
-          match div_const x (1 lsl n) with
-          | Some x' -> x'
-          | None -> top
-        else x
+    | Some n -> if n >= 0 then div_const x (1 lsl n) else x
     | None -> top
 
   let lt_sem : astate -> astate -> astate
@@ -533,16 +605,19 @@ struct
 
   let prune_comp : Binop.t -> astate -> astate -> astate option
   = fun c x (l, u) ->
+    raise TODO
+(*
     if not (valid (l, u)) then Some x else
       let y =
         match c with
         | Binop.Lt -> (u, Bound.PInf)
         | Binop.Gt -> (Bound.MInf, l)
-        | Binop.Le -> (Bound.plus u Bound.one, Bound.PInf)
-        | Binop.Ge -> (Bound.MInf, Bound.minus l Bound.one)
+        | Binop.Le -> (Bound.plus_l u Bound.one, Bound.PInf) (* ??? *)
+        | Binop.Ge -> (Bound.MInf, Bound.minus_u l Bound.one)
         | _ -> assert (false)
       in
       prune x y
+*)
 
   let prune_eq : astate -> astate -> astate option
   = fun x y ->
@@ -582,7 +657,7 @@ let pos : astate = NonBottom ItvPure.pos
 
 let nat : astate = NonBottom ItvPure.nat
 
-let is_symbolic : astate -> bool = function 
+let is_symbolic : astate -> bool = function
   | NonBottom x -> ItvPure.is_symbolic x
   | Bottom -> false
 
@@ -668,6 +743,6 @@ let prune_ne : astate -> astate -> astate = lift2_opt ItvPure.prune_ne
 
 let subst : astate -> Bound.t SubstMap.t -> astate
 = fun x map ->
-  match x with 
+  match x with
     NonBottom x' -> NonBottom (ItvPure.subst x' map)
   | _ -> x

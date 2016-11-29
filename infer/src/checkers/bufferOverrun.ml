@@ -377,7 +377,7 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
         let subst_map : Itv.Bound.t Itv.SubstMap.t = 
             IList.fold_left (fun map (formal, actual) ->
               match formal with 
-                Itv.Bound.V (0, se1) when Itv.SymExp.cardinal se1 > 0 -> 
+              | Itv.Bound.Linear (0, se1) when Itv.SymExp.cardinal se1 > 0 ->
                   let (symbol, coeff) = Itv.SymExp.choose se1 in
                   if coeff = 1 then
                     Itv.SubstMap.add symbol actual map
