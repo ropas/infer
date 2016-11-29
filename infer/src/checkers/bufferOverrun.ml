@@ -190,9 +190,27 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
         declare_array pdesc node loc typ len inst_num (dimension + 1) mem
     | _ -> mem
 
-  let declare_symolic_array pdesc node loc typ inst_num dimension mem =
+  let rec declare_symbolic_array pdesc tenv node loc typ inst_num dimension mem =
     let (offset, size) = (Itv.get_new_sym (), Itv.get_new_sym ()) in
-    Domain.Mem.add_heap loc (eval_array_alloc pdesc node typ offset size inst_num dimension) mem
+    let mem = Domain.Mem.add_heap loc (eval_array_alloc pdesc node typ offset size inst_num dimension) mem in
+    match typ with 
+      Typ.Tstruct typename ->
+      begin
+        match Tenv.lookup tenv typename with
+          Some str -> 
+            IList.fold_left (fun mem (fn, typ, _) ->
+              let loc = Domain.Mem.find_heap loc mem |> Domain.Val.get_all_locs |> PowLoc.choose in
+              let field = Loc.append_field loc fn in
+              match typ with 
+                Typ.Tint _ | Typ.Tfloat _ -> 
+                  Domain.Mem.add_heap field (Domain.Val.get_new_sym ()) mem
+              | Typ.Tptr (typ, _) -> declare_symbolic_array pdesc tenv node field typ (inst_num+1) dimension mem
+              | _ -> mem
+            ) mem str.StructTyp.fields
+        | _ -> mem
+      end
+    | _ -> mem
+
      
   let can_strong_update ploc =
     if PowLoc.cardinal ploc = 1 then 
@@ -336,42 +354,55 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
   let init_conditions astate = conditions := Domain.get_conds astate
   let get_conditions () = !conditions
 
-  let instantiate callee_pdesc callee_pname params caller_mem callee_mem callee_conds loc =
+  let rec get_matching_pairs : Tenv.t -> Domain.Val.astate -> Domain.Val.astate -> Typ.t -> Domain.Mem.astate -> Domain.Mem.astate -> (Itv.Bound.t * Itv.Bound.t) list
+  = fun tenv formal actual typ caller_mem callee_mem ->
+    let add_pair itv1 itv2 l =
+      if itv1 <> Itv.bot && itv2 <> Itv.bot then
+        (Itv.lb itv1, Itv.lb itv2) 
+        :: (Itv.ub itv1, Itv.ub itv2) :: l
+      else l
+    in
+    let formal_itv = Domain.Val.get_itv formal in
+    let actual_itv = Domain.Val.get_itv actual in
+    let formal_arr = Domain.Val.get_array_blk formal in
+    let actual_arr = Domain.Val.get_array_blk actual in
+    let formal_arr_offset = formal_arr |> ArrayBlk.offsetof in
+    let formal_arr_size = formal_arr |> ArrayBlk.sizeof in
+    let actual_arr_offset = actual_arr |> ArrayBlk.offsetof in
+    let actual_arr_size = actual_arr |> ArrayBlk.sizeof in
+    let pairs = 
+      [] |> add_pair formal_itv actual_itv |> add_pair formal_arr_offset actual_arr_offset 
+      |> add_pair formal_arr_size actual_arr_size
+    in
+    match typ with 
+      Typ.Tptr (Typ.Tstruct typename, _) ->
+      begin
+        match Tenv.lookup tenv typename with
+          Some str -> 
+            IList.fold_left (fun pairs (fn, typ, _) ->
+              let formal_loc = formal |> Domain.Val.get_all_locs in
+              let actual_loc = actual |> Domain.Val.get_all_locs in
+              let formal_fields = PowLoc.append_field formal_loc fn in
+              let actual_fields = PowLoc.append_field actual_loc fn in
+              let formal = Domain.Mem.find_heap_set formal_fields callee_mem in
+              let actual = Domain.Mem.find_heap_set actual_fields caller_mem in
+              (get_matching_pairs tenv formal actual typ caller_mem callee_mem) @ pairs
+            ) pairs str.StructTyp.fields
+        | _ -> pairs
+      end
+    | _ -> pairs
+
+   
+  let instantiate tenv callee_pdesc callee_pname params caller_mem callee_mem callee_conds loc =
     try 
     match callee_pdesc with 
       Some pdesc ->
-        let formals =
-          get_formals pdesc
-          |> IList.map
-            (fun (p, _) -> Domain.Mem.find_heap (Loc.of_pvar p) callee_mem)
-        in
-        let actuals = IList.map (fun (p, _) -> eval p caller_mem loc) params in
-        let pairs = IList.fold_left2 (fun l formal actual ->
-              let formal_itv = Domain.Val.get_itv formal in
-              let actual_itv = Domain.Val.get_itv actual in
-              let formal_arr = Domain.Val.get_array_blk formal in
-              let actual_arr = Domain.Val.get_array_blk actual in
-              let formal_arr_offset = formal_arr |> ArrayBlk.offsetof in
-              let formal_arr_size = formal_arr |> ArrayBlk.sizeof in
-              let actual_arr_offset = actual_arr |> ArrayBlk.offsetof in
-              let actual_arr_size = actual_arr |> ArrayBlk.sizeof in
-              l
-              |> (fun l -> 
-                  if formal_itv <> Itv.bot && actual_itv <> Itv.bot then 
-                    (Itv.lb formal_itv, Itv.lb actual_itv) 
-                    :: (Itv.ub formal_itv, Itv.ub actual_itv) :: l
-                  else l)
-              |> (fun l -> 
-                  if formal_arr_offset <> Itv.bot && actual_arr_offset <> Itv.bot then                   
-                    (Itv.lb formal_arr_offset, Itv.lb actual_arr_offset)
-                    :: (Itv.ub formal_arr_offset, Itv.ub actual_arr_offset) :: l
-                  else l)
-              |> (fun l -> 
-                  if formal_arr_size <> Itv.bot && actual_arr_size <> Itv.bot then 
-                    (Itv.lb formal_arr_size, Itv.lb actual_arr_size)
-                    :: (Itv.ub formal_arr_size, Itv.ub actual_arr_size) :: l
-                  else l)
-            ) [] formals actuals
+        let pairs = 
+          IList.fold_left2 (fun l (formal, typ) (actual,_) ->
+              let formal = Domain.Mem.find_heap (Loc.of_pvar formal) callee_mem in
+              let actual = eval actual caller_mem loc in
+              (get_matching_pairs tenv formal actual typ caller_mem callee_mem) @ l
+          ) [] (get_formals pdesc) params
         in
         let subst_map : Itv.Bound.t Itv.SubstMap.t = 
             IList.fold_left (fun map (formal, actual) ->
@@ -444,7 +475,7 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
           begin
             match Summary.read_summary tenv pdesc callee_pname with
             | Some (callee_mem, callee_cond, _) -> 
-              let (new_mem, new_conds) = instantiate callee callee_pname params mem callee_mem callee_cond loc in
+              let (new_mem, new_conds) = instantiate tenv callee callee_pname params mem callee_mem callee_cond loc in
               let new_mem = 
                 match ret with Some (id,_) -> 
                   Domain.Mem.add_stack (Loc.of_var (Var.of_id id))
@@ -464,11 +495,12 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
               | _ -> (mem, c)) (mem, 1) locals
                     |> fst
           in
+          (* formal parameters *)
           IList.fold_left (fun (mem, c) (pvar, typ) ->
               match typ with
                 Typ.Tint _ -> (Domain.Mem.add_heap (Loc.of_pvar pvar) (Domain.Val.get_new_sym ()) mem, c+1)
               | Typ.Tptr (typ, _) ->
-                  (declare_symolic_array pdesc node (Loc.of_pvar pvar) typ c 1 mem, c+1)
+                  (declare_symbolic_array pdesc tenv node (Loc.of_pvar pvar) typ c 1 mem, c+1)
               | _ -> (mem, c) (* TODO *)) (mem, 0) (get_formals pdesc)
           |> (fun (mem, _) -> (mem, conds, ta))
       | Remove_temps _ | Abstract _ | Nullify _ -> astate
