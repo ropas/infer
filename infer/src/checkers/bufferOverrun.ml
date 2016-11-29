@@ -85,17 +85,12 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
     | Exp.Lfield (e, fn, _) ->
         eval e mem loc |> Domain.Val.get_all_locs |> flip PowLoc.append_field fn |> Domain.Val.of_pow_loc
     | Exp.Lindex (e1, e2) -> 
-        let arr = eval e1 mem loc in
+        let arr = eval e1 mem loc in  (* must have array blk *)
         let idx = eval e2 mem loc in
-(*        add_condition arr idx loc;*)
-        arr |> Domain.Val.get_array_blk |> ArrayBlk.get_pow_loc |> Domain.Val.of_pow_loc 
-(*        let arr = Domain.Val.join (v1 |> Domain.Val.get_pow_loc |> flip Domain.Mem.find_stack_se mem) v1 in
-        let idx = eval e2 mem loc in
-        add_condition arr idx loc;
-        arr
-        |> Domain.Val.get_array_blk 
-        |> ArrayBlk.get_pow_loc
-        |> Domain.Val.of_pow_loc*)
+        let ploc = arr |> Domain.Val.get_array_blk |> ArrayBlk.get_pow_loc in
+        (* if nested array, add the array blk *)
+        let arr = Domain.Mem.find_heap_set ploc mem in
+        Domain.Val.join (Domain.Val.of_pow_loc ploc) arr
     | Exp.Sizeof (typ, _, _) -> Domain.Val.of_int (sizeof typ)
 (*    | Exp.Exn _ -> 
     | Exp.Closure _ -> *)
@@ -186,7 +181,9 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
 
   let rec declare_array pdesc node loc typ len inst_num dimension mem = 
     let size = IntLit.to_int len |> Itv.of_int in
-    let mem = Domain.Mem.add_stack loc (eval_array_alloc pdesc node typ Itv.zero size inst_num dimension) mem in
+    let arr = eval_array_alloc pdesc node typ Itv.zero size inst_num dimension in
+    let mem = if dimension = 1 then Domain.Mem.add_stack loc arr mem else Domain.Mem.add_heap loc arr mem 
+    in
     let loc = Loc.of_allocsite (get_allocsite pdesc node inst_num dimension) in
     match typ with 
       Typ.Tarray (typ, Some len) -> 
