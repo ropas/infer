@@ -395,6 +395,7 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
    
   let instantiate tenv callee_pdesc callee_pname params caller_mem callee_mem callee_conds loc =
     try 
+    (* TODO: remove fold_left2 exception catch by addressing variable arguments *)
     match callee_pdesc with 
       Some pdesc ->
         let pairs = 
