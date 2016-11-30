@@ -117,6 +117,7 @@ struct
   let get_all_locs (_,p,a) = ArrayBlk.get_pow_loc a |> PowLoc.join p 
 
   let top_itv = (Itv.top, PowLoc.bot, ArrayBlk.bot)
+  let pos_itv = (Itv.pos, PowLoc.bot, ArrayBlk.bot)
 
   let of_int : int -> astate
   = fun n ->

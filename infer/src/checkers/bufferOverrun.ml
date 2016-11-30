@@ -168,10 +168,21 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
         Domain.Mem.add_stack (Loc.of_id id) (eval_array_alloc pdesc node typ Itv.zero size 0 1) mem
     | _ -> mem
 
+  let model_realloc pdesc ret params node mem = 
+    match ret with 
+      Some (_, _) -> model_malloc pdesc ret (IList.tl params) node mem
+    | _ -> mem
+
+  let model_positive_itv ret mem =
+    match ret with 
+      Some (id, _) -> Domain.Mem.add_stack (Loc.of_id id) Domain.Val.pos_itv mem
+    | _ -> mem 
+
   let handle_unknown_call pdesc ret callee_pname params node mem =
     match Procname.get_method callee_pname with
-    | "malloc" | "__new_array" ->
-        model_malloc pdesc ret params node mem
+    | "malloc" | "__new_array" -> model_malloc pdesc ret params node mem
+    | "realloc" -> model_realloc pdesc ret params node mem
+    | "strlen" -> model_positive_itv ret mem
     | _ ->
         (match ret with
            Some (id, _) ->
@@ -382,7 +393,7 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
       begin
         match Tenv.lookup tenv typename with
           Some str -> 
-            IList.fold_left (fun pairs (fn, typ, _) ->
+            IList.fold_left (fun pairs (fn, _, _) ->
               let formal_loc = formal |> Domain.Val.get_all_locs in
               let actual_loc = actual |> Domain.Val.get_all_locs in
               let formal_fields = PowLoc.append_field formal_loc fn in
