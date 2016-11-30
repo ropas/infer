@@ -22,21 +22,37 @@ module L = Logging
 module Condition = 
 struct 
   type t = { idx : Itv.astate; size : Itv.astate; loc : Location.t; id : string }
+
   and astate = t
+
   let compare = compare
+
+  let set_size_pos s =
+    if Itv.Bound.le (Itv.lb s) Itv.Bound.zero
+    then Itv.make Itv.Bound.zero (Itv.ub s)
+    else s
+
   let pp fmt e = 
-    F.fprintf fmt "%a < %a at %a" Itv.pp e.idx Itv.pp e.size Location.pp e.loc
+    let size = set_size_pos e.size in
+    F.fprintf fmt "%a < %a at %a" Itv.pp e.idx Itv.pp size Location.pp e.loc
+
   let get_location e = e.loc
+
   let make ~idx ~size loc id = { idx; size; loc ; id }
+
   let check c = 
-    if Itv.is_symbolic c.idx || Itv.is_symbolic c.size then true
+    let size = set_size_pos c.size in
+    if Itv.is_symbolic c.idx || Itv.is_symbolic size then true
     else 
-      let not_overrun = Itv.lt_sem c.idx c.size in 
+      let not_overrun = Itv.lt_sem c.idx size in
       let not_underrun = Itv.le_sem Itv.zero c.idx in
       (not_overrun = Itv.one) && (not_underrun = Itv.one)
   
   let subst x subst_map = { idx = Itv.subst x.idx subst_map; size = Itv.subst x.size subst_map; loc = x.loc; id = x.id }
-  let to_string x = "Offset : " ^ Itv.to_string x.idx ^ " Size : " ^ Itv.to_string x.size
+
+  let to_string x =
+    let size = set_size_pos x.size in
+    "Offset : " ^ Itv.to_string x.idx ^ " Size : " ^ Itv.to_string size
 end
 
 module ConditionSet = 

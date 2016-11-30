@@ -443,6 +443,10 @@ struct
   let lb = fst
   let ub = snd
 
+  let make : Bound.t -> Bound.t -> astate
+  = fun l u ->
+    (l, u)
+
   let subst x map = (Bound.subst (lb x) map, Bound.subst (ub x) map)
 
   let (<=) : lhs:astate -> rhs:astate -> bool
@@ -737,6 +741,10 @@ let one : astate = of_int 1
 let pos : astate = NonBottom ItvPure.pos
 
 let nat : astate = NonBottom ItvPure.nat
+
+let make : Bound.t -> Bound.t -> astate
+= fun l u ->
+  if Bound.lt u l then Bottom else NonBottom (ItvPure.make l u)
 
 let is_symbolic : astate -> bool = function
   | NonBottom x -> ItvPure.is_symbolic x
