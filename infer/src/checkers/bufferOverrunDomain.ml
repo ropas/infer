@@ -81,10 +81,19 @@ struct
   let pp fmt x = 
     let pp_sep fmt () = F.fprintf fmt ", @," in
     let pp_element fmt v = Condition.pp fmt v in
+    F.fprintf fmt "@[<v 0>Safety Conditions :@,";
+    F.fprintf fmt "@[<hov 2>{ ";
+    F.pp_print_list ~pp_sep pp_element fmt (elements x);
+    F.fprintf fmt " }@]";
+    F.fprintf fmt "@]"
+
+  let pp_summary fmt x =
+    let pp_sep fmt () = F.fprintf fmt ", @," in
+    let pp_element fmt v = Condition.pp fmt v in
     F.fprintf fmt "@[<v 2>Safety Conditions :@,@,";
     F.fprintf fmt "@[<hov 1>{";
     F.pp_print_list ~pp_sep pp_element fmt (elements x);
-    F.fprintf fmt "}@]";
+    F.fprintf fmt " }@]";
     F.fprintf fmt "@]"
 end
 
@@ -363,8 +372,10 @@ struct
     let pp1 fmt (k, v) =
       F.fprintf fmt "%a=%a" (Ident.pp Utils.pe_text) k (Pvar.pp Utils.pe_text) v
     in
-    F.fprintf fmt "@[<hov 0>";
+    F.fprintf fmt "@[<v 0>Logical Variables :@,";
+    F.fprintf fmt "@[<hov 2>{ @,";
     F.pp_print_list ~pp_sep pp1 fmt (M.bindings x);
+    F.fprintf fmt " }@]";
     F.fprintf fmt "@]"
 
   let load : Ident.t -> Exp.t -> astate -> astate
@@ -391,7 +402,7 @@ let pp fmt (m, c, ta) =
     TempAlias.pp ta
 
 let pp_summary fmt (m, c, _) =
-  F.fprintf fmt "%a@,%a" Mem.pp_summary m ConditionSet.pp c
+  F.fprintf fmt "%a@,%a" Mem.pp_summary m ConditionSet.pp_summary c
 
 let get_mem : astate -> Mem.astate = fst
 

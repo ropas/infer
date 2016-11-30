@@ -435,11 +435,10 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
         let arr = eval e1 mem loc in
         let idx = eval e2 mem loc in
         if Config.debug_mode then(
-        F.fprintf F.err_formatter "@.@.add_condition";
-        Domain.Val.pp F.err_formatter arr;
-        F.fprintf F.err_formatter "@.@.";
-        Domain.Val.pp F.err_formatter idx;
-        F.fprintf F.err_formatter "@.@.");
+        F.fprintf F.err_formatter "@[<v 2>Add condition :@,";
+        F.fprintf F.err_formatter "array: %a@," Domain.Val.pp arr;
+        F.fprintf F.err_formatter "  idx: %a@," Domain.Val.pp idx;
+        F.fprintf F.err_formatter "@]@.");
         let site = get_allocsite pdesc node 0 0 in
         let size = arr |> Domain.Val.get_array_blk |> ArrayBlk.sizeof in
         let offset = arr |> Domain.Val.get_array_blk |> ArrayBlk.offsetof in
@@ -458,6 +457,7 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
       F.fprintf F.err_formatter "@.@.";
       Sil.pp_instr pe_text F.err_formatter instr;
       F.fprintf F.err_formatter "@.@.";
+      F.fprintf F.err_formatter "Post-state : @.";
       Domain.pp F.err_formatter post;
       F.fprintf F.err_formatter "@.@."
     end
