@@ -728,11 +728,16 @@ let bot = initial
 let top = NonBottom ItvPure.top
 
 let lb = function NonBottom x -> ItvPure.lb x | _ -> raise (Failure "lower bound of bottom")
+
 let ub = function NonBottom x -> ItvPure.ub x | _ -> raise (Failure "upper bound of bottom")
 
 let of_int : int -> astate
 = fun n ->
   NonBottom (ItvPure.of_int n)
+
+let is_bot : t -> bool
+= fun x ->
+  x = Bottom
 
 let zero : astate = of_int 0
 

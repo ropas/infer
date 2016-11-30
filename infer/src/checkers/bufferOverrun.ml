@@ -252,7 +252,11 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
          | Some x' ->
              let lv = Loc.of_pvar x' in
              let v = Domain.Mem.find_heap lv mem in
-             let v' = (Domain.Val.get_itv Domain.Val.zero,
+             let itv_v =
+               if Itv.is_bot (Domain.Val.get_itv v) then Itv.bot else
+                 Domain.Val.get_itv Domain.Val.zero
+             in
+             let v' = (itv_v,
                        Domain.Val.get_pow_loc v,
                        Domain.Val.get_array_blk v) in
              update_mem (PowLoc.singleton lv) v' mem
