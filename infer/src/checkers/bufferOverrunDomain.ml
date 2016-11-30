@@ -63,14 +63,15 @@ struct
   let add_bo_safety id ~idx ~size loc cond = 
     add (Condition.make ~idx ~size loc id) cond
 
-  module Map = Map.Make(struct type t = string let compare = Pervasives.compare end)
+  module Map = Map.Make(struct type t = string * Location.t let compare = Pervasives.compare end)
 
-  let merge conds = 
+  let merge : t -> t 
+  = fun conds ->
     let map = fold (fun e map -> 
-        let old_cond = try Map.find e.id map with _ -> e in 
+        let old_cond : Condition.t= try Map.find (e.id, e.loc) map with _ -> e in 
         let new_cond = Condition.make ~idx:(Itv.join old_cond.idx e.idx) 
             ~size:(Itv.join old_cond.size e.size) e.loc e.id in
-        Map.add e.id new_cond map) conds Map.empty
+        Map.add (e.id,e.loc) new_cond map) conds Map.empty
     in
     Map.fold (fun _ v conds -> add v conds) map empty
 

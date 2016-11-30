@@ -437,7 +437,16 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
         let ret_loc = Loc.of_pvar (Pvar.get_ret_pvar callee_pname) in
         let ret_val = Domain.Mem.find_heap ret_loc callee_mem in
         let new_ret_val = Domain.Val.subst ret_val subst_map in
-        (Domain.Mem.add_heap ret_loc new_ret_val callee_mem, Domain.ConditionSet.subst callee_conds subst_map)
+        let (new_mem, new_cond) = 
+          (Domain.Mem.add_heap ret_loc new_ret_val callee_mem, Domain.ConditionSet.subst callee_conds subst_map)
+        in
+        (if Config.debug_mode then 
+        begin
+          F.fprintf F.err_formatter "New Condition : @.";
+          Domain.ConditionSet.pp F.err_formatter new_cond;
+          F.fprintf F.err_formatter "@.@."
+        end);
+        (new_mem, new_cond)
     | _ -> (callee_mem, callee_conds)
   with _ -> (callee_mem, callee_conds)
 
