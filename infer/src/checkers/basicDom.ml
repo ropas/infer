@@ -44,6 +44,9 @@ struct
     Var.pp F.str_formatter v;
     let s = F.flush_str_formatter () in
     s.[0] = '&'
+  let is_logical_var = function
+    | Var (Var.LogicalVar _) -> true
+    | _ -> false
   let of_var v = Var v
   let of_allocsite a = Allocsite a
   let of_pvar pvar = Var (Var.of_pvar pvar)

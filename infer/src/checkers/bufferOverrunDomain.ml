@@ -235,7 +235,11 @@ struct
     PowLoc.fold (fun x -> add x (Val.join v (find x mem))) locs mem
 
   let pp_summary fmt mem =
-    iter (fun k v -> F.fprintf fmt "%a -> %a@," Loc.pp k Val.pp v) mem
+    let pp_not_logical_var k v =
+      if Loc.is_logical_var k then () else
+        F.fprintf fmt "%a -> %a@," Loc.pp k Val.pp v
+    in
+    iter pp_not_logical_var mem
 end
 
 module Heap = 
