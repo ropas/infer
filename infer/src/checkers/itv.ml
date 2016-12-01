@@ -185,50 +185,11 @@ struct
   let of_sym : SymExp.t -> t
   = fun s -> Linear (0, s)
 
-  let is_symbolic = function
+  let is_symbolic : t -> bool
+  = function
     | MInf | PInf -> false
     | Linear (_, se) -> SymExp.cardinal se > 0
     | MinMax _ -> true
-
-  let subst callee_cond map =
-    match callee_cond with
-    | Linear (c, se) ->
-        SymExp.fold
-          (fun sym coeff new_bound ->
-             match new_bound with
-             | MInf | PInf -> new_bound
-             | MinMax _ -> new_bound
-             | Linear (c', se') ->
-                 (try
-                    let target = SubstMap.find sym map in
-                    match target with
-                    | MInf | PInf -> target
-                    | MinMax _ -> target
-                    | Linear (target_c, target_se) ->
-                        let c'' = c' + (target_c * coeff) in
-                        let se'' = SymExp.plus se' target_se in
-                        Linear (c'', se'')
-                  with Not_found -> Linear (c', SymExp.add sym coeff se')))
-          se (Linear (c, SymExp.empty))
-    | MinMax (m, c, s) ->
-        (match m, SubstMap.find s map with
-         | Min, MInf -> MInf
-         | Max, MInf -> of_int c
-         | Min, PInf -> of_int c
-         | Max, PInf -> PInf
-         | Min, Linear (c', se') when SymExp.is_zero se' -> of_int (min c c')
-         | Max, Linear (c', se') when SymExp.is_zero se' -> of_int (max c c')
-         | _, Linear (c', se') when c' = 0 && SymExp.is_one_symbol se' ->
-             (match SymExp.one_symbol se' with
-              | Some s' -> MinMax (m, c, s')
-              | None -> callee_cond)
-         | Min, MinMax (Min, c', s') when Symbol.eq s s' ->
-             MinMax (Min, min c c', s)
-         | Max, MinMax (Max, c', s') when Symbol.eq s s' ->
-             MinMax (Max, max c c', s)
-         | _, _ -> callee_cond
-         | exception Not_found -> callee_cond)
-    | _ -> callee_cond
 
   let opt_lift : ('a -> 'b -> bool) -> 'a option -> 'b option -> bool
   = fun f a_opt b_opt ->
@@ -236,6 +197,63 @@ struct
     | None, _
     | _, None -> false
     | Some a, Some b -> f a b
+
+  let eq_symbol : Symbol.t -> t -> bool
+  = fun s -> function
+    | Linear (c, se) ->
+        c = 0 && opt_lift Symbol.eq (SymExp.one_symbol se) (Some s)
+    | _ -> false
+
+  let one_symbol : t -> Symbol.t option
+  = function
+    | Linear (c, se) when c = 0 -> SymExp.one_symbol se
+    | _ -> None
+
+  let is_one_symbol : t -> bool
+  = fun x ->
+    one_symbol x <> None
+
+  let use_symbol : Symbol.t -> t -> bool
+  = fun s -> function
+    | PInf | MInf -> false
+    | Linear (_, se) -> SymExp.find s se <> 0
+    | MinMax (_, _, s') -> Symbol.eq s s'
+
+  let subst1 : t -> t -> Symbol.t -> t -> t
+  = fun default x s y ->
+    if not (use_symbol s x) then x else
+      match x, y with
+      | MInf, _
+      | PInf, _ -> x
+      | _, _ when eq_symbol s x -> y
+      | Linear (c1, se1), Linear (c2, se2) ->
+          let coeff = SymExp.find s se1 in
+          let c' = c1 + coeff * c2 in
+          let se' = SymExp.plus se1 (SymExp.mult_const se2 coeff) in
+          Linear (c', se')
+      | MinMax (Min, _, s'), MInf when Symbol.eq s s' -> MInf
+      | MinMax (Max, c, s'), MInf when Symbol.eq s s' -> Linear (c, SymExp.zero)
+      | MinMax (Max, _, s'), PInf when Symbol.eq s s' -> PInf
+      | MinMax (Min, c, s'), PInf when Symbol.eq s s' -> Linear (c, SymExp.zero)
+      | MinMax (Min, c1, s'), Linear (c2, se)
+        when Symbol.eq s s' && SymExp.is_zero se ->
+          Linear (min c1 c2, SymExp.zero)
+      | MinMax (Max, c1, s'), Linear (c2, se)
+        when Symbol.eq s s' && SymExp.is_zero se ->
+          Linear (max c1 c2, SymExp.zero)
+      | MinMax (m, c, s'), _ when Symbol.eq s s' && is_one_symbol y ->
+          (match one_symbol y with
+           | Some s'' -> MinMax (m, c, s'')
+           | _ -> assert false)
+      | MinMax (Min, c1, s'), MinMax (Min, c2, s'') when Symbol.eq s s' ->
+          MinMax (Min, min c1 c2, s'')
+      | MinMax (Max, c1, s'), MinMax (Max, c2, s'') when Symbol.eq s s' ->
+          MinMax (Max, max c1 c2, s'')
+      | _ -> default
+
+  let subst : t -> t -> t SubstMap.t -> t
+  = fun default x map ->
+    SubstMap.fold (fun s y x -> subst1 default x s y) map x
 
   let le : t -> t -> bool
   = fun x y ->
@@ -450,7 +468,9 @@ struct
   = fun l u ->
     (l, u)
 
-  let subst x map = (Bound.subst (lb x) map, Bound.subst (ub x) map)
+  let subst : astate -> Bound.t SubstMap.t -> astate
+  = fun x map ->
+    (Bound.subst Bound.MInf (lb x) map, Bound.subst Bound.PInf (ub x) map)
 
   let (<=) : lhs:astate -> rhs:astate -> bool
   = fun ~lhs:(l1, u1) ~rhs:(l2, u2) ->
@@ -840,6 +860,4 @@ let prune_ne : astate -> astate -> astate = lift2_opt ItvPure.prune_ne
 
 let subst : astate -> Bound.t SubstMap.t -> astate
 = fun x map ->
-  match x with
-    NonBottom x' -> NonBottom (ItvPure.subst x' map)
-  | _ -> x
+  lift1 subst
