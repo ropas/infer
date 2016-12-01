@@ -452,26 +452,34 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
 
   let add_condition : Procdesc.t -> CFG.node -> Exp.t -> Location.t -> Domain.Mem.astate -> unit
   = fun pdesc node exp loc mem ->
-    match exp with 
-      Exp.Lindex (e1, e2)
-    | Exp.BinOp (Binop.PlusA, e1, e2) 
-    | Exp.BinOp (Binop.MinusA, e1, e2) ->
-        let arr = eval e1 mem loc in
-        let idx = eval e2 mem loc in
-        if Config.debug_mode then(
-        F.fprintf F.err_formatter "@[<v 2>Add condition :@,";
-        F.fprintf F.err_formatter "array: %a@," Domain.Val.pp arr;
-        F.fprintf F.err_formatter "  idx: %a@," Domain.Val.pp idx;
-        F.fprintf F.err_formatter "@]@.");
+    let array_access = 
+      match exp with 
+      | Exp.Lvar _ -> 
+        Some (eval exp mem loc |> Domain.Val.get_pow_loc 
+                |> flip Domain.Mem.find_heap_set mem |> Domain.Val.get_array_blk, 
+              Itv.zero)
+      | Exp.Lindex (e1, e2)
+      | Exp.BinOp (Binop.PlusA, e1, e2) 
+      | Exp.BinOp (Binop.MinusA, e1, e2) -> 
+          Some (eval e1 mem loc |> Domain.Val.get_array_blk, 
+           eval e2 mem loc |> Domain.Val.get_itv)
+      | _ -> None
+    in
+    match array_access with
+      Some (arr, idx) -> 
         let site = get_allocsite pdesc node 0 0 in
-        let size = arr |> Domain.Val.get_array_blk |> ArrayBlk.sizeof in
-        let offset = arr |> Domain.Val.get_array_blk |> ArrayBlk.offsetof in
-        let idx = idx |> Domain.Val.get_itv |> Itv.plus offset in
+        if Config.debug_mode then(
+          F.fprintf F.err_formatter "@[<v 2>Add condition :@,";
+          F.fprintf F.err_formatter "array: %a@," ArrayBlk.pp arr;
+          F.fprintf F.err_formatter "  idx: %a@," Itv.pp idx;
+          F.fprintf F.err_formatter "@]@.");
+        let size = ArrayBlk.sizeof arr in
+        let offset = ArrayBlk.offsetof arr in
+        let idx = Itv.plus offset idx in
         if size <> Itv.bot && idx <> Itv.bot then 
           conditions := Domain.ConditionSet.add_bo_safety site ~size ~idx loc !conditions
         else ()
-    | _ -> ()
-
+    | None -> ()
 
   let print_debug_info instr pre post = 
     if Config.debug_mode then 
@@ -500,7 +508,7 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
            Domain.TempAlias.load id exp ta)
       | Store (exp1, _, exp2, loc) ->
           add_condition pdesc node exp1 loc mem;
-          add_condition pdesc node exp2 loc mem;
+(*          add_condition pdesc node exp2 loc mem;*)
           let locs = eval exp1 mem loc |> Domain.Val.get_all_locs in
           (update_mem locs (eval exp2 mem loc) mem,
            get_conditions (),
