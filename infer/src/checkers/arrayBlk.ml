@@ -20,7 +20,14 @@ struct
   let make (o,s,stride,null(*,structure*)) = 
     { offset = o; size = s; stride = stride; null_pos = null; (* structure = structure *)}
   
-  let compare = Pervasives.compare 
+  let compare a1 a2 =
+    let i = Itv.compare a1.offset a2.offset in
+    if i <> 0 then i else
+      let i = Itv.compare a1.size a2.size in
+      if i <> 0 then i else
+        let i = Itv.compare a1.stride a2.stride in
+        if i <> 0 then i else
+          Itv.compare a1.null_pos a2.null_pos
 
   let join a1 a2 = 
     if a1 == a2 then a2 else

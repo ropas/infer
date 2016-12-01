@@ -31,7 +31,7 @@ module Summary = Summary.Make (struct
       payload.Specs.interval
   end)
 
-module SubstMap = Map.Make(struct type t = Itv.Bound.t let compare = Pervasives.compare end)
+module SubstMap = Map.Make(struct type t = Itv.Bound.t let compare = Itv.Bound.compare end)
 module EntryMap = Map.Make(struct type t = Procname.t let compare = Pervasives.compare end)
 
 module TransferFunctions (CFG : ProcCfg.S) = struct

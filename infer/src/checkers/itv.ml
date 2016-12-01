@@ -17,15 +17,14 @@
 module F = Format
 module L = Logging
 
-exception TODO
-
 let sym_size = ref 0
 
 module Symbol =
 struct
   type t = int
 
-  let compare : t -> t -> int = compare
+  let compare : t -> t -> int
+  = fun x y -> x - y
 
   let eq : t -> t -> bool
   = fun x y ->
@@ -50,6 +49,8 @@ struct
   module M = Map.Make(Symbol)
 
   type t = int M.t
+
+  let compare = M.compare (fun x y -> x - y)
 
   let empty : t = M.empty
 
@@ -177,6 +178,26 @@ struct
     | Linear of int * SymExp.t
     | MinMax of min_max_t * int * Symbol.t
     | PInf
+
+  let compare : t -> t -> int
+  = fun x y ->
+    match x, y with
+    | MInf, MInf -> 0
+    | MInf, _ -> -1
+    | _, MInf -> 1
+    | Linear (c1, se1), Linear (c2, se2) ->
+        let i = c1 - c2 in
+        if i <> 0 then i else SymExp.compare se1 se2
+    | Linear _, _ -> -1
+    | _, Linear _ -> 1
+    | MinMax (m1, c1, s1), MinMax (m2, c2, s2) ->
+        let i = compare m1 m2 in
+        if i <> 0 then i else
+          let i = c1 - c2 in
+          if i <> 0 then i else Symbol.compare s1 s2
+    | MinMax _, _ -> -1
+    | _, MinMax _ -> 1
+    | PInf, PInf -> 0
 
   let of_int : int -> t
   = fun n ->
@@ -745,15 +766,25 @@ end
 
 include AbstractDomain.BottomLifted(ItvPure)
 
+let compare : astate -> astate -> int
+= fun x y ->
+  if (<=) ~lhs:x ~rhs:y then
+    if (<=) ~lhs:y ~rhs:x then 0 else -1
+  else 1
+
 type t = astate
 
 let bot = initial
 
 let top = NonBottom ItvPure.top
 
-let lb = function NonBottom x -> ItvPure.lb x | _ -> raise (Failure "lower bound of bottom")
+let lb = function
+  | NonBottom x -> ItvPure.lb x
+  | _ -> raise (Failure "lower bound of bottom")
 
-let ub = function NonBottom x -> ItvPure.ub x | _ -> raise (Failure "upper bound of bottom")
+let ub = function
+  | NonBottom x -> ItvPure.ub x
+  | _ -> raise (Failure "upper bound of bottom")
 
 let of_int : int -> astate
 = fun n ->

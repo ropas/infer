@@ -26,7 +26,15 @@ struct
 
   and astate = t
 
-  let compare = compare
+  let compare : t -> t -> int
+  = fun x y ->
+    let i = Itv.compare x.idx y.idx in
+    if i <> 0 then i else
+      let i = Itv.compare x.size y.size in
+      if i <> 0 then i else
+        let i = Location.compare x.loc y.loc in
+        if i <> 0 then i else
+          String.compare x.id y.id
 
   let set_size_pos s =
     if Itv.Bound.le (Itv.lb s) Itv.Bound.zero
@@ -68,7 +76,12 @@ struct
   let add_bo_safety pdesc id ~idx ~size loc cond = 
     add (Condition.make pdesc id ~idx ~size loc) cond
 
-  module Map = Map.Make(struct type t = string * Location.t let compare = Pervasives.compare end)
+  module Map = Map.Make(struct
+      type t = string * Location.t
+      let compare (s1, l1) (s2, l2) =
+        let i = String.compare s1 s2 in
+        if i <> 0 then i else Location.compare l1 l2
+    end)
 
   let merge : t -> t 
   = fun conds ->
@@ -233,7 +246,7 @@ module Stack =
 struct
   module PPMap = 
   struct 
-    module Ord = struct include Loc let compare = compare let pp_key = pp end
+    module Ord = struct include Loc let pp_key = pp end
 
     include PrettyPrintable.MakePPMap(Ord)
 
@@ -279,7 +292,7 @@ module Heap =
 struct
   module PPMap = 
   struct 
-    module Ord = struct include Loc let compare = compare let pp_key = pp end
+    module Ord = struct include Loc let pp_key = pp end
 
     include PrettyPrintable.MakePPMap(Ord)
 
