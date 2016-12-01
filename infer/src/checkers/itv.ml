@@ -860,4 +860,6 @@ let prune_ne : astate -> astate -> astate = lift2_opt ItvPure.prune_ne
 
 let subst : astate -> Bound.t SubstMap.t -> astate
 = fun x map ->
-  lift1 subst
+  match x with
+  | NonBottom x' -> NonBottom (ItvPure.subst x' map)
+  | _ -> x
