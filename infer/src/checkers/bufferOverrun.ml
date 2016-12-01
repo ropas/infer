@@ -584,6 +584,27 @@ let report_error : Tenv.t -> Procdesc.t -> Domain.ConditionSet.t -> unit
           (Domain.Condition.to_string cond))
       else ()) conds
 
+let my_report_error : Tenv.t -> Procdesc.t -> Domain.ConditionSet.t -> unit 
+= fun _ _ conds -> 
+  F.fprintf F.err_formatter "@.== Alarms ==@.";
+  let k = Domain.ConditionSet.fold (fun cond k ->
+      let safe = Domain.Condition.check cond in
+      (* report symbol-related alarms only in debug mode *)
+      if not safe then
+      (
+        let loc = Domain.Condition.get_location cond in
+        let loc_str = Location.to_string loc in
+        let file_name = DB.source_file_to_string cond.loc.Location.file in
+        let proc_name = Domain.Condition.get_proc_name cond |> Procname.to_string in
+        F.fprintf F.err_formatter "@.%d. %s:%s: {%s} error: BUFFER-OVERRUN @. %s @." 
+          k file_name loc_str proc_name (Domain.Condition.to_string cond);
+        k + 1
+      )
+      else k) conds 1
+  in
+  F.fprintf F.err_formatter "@.@.%d issues found@." (k-1)
+  
+
 let checker ({ Callbacks.get_proc_desc; Callbacks.tenv; proc_desc } as callback) =
   let post = Interprocedural.checker callback get_proc_desc in
   match post with 
@@ -593,5 +614,6 @@ let checker ({ Callbacks.get_proc_desc; Callbacks.tenv; proc_desc } as callback)
       Domain.pp_summary F.err_formatter post;
       F.fprintf F.err_formatter "@]@.";
       if Procname.to_string proc_name = "main" then
-        report_error tenv proc_desc (Domain.get_conds post |> Domain.ConditionSet.merge)
+(*        report_error tenv proc_desc (Domain.get_conds post |> Domain.ConditionSet.merge)*)
+        my_report_error tenv proc_desc (Domain.get_conds post |> Domain.ConditionSet.merge)        
   | _ -> ()
