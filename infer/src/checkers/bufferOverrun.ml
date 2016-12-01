@@ -467,18 +467,17 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
     match array_access with
       Some (arr, idx) -> 
         let site = get_allocsite pdesc node 0 0 in
-        if Config.debug_mode then(
-          F.fprintf F.err_formatter "@[<v 2>Add condition :@,";
-          F.fprintf F.err_formatter "array: %a@," ArrayBlk.pp arr;
-          F.fprintf F.err_formatter "  idx: %a@," Itv.pp idx;
-          F.fprintf F.err_formatter "@]@.");
         let size = ArrayBlk.sizeof arr in
         let offset = ArrayBlk.offsetof arr in
         let idx = Itv.plus offset idx in
         if size <> Itv.bot && idx <> Itv.bot then 
-          conditions := Domain.ConditionSet.add_bo_safety 
-            pdesc site ~size ~idx loc !conditions
-        else ()
+          (if Config.debug_mode then
+             (F.fprintf F.err_formatter "@[<v 2>Add condition :@,";
+              F.fprintf F.err_formatter "array: %a@," ArrayBlk.pp arr;
+              F.fprintf F.err_formatter "  idx: %a@," Itv.pp idx;
+              F.fprintf F.err_formatter "@]@.");
+           conditions := Domain.ConditionSet.add_bo_safety
+               pdesc site ~size ~idx loc !conditions)
     | None -> ()
 
   let print_debug_info instr pre post = 
