@@ -454,9 +454,8 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
   = fun pdesc node exp loc mem ->
     let array_access = 
       match exp with 
-      | Exp.Lvar _ -> 
-        Some (eval exp mem loc |> Domain.Val.get_pow_loc 
-                |> flip Domain.Mem.find_heap_set mem |> Domain.Val.get_array_blk, 
+      | Exp.Var _ -> 
+        Some (eval exp mem loc |> Domain.Val.get_array_blk, 
               Itv.zero)
       | Exp.Lindex (e1, e2)
       | Exp.BinOp (Binop.PlusA, e1, e2) 
