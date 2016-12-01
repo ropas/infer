@@ -32,11 +32,13 @@ module Summary = Summary.Make (struct
   end)
 
 module SubstMap = Map.Make(struct type t = Itv.Bound.t let compare = Pervasives.compare end)
+module EntryMap = Map.Make(struct type t = Procname.t let compare = Pervasives.compare end)
 
 module TransferFunctions (CFG : ProcCfg.S) = struct
   module CFG = CFG
   module Domain = BufferOverrunDomain
   type extras = Procname.t -> Procdesc.t option
+  let entry_map = ref EntryMap.empty 
 
   exception Not_implemented 
 
@@ -415,13 +417,14 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
   let instantiate tenv callee_pdesc callee_pname params caller_mem callee_mem callee_conds loc =
     try 
     (* TODO: remove fold_left2 exception catch by addressing variable arguments *)
+    let callee_entry_mem = EntryMap.find callee_pname !entry_map in
     match callee_pdesc with 
       Some pdesc ->
         let pairs = 
           IList.fold_left2 (fun l (formal, typ) (actual,_) ->
-              let formal = Domain.Mem.find_heap (Loc.of_pvar formal) callee_mem in
+              let formal = Domain.Mem.find_heap (Loc.of_pvar formal) callee_entry_mem in
               let actual = eval actual caller_mem loc in
-              (get_matching_pairs tenv formal actual typ caller_mem callee_mem) @ l
+              (get_matching_pairs tenv formal actual typ caller_mem callee_entry_mem) @ l
           ) [] (get_formals pdesc) params
         in
         let subst_map : Itv.Bound.t Itv.SubstMap.t = 
@@ -442,7 +445,13 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
         in
         (if Config.debug_mode then 
         begin
-          F.fprintf F.err_formatter "New Condition : @.";
+          F.fprintf F.err_formatter "Callsite Mem : @.";
+          Domain.Mem.pp F.err_formatter caller_mem; 
+          F.fprintf F.err_formatter "@.@.";
+          F.fprintf F.err_formatter "Old Conditions : @.";
+          Domain.ConditionSet.pp F.err_formatter callee_conds;
+          F.fprintf F.err_formatter "@.@.";
+          F.fprintf F.err_formatter "New Conditions : @.";
           Domain.ConditionSet.pp F.err_formatter new_cond;
           F.fprintf F.err_formatter "@.@."
         end);
@@ -547,7 +556,10 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
               | Typ.Tptr (typ, _) ->
                   (declare_symbolic_array pdesc tenv node (Loc.of_pvar pvar) typ c 1 mem, c+1)
               | _ -> (mem, c) (* TODO *)) (mem, 0) (get_formals pdesc)
-          |> (fun (mem, _) -> (mem, conds, ta))
+          |> (fun (mem, _) -> 
+                let proc_name = Procdesc.get_proc_name pdesc in
+                entry_map := EntryMap.add proc_name mem !entry_map;
+                (mem, conds, ta))
       | Remove_temps _ | Abstract _ | Nullify _ -> astate
     in
     print_debug_info instr astate output_astate;
