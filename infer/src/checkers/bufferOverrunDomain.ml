@@ -379,7 +379,7 @@ struct
       | None, None -> None
       | Some v, None
       | None, Some v -> Some v
-      | Some v1, Some v2 -> if Pvar.equal v1 v2 then Some v1 else None
+      | Some v1, Some v2 -> if Pvar.equal v1 v2 then Some v1 else assert false
     in
     M.merge join_v x y
 
@@ -416,7 +416,13 @@ struct
     try Some (M.find k m) with Not_found -> None
 end
 
+(* TODO: what about removing the conditionset from the domain? *)
 include AbstractDomain.Pair3(Mem)(ConditionSet)(TempAlias)
+
+let (<=) ~lhs ~rhs =
+  if lhs == rhs then true else
+    Mem.(<=) ~lhs:(fst lhs) ~rhs:(fst rhs)
+    && TempAlias.(<=) ~lhs:(trd lhs) ~rhs:(trd rhs)
 
 let pp fmt (m, c, ta) =
   F.fprintf fmt "@[<v 2>( %a,@,%a,@,%a )@]" Mem.pp m ConditionSet.pp c
