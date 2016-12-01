@@ -229,6 +229,7 @@ struct
       | Linear (c1, se1), Linear (c2, se2) ->
           let coeff = SymExp.find s se1 in
           let c' = c1 + coeff * c2 in
+          let se1 = SymExp.add s 0 se1 in
           let se' = SymExp.plus se1 (SymExp.mult_const se2 coeff) in
           Linear (c', se')
       | MinMax (Min, _, s'), MInf when Symbol.eq s s' -> MInf
