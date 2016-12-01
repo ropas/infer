@@ -18,7 +18,7 @@ module F = Format
 let active_procedure_checkers () =
   let checkers_enabled = Config.checkers_enabled in
 
-  let java_checkers =
+(*  let java_checkers =
     let l =
       [
         Checkers.callback_check_access, false;
@@ -44,7 +44,7 @@ let active_procedure_checkers () =
       ] in
     (* make sure SimpleChecker.ml is not dead code *)
     if false then (let module SC = SimpleChecker.Make in ());
-    IList.map (fun (x, y) -> (x, y, Some Config.Java)) l in
+    IList.map (fun (x, y) -> (x, y, Some Config.Java)) l in*)
   let c_cpp_checkers =
     let l =
       [
@@ -57,7 +57,7 @@ let active_procedure_checkers () =
       ] in
     IList.map (fun (x, y) -> (x, y, Some Config.Clang)) l in
 
-  java_checkers @ c_cpp_checkers
+(*  java_checkers @*) c_cpp_checkers
 
 let active_cluster_checkers () =
   [(Checkers.callback_check_cluster_access, false, Some Config.Java);

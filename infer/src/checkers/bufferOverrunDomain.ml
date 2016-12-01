@@ -331,31 +331,7 @@ struct
     iter (fun k v -> F.fprintf fmt "%a -> %a@," Loc.pp k Val.pp v) mem
 end
 
-module Mem = 
-struct
-  include AbstractDomain.Pair(Stack)(Heap)
-  let pp : F.formatter -> astate -> unit
-  = fun fmt (stack, heap) ->
-    F.fprintf fmt "Stack : @ %a, @ Heap : @ %a" Stack.pp stack Heap.pp heap
-  let pp_summary : F.formatter -> astate -> unit
-  = fun fmt (stack, heap) ->
-    F.fprintf fmt "@[<v 2>Abstract Memory :@,@,";
-    F.fprintf fmt "%a" Stack.pp_summary stack;
-    F.fprintf fmt "%a" Heap.pp_summary heap ;
-    F.fprintf fmt "@]"
-  let find_stack k m = Stack.find k (fst m)
-  let find_stack_set k m = Stack.find_set k (fst m)
-  let find_heap k m = Heap.find k (snd m)
-  let find_heap_set k m = Heap.find_set k (snd m)
-  let add_stack k v m = (Stack.add k v (fst m), snd m)
-  let add_heap k v m = (fst m, Heap.add k v (snd m))
-  let strong_update_stack p v m = (Stack.strong_update p v (fst m), snd m)
-  let strong_update_heap p v m = (fst m, Heap.strong_update p v (snd m))
-  let weak_update_stack p v m = (Stack.weak_update p v (fst m), snd m)
-  let weak_update_heap p v m = (fst m, Heap.weak_update p v (snd m))
-end
-
-module TempAlias =
+module Alias =
 struct
   module M = Map.Make(Ident)
 
@@ -393,7 +369,7 @@ struct
     let pp1 fmt (k, v) =
       F.fprintf fmt "%a=%a" (Ident.pp Utils.pe_text) k (Pvar.pp Utils.pe_text) v
     in
-    F.fprintf fmt "@[<v 0>Logical Variables :@,";
+(*    F.fprintf fmt "@[<v 0>Logical Variables :@,";*)
     F.fprintf fmt "@[<hov 2>{ @,";
     F.pp_print_list ~pp_sep pp1 fmt (M.bindings x);
     F.fprintf fmt " }@]";
@@ -416,26 +392,51 @@ struct
     try Some (M.find k m) with Not_found -> None
 end
 
+module Mem = 
+struct
+  include AbstractDomain.Pair3(Stack)(Heap)(Alias)
+  let pp : F.formatter -> astate -> unit
+  = fun fmt (stack, heap, alias) ->
+    F.fprintf fmt "Stack : @ %a, @ Heap : @ %a, @ Alias : @ %a" 
+      Stack.pp stack Heap.pp heap Alias.pp alias
+  let pp_summary : F.formatter -> astate -> unit
+  = fun fmt (stack, heap, _) ->
+    F.fprintf fmt "@[<v 2>Abstract Memory :@,@,";
+    F.fprintf fmt "%a" Stack.pp_summary stack;
+    F.fprintf fmt "%a" Heap.pp_summary heap ;
+    F.fprintf fmt "@]"
+  let find_stack k m = Stack.find k (fst m)
+  let find_stack_set k m = Stack.find_set k (fst m)
+  let find_heap k m = Heap.find k (snd m)
+  let find_heap_set k m = Heap.find_set k (snd m)
+  let find_alias k m = Alias.find k (trd m)
+  let load_alias id e m = (fst m, snd m, Alias.load id e (trd m))
+  let store_alias e1 e2 m = (fst m, snd m, Alias.store e1 e2 (trd m))
+  let add_stack k v m = (Stack.add k v (fst m), snd m, trd m)
+  let add_heap k v m = (fst m, Heap.add k v (snd m), trd m)
+  let strong_update_stack p v m = (Stack.strong_update p v (fst m), snd m, trd m)
+  let strong_update_heap p v m = (fst m, Heap.strong_update p v (snd m), trd m)
+  let weak_update_stack p v m = (Stack.weak_update p v (fst m), snd m, trd m)
+  let weak_update_heap p v m = (fst m, Heap.weak_update p v (snd m), trd m)
+end
+
+
 (* TODO: what about removing the conditionset from the domain? *)
-include AbstractDomain.Pair3(Mem)(ConditionSet)(TempAlias)
+include AbstractDomain.Pair(Mem)(ConditionSet)
 
 let (<=) ~lhs ~rhs =
   if lhs == rhs then true else
     Mem.(<=) ~lhs:(fst lhs) ~rhs:(fst rhs)
-    && TempAlias.(<=) ~lhs:(trd lhs) ~rhs:(trd rhs)
 
-let pp fmt (m, c, ta) =
-  F.fprintf fmt "@[<v 2>( %a,@,%a,@,%a )@]" Mem.pp m ConditionSet.pp c
-    TempAlias.pp ta
+let pp fmt (m, c) =
+  F.fprintf fmt "@[<v 2>( %a,@,%a )@]" Mem.pp m ConditionSet.pp c
 
-let pp_summary fmt (m, c, _) =
+let pp_summary fmt (m, c) =
   F.fprintf fmt "%a@,%a" Mem.pp_summary m ConditionSet.pp_summary c
 
 let get_mem : astate -> Mem.astate = fst
 
 let get_conds : astate -> ConditionSet.astate = snd
-
-let get_temp_alias : astate -> TempAlias.astate = trd
 
 type summary = astate * astate
 let pp_summary_ fmt (entry_mem, exit_mem) = 

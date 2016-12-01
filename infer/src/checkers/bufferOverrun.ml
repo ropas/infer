@@ -235,11 +235,11 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
     else Domain.Mem.weak_update_heap ploc v s
 
   let prune_unop
-    : Exp.t -> Domain.TempAlias.astate -> Domain.Mem.astate -> Domain.Mem.astate
-  = fun e ta mem ->
+    : Exp.t -> Domain.Mem.astate -> Domain.Mem.astate
+  = fun e mem ->
     match e with
     | Exp.Var x ->
-        (match Domain.TempAlias.find x ta with
+        (match Domain.Mem.find_alias x mem with
          | Some x' ->
              let lv = Loc.of_pvar x' in
              let v = Domain.Mem.find_heap lv mem in
@@ -247,7 +247,7 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
              update_mem (PowLoc.singleton lv) v' mem
          | None -> mem)
     | Exp.UnOp (Unop.LNot, Exp.Var x, _) ->
-        (match Domain.TempAlias.find x ta with
+        (match Domain.Mem.find_alias x mem with
          | Some x' ->
              let lv = Loc.of_pvar x' in
              let v = Domain.Mem.find_heap lv mem in
@@ -263,15 +263,15 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
     | _ -> mem
 
   let prune_binop_left
-    : Exp.t -> Domain.TempAlias.astate -> Location.t -> Domain.Mem.astate
+    : Exp.t -> Location.t -> Domain.Mem.astate
       -> Domain.Mem.astate
-  = fun e ta loc mem ->
+  = fun e loc mem ->
     match e with
     | Exp.BinOp (Binop.Lt as comp, Exp.Var x, e')
     | Exp.BinOp (Binop.Gt as comp, Exp.Var x, e')
     | Exp.BinOp (Binop.Le as comp, Exp.Var x, e')
     | Exp.BinOp (Binop.Ge as comp, Exp.Var x, e') ->
-        (match Domain.TempAlias.find x ta with
+        (match Domain.Mem.find_alias x mem with
          | Some x' ->
              let lv = Loc.of_pvar x' in
              let v = Domain.Mem.find_heap lv mem in
@@ -279,7 +279,7 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
              update_mem (PowLoc.singleton lv) v' mem
          | None -> mem)
     | Exp.BinOp (Binop.Eq, Exp.Var x, e') ->
-        (match Domain.TempAlias.find x ta with
+        (match Domain.Mem.find_alias x mem with
          | Some x' ->
              let lv = Loc.of_pvar x' in
              let v = Domain.Mem.find_heap lv mem in
@@ -287,7 +287,7 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
              update_mem (PowLoc.singleton lv) v' mem
          | None -> mem)
     | Exp.BinOp (Binop.Ne, Exp.Var x, e') ->
-        (match Domain.TempAlias.find x ta with
+        (match Domain.Mem.find_alias x mem with
          | Some x' ->
              let lv = Loc.of_pvar x' in
              let v = Domain.Mem.find_heap lv mem in
@@ -317,9 +317,9 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
     | _ -> assert (false)
 
   let prune_binop_right
-    : Exp.t -> Domain.TempAlias.astate -> Location.t -> Domain.Mem.astate
+    : Exp.t -> Location.t -> Domain.Mem.astate
       -> Domain.Mem.astate
-  = fun e ta loc mem ->
+  = fun e loc mem ->
     match e with
     | Exp.BinOp (Binop.Lt as c, e', Exp.Var x)
     | Exp.BinOp (Binop.Gt as c, e', Exp.Var x)
@@ -327,38 +327,38 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
     | Exp.BinOp (Binop.Ge as c, e', Exp.Var x)
     | Exp.BinOp (Binop.Eq as c, e', Exp.Var x)
     | Exp.BinOp (Binop.Ne as c, e', Exp.Var x) ->
-        prune_binop_left (Exp.BinOp (comp_rev c, Exp.Var x, e')) ta loc mem
+        prune_binop_left (Exp.BinOp (comp_rev c, Exp.Var x, e')) loc mem
     | _ -> mem
 
   let rec prune
-    : Exp.t -> Domain.TempAlias.astate -> Location.t -> Domain.Mem.astate
+    : Exp.t -> Location.t -> Domain.Mem.astate
       -> Domain.Mem.astate
-  = fun e ta loc mem ->
+  = fun e loc mem ->
     let mem =
       mem
-      |> prune_unop e ta
-      |> prune_binop_left e ta loc
-      |> prune_binop_right e ta loc
+      |> prune_unop e
+      |> prune_binop_left e loc
+      |> prune_binop_right e loc
     in
     match e with
     | Exp.BinOp (Binop.Ne, e, Exp.Const (Const.Cint i)) when IntLit.iszero i ->
-        prune e ta loc mem
+        prune e loc mem
     | Exp.BinOp (Binop.Eq, e, Exp.Const (Const.Cint i)) when IntLit.iszero i ->
-        prune (Exp.UnOp (Unop.LNot, e, None)) ta loc mem
-    | Exp.UnOp (Unop.Neg, Exp.Var x, _) -> prune (Exp.Var x) ta loc mem
+        prune (Exp.UnOp (Unop.LNot, e, None)) loc mem
+    | Exp.UnOp (Unop.Neg, Exp.Var x, _) -> prune (Exp.Var x) loc mem
     | Exp.BinOp (Binop.LAnd, e1, e2) ->
-        mem |> prune e1 ta loc |> prune e2 ta loc
+        mem |> prune e1 loc |> prune e2 loc
     | Exp.UnOp (Unop.LNot, Exp.BinOp (Binop.LOr, e1, e2), t) ->
         mem
-        |> prune (Exp.UnOp (Unop.LNot, e1, t)) ta loc
-        |> prune (Exp.UnOp (Unop.LNot, e2, t)) ta loc
+        |> prune (Exp.UnOp (Unop.LNot, e1, t)) loc
+        |> prune (Exp.UnOp (Unop.LNot, e2, t)) loc
     | Exp.UnOp (Unop.LNot, Exp.BinOp (Binop.Lt as c, e1, e2), _)
     | Exp.UnOp (Unop.LNot, Exp.BinOp (Binop.Gt as c, e1, e2), _)
     | Exp.UnOp (Unop.LNot, Exp.BinOp (Binop.Le as c, e1, e2), _)
     | Exp.UnOp (Unop.LNot, Exp.BinOp (Binop.Ge as c, e1, e2), _)
     | Exp.UnOp (Unop.LNot, Exp.BinOp (Binop.Eq as c, e1, e2), _)
     | Exp.UnOp (Unop.LNot, Exp.BinOp (Binop.Ne as c, e1, e2), _) ->
-        prune (Exp.BinOp (comp_not c, e1, e2)) ta loc mem
+        prune (Exp.BinOp (comp_not c, e1, e2)) loc mem
     | _ -> mem
 
   let get_formals : Procdesc.t -> (Pvar.t * Typ.t) list
@@ -409,12 +409,11 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
         | _ -> pairs
       end
     | _ -> pairs
-
    
   let instantiate tenv callee_pdesc callee_pname params caller_mem summary loc =
 (*    try *)
     (* TODO: remove fold_left2 exception catch by addressing variable arguments *)
-    let ((callee_entry_mem, _, _), (callee_mem, callee_conds, _)) = summary in
+    let ((callee_entry_mem, _), (callee_mem, callee_conds)) = summary in
     prerr_endline "instantiate";
     match callee_pdesc with 
       Some pdesc ->
@@ -500,7 +499,7 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
       F.fprintf F.err_formatter "@.@."
     end
    
-  let exec_instr ((mem, conds, ta) as astate) { ProcData.pdesc; tenv; extras }
+  let exec_instr ((mem, conds) as astate) { ProcData.pdesc; tenv; extras }
       node (instr : Sil.instr) =
     init_conditions astate;
     let output_astate =
@@ -509,25 +508,24 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
           add_condition pdesc node exp loc mem;
           let locs = eval exp mem loc |> Domain.Val.get_all_locs in
           let v = Domain.Mem.find_heap_set locs mem in
-          (Domain.Mem.add_stack (Loc.of_var (Var.of_id id)) v mem,
-           get_conditions (),
-           Domain.TempAlias.load id exp ta)
+          (Domain.Mem.add_stack (Loc.of_var (Var.of_id id)) v mem
+           |> Domain.Mem.load_alias id exp,
+           get_conditions ())
       | Store (exp1, _, exp2, loc) ->
           add_condition pdesc node exp1 loc mem;
 (*          add_condition pdesc node exp2 loc mem;*)
           let locs = eval exp1 mem loc |> Domain.Val.get_all_locs in
-          (update_mem locs (eval exp2 mem loc) mem,
-           get_conditions (),
-           Domain.TempAlias.store exp1 exp2 ta)
+          (update_mem locs (eval exp2 mem loc) mem
+           |> Domain.Mem.store_alias exp1 exp2,
+           get_conditions ())
       | Prune (exp, loc, _, _) ->
-          (prune exp ta loc mem, get_conditions (), ta)
+          (prune exp loc mem, get_conditions ())
       | Call (ret, Const (Cfun callee_pname), params, loc, _) ->
           let callee = extras callee_pname in
           let old_conds = get_conditions () in
           begin
             match Summary.read_summary tenv pdesc callee_pname with
             | Some summary ->
-              (prerr_endline "Read Summary Some";
               let (new_mem, new_conds) = instantiate tenv callee callee_pname params mem summary loc in
               let new_mem = 
                 match ret with Some (id,_) -> 
@@ -535,8 +533,8 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
                    (Domain.Mem.find_heap (Loc.of_pvar (Pvar.get_ret_pvar callee_pname)) new_mem) mem
                 | _ -> mem
               in
-              (new_mem, Domain.ConditionSet.join old_conds new_conds, ta))
-            | None -> prerr_endline "Read Summary none"; (handle_unknown_call pdesc ret callee_pname params node mem, old_conds, ta)
+              (new_mem, Domain.ConditionSet.join old_conds new_conds)
+            | None -> (handle_unknown_call pdesc ret callee_pname params node mem, old_conds)
           end
       | Call (_, _, _, _, _) -> astate
       | Declare_locals (locals, _) ->
@@ -555,7 +553,7 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
               | Typ.Tptr (typ, _) ->
                   (declare_symbolic_array pdesc tenv node (Loc.of_pvar pvar) typ c 1 mem, c+1)
               | _ -> (mem, c) (* TODO *)) (mem, 0) (get_formals pdesc)
-          |> (fun (mem, _) -> (mem, conds, ta))
+          |> (fun (mem, _) -> (mem, conds))
       | Remove_temps _ | Abstract _ | Nullify _ -> astate
     in
     print_debug_info instr astate output_astate;
