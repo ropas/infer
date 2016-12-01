@@ -22,24 +22,21 @@ module F = Format
 module L = Logging
 
 module Summary = Summary.Make (struct
-    type summary = BufferOverrunDomain.astate
+    type summary = BufferOverrunDomain.summary 
 
     let update_payload astate payload = 
-      { payload with Specs.interval = Some astate }
+      { payload with Specs.buffer_overrun = Some astate }
 
     let read_from_payload payload =
-      payload.Specs.interval
+      payload.Specs.buffer_overrun
   end)
 
 module SubstMap = Map.Make(struct type t = Itv.Bound.t let compare = Itv.Bound.compare end)
-module EntryMap = Map.Make(struct type t = Procname.t let compare = Pervasives.compare end)
 
 module TransferFunctions (CFG : ProcCfg.S) = struct
   module CFG = CFG
   module Domain = BufferOverrunDomain
   type extras = Procname.t -> Procdesc.t option
-  let entry_map = ref EntryMap.empty 
-
   exception Not_implemented 
 
   let eval_const : Const.t -> Domain.Val.astate = function 
@@ -414,10 +411,11 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
     | _ -> pairs
 
    
-  let instantiate tenv callee_pdesc callee_pname params caller_mem callee_mem callee_conds loc =
-    try 
+  let instantiate tenv callee_pdesc callee_pname params caller_mem summary loc =
+(*    try *)
     (* TODO: remove fold_left2 exception catch by addressing variable arguments *)
-    let callee_entry_mem = EntryMap.find callee_pname !entry_map in
+    let ((callee_entry_mem, _, _), (callee_mem, callee_conds, _)) = summary in
+    prerr_endline "instantiate";
     match callee_pdesc with 
       Some pdesc ->
         let pairs = 
@@ -457,7 +455,7 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
         end);
         (new_mem, new_cond)
     | _ -> (callee_mem, callee_conds)
-  with _ -> (callee_mem, callee_conds)
+(*  with _ -> (callee_mem, callee_conds)*)
 
   let add_condition : Procdesc.t -> CFG.node -> Exp.t -> Location.t -> Domain.Mem.astate -> unit
   = fun pdesc node exp loc mem ->
@@ -528,16 +526,17 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
           let old_conds = get_conditions () in
           begin
             match Summary.read_summary tenv pdesc callee_pname with
-            | Some (callee_mem, callee_cond, _) -> 
-              let (new_mem, new_conds) = instantiate tenv callee callee_pname params mem callee_mem callee_cond loc in
+            | Some summary ->
+              (prerr_endline "Read Summary Some";
+              let (new_mem, new_conds) = instantiate tenv callee callee_pname params mem summary loc in
               let new_mem = 
                 match ret with Some (id,_) -> 
                   Domain.Mem.add_stack (Loc.of_var (Var.of_id id))
                    (Domain.Mem.find_heap (Loc.of_pvar (Pvar.get_ret_pvar callee_pname)) new_mem) mem
                 | _ -> mem
               in
-              (new_mem, Domain.ConditionSet.join old_conds new_conds, ta)
-            | None -> (handle_unknown_call pdesc ret callee_pname params node mem, old_conds, ta)
+              (new_mem, Domain.ConditionSet.join old_conds new_conds, ta))
+            | None -> prerr_endline "Read Summary none"; (handle_unknown_call pdesc ret callee_pname params node mem, old_conds, ta)
           end
       | Call (_, _, _, _, _) -> astate
       | Declare_locals (locals, _) ->
@@ -556,10 +555,7 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
               | Typ.Tptr (typ, _) ->
                   (declare_symbolic_array pdesc tenv node (Loc.of_pvar pvar) typ c 1 mem, c+1)
               | _ -> (mem, c) (* TODO *)) (mem, 0) (get_formals pdesc)
-          |> (fun (mem, _) -> 
-                let proc_name = Procdesc.get_proc_name pdesc in
-                entry_map := EntryMap.add proc_name mem !entry_map;
-                (mem, conds, ta))
+          |> (fun (mem, _) -> (mem, conds, ta))
       | Remove_temps _ | Abstract _ | Nullify _ -> astate
     in
     print_debug_info instr astate output_astate;
@@ -572,7 +568,7 @@ module Analyzer =
     (Scheduler.ReversePostorder)
     (TransferFunctions)
 
-module Interprocedural = Analyzer.Interprocedural (Summary)
+(*module Interprocedural = Analyzer.Interprocedural (Summary)*)
 module Domain = BufferOverrunDomain
 
 let report_error : Tenv.t -> Procdesc.t -> Domain.ConditionSet.t -> unit 
@@ -615,16 +611,50 @@ let my_report_error : Tenv.t -> Procdesc.t -> Domain.ConditionSet.t -> unit
   in
   F.fprintf F.err_formatter "@.@.%d issues found@." (k-1)
   
+module Interprocedural = 
+struct 
+  let checker { Callbacks.get_proc_desc; proc_desc; proc_name; tenv; } extras =
+    let analyze_ondemand_ _ pdesc =
+      let cfg = Analyzer.CFG.from_pdesc pdesc in
+      let inv_map = Analyzer.exec_pdesc (ProcData.make pdesc tenv extras) in
+      let (entry_mem, exit_mem) = 
+            (Analyzer.extract_state (Analyzer.CFG.id (Analyzer.CFG.start_node cfg)) inv_map,
+             Analyzer.extract_state (Analyzer.CFG.id (Analyzer.CFG.exit_node cfg)) inv_map)
+      in
+      match entry_mem, exit_mem with
+      | Some entry_mem, Some exit_mem -> 
+          Summary.write_summary (Procdesc.get_proc_name pdesc) (entry_mem.post, exit_mem.post);
+          Some (entry_mem.post, exit_mem.post)
+      | _, _ -> None 
+    in
+    let analyze_ondemand source pdesc =
+      ignore (analyze_ondemand_ source pdesc) in
+    let callbacks =
+      {
+        Ondemand.analyze_ondemand;
+        get_proc_desc;
+      } in
+    if Ondemand.procedure_should_be_analyzed proc_name
+    then
+      begin
+        Ondemand.set_callbacks callbacks;
+        let post_opt = analyze_ondemand_ DB.source_file_empty proc_desc in
+        Ondemand.unset_callbacks ();
+        post_opt
+      end
+    else
+      Summary.read_summary tenv proc_desc proc_name
+end
 
 let checker ({ Callbacks.get_proc_desc; Callbacks.tenv; proc_desc } as callback) =
   let post = Interprocedural.checker callback get_proc_desc in
   match post with 
-  | Some post ->
+  | Some (_, post) ->
       let proc_name = Procdesc.get_proc_name proc_desc in
       F.fprintf F.err_formatter "@.@[<v 2>Summary of %a :@,@," Procname.pp proc_name;
       Domain.pp_summary F.err_formatter post;
       F.fprintf F.err_formatter "@]@.";
       if Procname.to_string proc_name = "main" then
-(*        report_error tenv proc_desc (Domain.get_conds post |> Domain.ConditionSet.merge)*)
-        my_report_error tenv proc_desc (Domain.get_conds post |> Domain.ConditionSet.merge)        
+        report_error tenv proc_desc (Domain.get_conds post |> Domain.ConditionSet.merge)
+(*        my_report_error tenv proc_desc (Domain.get_conds post |> Domain.ConditionSet.merge)        *)
   | _ -> ()

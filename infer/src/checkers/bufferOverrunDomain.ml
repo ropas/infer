@@ -436,3 +436,7 @@ let get_mem : astate -> Mem.astate = fst
 let get_conds : astate -> ConditionSet.astate = snd
 
 let get_temp_alias : astate -> TempAlias.astate = trd
+
+type summary = astate * astate
+let pp_summary_ fmt (entry_mem, exit_mem) = 
+  F.fprintf fmt "%a@,%a" pp entry_mem pp exit_mem

@@ -48,11 +48,11 @@ let active_procedure_checkers () =
   let c_cpp_checkers =
     let l =
       [
-        Checkers.callback_print_c_method_calls, false;
+(*        Checkers.callback_print_c_method_calls, false;
         CheckDeadCode.callback_check_dead_code, false;
         Checkers.callback_print_access_to_globals, false;
         CppTaintAnalysis.checker, Config.quandary;
-        Siof.checker, checkers_enabled;
+        Siof.checker, checkers_enabled;*)
         BufferOverrun.checker, checkers_enabled;
       ] in
     IList.map (fun (x, y) -> (x, y, Some Config.Clang)) l in
