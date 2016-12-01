@@ -476,7 +476,8 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
         let offset = ArrayBlk.offsetof arr in
         let idx = Itv.plus offset idx in
         if size <> Itv.bot && idx <> Itv.bot then 
-          conditions := Domain.ConditionSet.add_bo_safety site ~size ~idx loc !conditions
+          conditions := Domain.ConditionSet.add_bo_safety 
+            pdesc site ~size ~idx loc !conditions
         else ()
     | None -> ()
 
@@ -564,26 +565,33 @@ module Interprocedural = Analyzer.Interprocedural (Summary)
 module Domain = BufferOverrunDomain
 
 let report_error : Tenv.t -> Procdesc.t -> Domain.ConditionSet.t -> unit 
-= fun tenv proc_desc callee_conds -> 
+= fun tenv proc_desc conds -> 
+  let proc_name = Procdesc.get_proc_name proc_desc in
+  F.fprintf F.err_formatter "@.Conditions of %a :@,@," Procname.pp proc_name;
+  Domain.ConditionSet.pp F.err_formatter conds;
   Domain.ConditionSet.iter (fun cond ->
       let safe = Domain.Condition.check cond in
+      (* report symbol-related alarms only in debug mode *)
       if not safe then
+      (
         Checkers.ST.report_error tenv
-          (Procdesc.get_proc_name proc_desc)
-          proc_desc
+(*          proc_name*)
+          (Domain.Condition.get_proc_name cond)
+(*          proc_desc*)
+          (Domain.Condition.get_proc_desc cond)
           "BUFFER-OVERRUN CHECKER"
           (Domain.Condition.get_location cond)
-          (Domain.Condition.to_string cond)
-      else ()) callee_conds
+          (Domain.Condition.to_string cond))
+      else ()) conds
 
 let checker ({ Callbacks.get_proc_desc; Callbacks.tenv; proc_desc } as callback) =
   let post = Interprocedural.checker callback get_proc_desc in
   match post with 
   | Some post ->
       let proc_name = Procdesc.get_proc_name proc_desc in
-      F.fprintf F.err_formatter "@.@[<v 2>Summary of %a :@,@,"
-        Procname.pp proc_name;
+      F.fprintf F.err_formatter "@.@[<v 2>Summary of %a :@,@," Procname.pp proc_name;
       Domain.pp_summary F.err_formatter post;
       F.fprintf F.err_formatter "@]@.";
-      report_error tenv proc_desc (Domain.get_conds post |> Domain.ConditionSet.merge)
+      if Procname.to_string proc_name = "main" then
+        report_error tenv proc_desc (Domain.get_conds post |> Domain.ConditionSet.merge)
   | _ -> ()
