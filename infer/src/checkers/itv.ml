@@ -358,6 +358,8 @@ struct
     | _, PInf -> Some PInf
     | MInf, _
     | _, MInf -> Some MInf
+    | _, _ when is_zero x -> Some y
+    | _, _ when is_zero y -> Some x
     | Linear (c1, x1), Linear (c2, x2) ->
         Some (Linear (c1 + c2, SymExp.plus x1 x2))
     | _, _ -> None
@@ -369,6 +371,7 @@ struct
     | MInf, MInf -> failwith "Cannot calculate -oo - -oo."
     | PInf, _ -> Some PInf
     | MInf, _ -> Some MInf
+    | _, _ when is_zero y -> Some x
     | Linear (c1, x1), Linear (c2, x2) ->
         Some (Linear (c1 - c2, SymExp.minus x1 x2))
     | _, _ -> None
