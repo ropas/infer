@@ -21,7 +21,8 @@ module L = Logging
 
 module Condition = 
 struct 
-  type t = { idx : Itv.astate; size : Itv.astate; loc : Location.t; id : string }
+  type t = { idx : Itv.astate; size : Itv.astate; 
+             proc_desc : Procdesc.t; loc : Location.t; id : string }
 
   and astate = t
 
@@ -34,21 +35,25 @@ struct
 
   let pp fmt e = 
     let size = set_size_pos e.size in
-    F.fprintf fmt "%a < %a at %a" Itv.pp e.idx Itv.pp size Location.pp e.loc
+    F.fprintf fmt "%a < %a at %a in %s" Itv.pp e.idx Itv.pp size 
+      Location.pp e.loc 
+      (DB.source_file_to_string e.loc.Location.file)
 
   let get_location e = e.loc
-
-  let make ~idx ~size loc id = { idx; size; loc ; id }
+  let get_proc_desc e = e.proc_desc
+  let get_proc_name e = Procdesc.get_proc_name e.proc_desc
+  let make proc_desc id ~idx ~size loc = { proc_desc; idx; size; loc ; id }
 
   let check c = 
     let size = set_size_pos c.size in
-    if Itv.is_symbolic c.idx || Itv.is_symbolic size then true
+    if not Config.debug_mode && (Itv.is_symbolic c.idx || Itv.is_symbolic size) then true
     else 
       let not_overrun = Itv.lt_sem c.idx size in
       let not_underrun = Itv.le_sem Itv.zero c.idx in
       (not_overrun = Itv.one) && (not_underrun = Itv.one)
   
-  let subst x subst_map = { idx = Itv.subst x.idx subst_map; size = Itv.subst x.size subst_map; loc = x.loc; id = x.id }
+  let subst x subst_map = 
+    { x with idx = Itv.subst x.idx subst_map; size = Itv.subst x.size subst_map; }
 
   let to_string x =
     let size = set_size_pos x.size in
@@ -60,8 +65,8 @@ struct
   module PPSet = PrettyPrintable.MakePPSet(struct include Condition let pp_element = pp end)
   include AbstractDomain.FiniteSet (PPSet)
  
-  let add_bo_safety id ~idx ~size loc cond = 
-    add (Condition.make ~idx ~size loc id) cond
+  let add_bo_safety pdesc id ~idx ~size loc cond = 
+    add (Condition.make pdesc id ~idx ~size loc) cond
 
   module Map = Map.Make(struct type t = string * Location.t let compare = Pervasives.compare end)
 
@@ -69,8 +74,9 @@ struct
   = fun conds ->
     let map = fold (fun e map -> 
         let old_cond : Condition.t= try Map.find (e.id, e.loc) map with _ -> e in 
-        let new_cond = Condition.make ~idx:(Itv.join old_cond.idx e.idx) 
-            ~size:(Itv.join old_cond.size e.size) e.loc e.id in
+        let new_cond = Condition.make old_cond.proc_desc old_cond.id 
+              ~idx:(Itv.join old_cond.idx e.idx) ~size:(Itv.join old_cond.size e.size) 
+              old_cond.loc in
         Map.add (e.id,e.loc) new_cond map) conds Map.empty
     in
     Map.fold (fun _ v conds -> add v conds) map empty
