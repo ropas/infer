@@ -24,7 +24,6 @@ module Condition =
 struct 
   type t = { idx : Itv.astate; size : Itv.astate; 
              proc_desc : Procdesc.t; loc : Location.t; id : string }
-
   and astate = t
 
   let compare : t -> t -> int
@@ -37,41 +36,46 @@ struct
         if i <> 0 then i else
           String.compare x.id y.id
 
-  let set_size_pos s =
-    if Itv.Bound.le (Itv.lb s) Itv.Bound.zero
-    then Itv.make Itv.Bound.zero (Itv.ub s)
-    else s
+  let set_size_pos : t -> t 
+  = fun c ->
+    let size = 
+      if Itv.Bound.le (Itv.lb c.size) Itv.Bound.zero
+      then Itv.make Itv.Bound.zero (Itv.ub c.size)
+      else c.size 
+    in
+    { c with size }
 
-  let location_pp fmt e =
-    let fname = DB.source_file_to_string e.loc.Location.file in
-    let pos = Location.to_string e.loc in
+  let pp_location fmt c =
+    let fname = DB.source_file_to_string c.loc.Location.file in
+    let pos = Location.to_string c.loc in
     F.fprintf fmt "%s:%s" fname pos
 
-  let pp fmt e = 
-    let size = set_size_pos e.size in
-    F.fprintf fmt "%a < %a at %a" Itv.pp e.idx Itv.pp size location_pp e
+  let pp fmt c = 
+    let c = set_size_pos c in
+    F.fprintf fmt "%a < %a at %a" Itv.pp c.idx Itv.pp c.size pp_location c
 
-  let get_location e = e.loc
-  let get_proc_desc e = e.proc_desc
-  let get_proc_name e = Procdesc.get_proc_name e.proc_desc
+  let get_location c = c.loc
+  let get_proc_desc c = c.proc_desc
+  let get_proc_name c = Procdesc.get_proc_name c.proc_desc
   let make proc_desc id ~idx ~size loc = { proc_desc; idx; size; loc ; id }
 
   let check c = 
-    let size = set_size_pos c.size in
-    if not Config.debug_mode && (Itv.is_symbolic c.idx || Itv.is_symbolic size) then true
+    let c = set_size_pos c in
+    if not Config.debug_mode && (Itv.is_symbolic c.idx || Itv.is_symbolic c.size) then true
     else 
-      let not_overrun = Itv.lt_sem c.idx size in
+      let not_overrun = Itv.lt_sem c.idx c.size in
       let not_underrun = Itv.le_sem Itv.zero c.idx in
       (not_overrun = Itv.one) && (not_underrun = Itv.one)
   
-  let subst x subst_map = 
-    { x with idx = Itv.subst x.idx subst_map; size = Itv.subst x.size subst_map; }
-
-  let to_string x =
-    let size = set_size_pos x.size in
-    "Offset : " ^ Itv.to_string x.idx ^ " Size : " ^ Itv.to_string size
+  let subst c subst_map =
+    { c with idx = Itv.subst c.idx subst_map; size = Itv.subst c.size subst_map; }
 
   let has_bnd_bot x = Itv.has_bnd_bot x.idx || Itv.has_bnd_bot x.size
+
+  let to_string c =
+    let c = set_size_pos c in
+    "Offset : " ^ Itv.to_string c.idx ^ " Size : " ^ Itv.to_string c.size
+
 end
 
 module ConditionSet = 
@@ -89,17 +93,6 @@ struct
         if i <> 0 then i else Location.compare l1 l2
     end)
 
-  let merge : t -> t 
-  = fun conds ->
-    let map = fold (fun e map -> 
-        let old_cond : Condition.t= try Map.find (e.id, e.loc) map with _ -> e in 
-        let new_cond = Condition.make old_cond.proc_desc old_cond.id 
-              ~idx:(Itv.join old_cond.idx e.idx) ~size:(Itv.join old_cond.size e.size) 
-              old_cond.loc in
-        Map.add (e.id,e.loc) new_cond map) conds Map.empty
-    in
-    Map.fold (fun _ v conds -> add v conds) map empty
-
   let subst : astate -> Itv.Bound.t Itv.SubstMap.t -> astate
   = fun x subst_map -> 
     fold (fun e -> add (Condition.subst e subst_map)) x empty
@@ -116,7 +109,7 @@ struct
   let pp fmt x =
     let pp_sep fmt () = F.fprintf fmt ", @," in
     let pp_element fmt v = Condition.pp fmt v in
-    F.fprintf fmt "@[<v 2>Safety conditions :@,@,";
+    F.fprintf fmt "@[<v 2>Safety conditions :@,";
     F.fprintf fmt "@[<hov 1>{";
     F.pp_print_list ~pp_sep pp_element fmt (elements x);
     F.fprintf fmt " }@]";
@@ -139,9 +132,9 @@ struct
     | [a] -> a
     | a :: b -> join a (joins b)
 
-  let get_itv (x,_,_) = x
-  let get_pow_loc (_,x,_) = x
-  let get_array_blk (_,_,x) = x
+  let get_itv = fst3
+  let get_pow_loc = snd3
+  let get_array_blk = trd3
   let get_all_locs (_,p,a) = ArrayBlk.get_pow_loc a |> PowLoc.join p 
 
   let top_itv = (Itv.top, PowLoc.bot, ArrayBlk.bot)
@@ -180,8 +173,7 @@ struct
   = fun f (n1, _, _) (n2, _, _) ->
     (f n1 n2, PowLoc.bot, ArrayBlk.bot)
 
-  let lift_itv_func_preserve
-    : (Itv.t -> Itv.t -> Itv.t) -> astate -> astate -> astate
+  let lift_itv_func_preserve : (Itv.t -> Itv.t -> Itv.t) -> astate -> astate -> astate
   = fun f (n1, x1, a1) (n2, _, _) ->
     (f n1 n2, x1, a1)
 
@@ -420,8 +412,11 @@ struct
   include AbstractDomain.Pair3(Stack)(Heap)(Alias)
   let pp : F.formatter -> astate -> unit
   = fun fmt (stack, heap, _) ->
-    F.fprintf fmt "Stack : @ %a, @ Heap : @ %a, @ " 
-      Stack.pp stack Heap.pp heap
+    F.fprintf fmt "Stack :@,";
+    F.fprintf fmt "%a@," Stack.pp stack;
+    F.fprintf fmt "Heap :@,";
+    F.fprintf fmt "%a" Heap.pp heap
+
   let pp_summary : F.formatter -> astate -> unit
   = fun fmt (_, heap, _) ->
     F.fprintf fmt "@[<v 0>Parameters :@,";
