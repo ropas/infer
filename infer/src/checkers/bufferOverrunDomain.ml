@@ -13,7 +13,7 @@
  * LICENSE file in the root directory of this source tree. An additional grant
  * of patent rights can be found in the PATENTS file in the same directory.
  *)
-
+open! Utils
 open BasicDom
 
 module F = Format
@@ -367,7 +367,7 @@ struct
   = fun fmt x ->
     let pp_sep fmt () = F.fprintf fmt ", @," in
     let pp1 fmt (k, v) =
-      F.fprintf fmt "%a=%a" (Ident.pp Utils.pe_text) k (Pvar.pp Utils.pe_text) v
+      F.fprintf fmt "%a=%a" (Ident.pp pe_text) k (Pvar.pp pe_text) v
     in
 (*    F.fprintf fmt "@[<v 0>Logical Variables :@,";*)
     F.fprintf fmt "@[<hov 2>{ @,";
@@ -418,27 +418,25 @@ struct
   let strong_update_heap p v m = (fst m, Heap.strong_update p v (snd m), trd m)
   let weak_update_stack p v m = (Stack.weak_update p v (fst m), snd m, trd m)
   let weak_update_heap p v m = (fst m, Heap.weak_update p v (snd m), trd m)
+  let can_strong_update ploc =
+    if PowLoc.cardinal ploc = 1 then 
+      let lv = PowLoc.choose ploc in
+      Loc.is_var lv 
+    else false
+  let update_mem : PowLoc.t -> Val.t -> astate -> astate
+  = fun ploc v s ->
+    if can_strong_update ploc then strong_update_heap ploc v s
+    else weak_update_heap ploc v s
 end
 
-
-(* TODO: what about removing the conditionset from the domain? *)
-(*include AbstractDomain.Pair(Mem)(ConditionSet)
-
-let (<=) ~lhs ~rhs =
-  if lhs == rhs then true else
-    Mem.(<=) ~lhs:(fst lhs) ~rhs:(fst rhs)
-
-let pp fmt m =
-  F.fprintf fmt "@[<v 2>%a@]" Mem.pp m
-
-let pp_summary fmt (m, c) =
-  F.fprintf fmt "%a" Mem.pp_summary m
-*)
 include Mem
 
 module Summary = 
 struct 
   type t = Mem.astate * Mem.astate * ConditionSet.t
+  let get_input = fst3
+  let get_output = snd3
+  let get_cond_set = trd3
   let pp fmt (entry_mem, exit_mem, condition_set) = 
-    F.fprintf fmt "%a@,%a@,%a" Mem.pp entry_mem Mem.pp exit_mem ConditionSet.pp condition_set
+    F.fprintf fmt "%a@,%a@,%a@" Mem.pp entry_mem Mem.pp exit_mem ConditionSet.pp condition_set
 end
