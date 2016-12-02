@@ -67,16 +67,17 @@ struct
       Some (id, _) -> Domain.Mem.add_stack (Loc.of_id id) Domain.Val.pos_itv mem
     | _ -> mem 
 
+  let model_unknown_itv ret mem = 
+    match ret with
+      Some (id, _) -> Domain.Mem.add_stack (Loc.of_id id) Domain.Val.top_itv mem
+    | None -> mem
+     
   let handle_unknown_call pdesc ret callee_pname params node mem =
     match Procname.get_method callee_pname with
     | "malloc" | "__new_array" -> model_malloc pdesc ret params node mem
     | "realloc" -> model_realloc pdesc ret params node mem
     | "strlen" | "fgetc" -> model_positive_itv ret mem
-    | _ ->
-        (match ret with
-           Some (id, _) ->
-             Domain.Mem.add_stack (Loc.of_id id) Domain.Val.top_itv mem
-         | None -> mem)
+    | _ -> model_unknown_itv ret mem
 
   let rec declare_array pdesc node loc typ len inst_num dimension mem = 
     let size = IntLit.to_int len |> Itv.of_int in
@@ -143,14 +144,16 @@ struct
   let print_debug_info instr pre post = 
     if Config.debug_mode then 
     begin
-      F.fprintf F.err_formatter "Pre-state : @.";
+      F.fprintf F.err_formatter "@.@.================================@.";
+      F.fprintf F.err_formatter "@[<v 2>Pre-state : @,";
       Domain.pp F.err_formatter pre;
-      F.fprintf F.err_formatter "@.@.";
+      F.fprintf F.err_formatter "@]@.@.";
       Sil.pp_instr pe_text F.err_formatter instr;
       F.fprintf F.err_formatter "@.@.";
-      F.fprintf F.err_formatter "Post-state : @.";
+      F.fprintf F.err_formatter "@[<v 2>Post-state : @,";
       Domain.pp F.err_formatter post;
-      F.fprintf F.err_formatter "@.@."
+      F.fprintf F.err_formatter "@]@.";
+      F.fprintf F.err_formatter "================================@.@."
     end
    
   let exec_instr mem { ProcData.pdesc; tenv; extras } node (instr : Sil.instr) =
@@ -261,7 +264,7 @@ struct
       Sil.pp_instr pe_text F.err_formatter instr;
       F.fprintf F.err_formatter "@.@.";
       Domain.ConditionSet.pp F.err_formatter cond_set;
-      F.fprintf F.err_formatter "@.@.";
+      F.fprintf F.err_formatter "@.";
     end
 
   let collect_instrs ({ ProcData.pdesc; tenv; extras } as proc_data) node (instrs: Sil.instr list) mem cond_set = 
