@@ -87,17 +87,6 @@ struct
         if i <> 0 then i else Location.compare l1 l2
     end)
 
-  let merge : t -> t 
-  = fun conds ->
-    let map = fold (fun e map -> 
-        let old_cond : Condition.t= try Map.find (e.id, e.loc) map with _ -> e in 
-        let new_cond = Condition.make old_cond.proc_desc old_cond.id 
-              ~idx:(Itv.join old_cond.idx e.idx) ~size:(Itv.join old_cond.size e.size) 
-              old_cond.loc in
-        Map.add (e.id,e.loc) new_cond map) conds Map.empty
-    in
-    Map.fold (fun _ v conds -> add v conds) map empty
-
   let subst : astate -> Itv.Bound.t Itv.SubstMap.t -> astate
   = fun x subst_map -> 
     fold (fun e -> add (Condition.subst e subst_map)) x empty

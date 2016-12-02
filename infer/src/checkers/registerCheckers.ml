@@ -40,7 +40,7 @@ let active_procedure_checkers () =
         PrintfArgs.callback_printf_args, checkers_enabled;
         AnnotationReachability.Interprocedural.check_and_report, checkers_enabled;
         ThreadSafety.method_analysis, false;
-        BufferOverrun.checker, checkers_enabled;
+        BufferOverrunChecker.checker, checkers_enabled;
       ] in
     (* make sure SimpleChecker.ml is not dead code *)
     if false then (let module SC = SimpleChecker.Make in ());
@@ -53,7 +53,7 @@ let active_procedure_checkers () =
         Checkers.callback_print_access_to_globals, false;
         CppTaintAnalysis.checker, Config.quandary;
         Siof.checker, checkers_enabled;*)
-        BufferOverrun.checker, checkers_enabled;
+        BufferOverrunChecker.checker, checkers_enabled;
       ] in
     IList.map (fun (x, y) -> (x, y, Some Config.Clang)) l in
 
