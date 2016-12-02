@@ -27,8 +27,7 @@ struct
   = fun x y -> x - y
 
   let eq : t -> t -> bool
-  = fun x y ->
-    compare x y = 0
+  = fun x y -> compare x y = 0
 
   let get_new : unit -> t
   = fun () ->
@@ -37,30 +36,40 @@ struct
     x
 
   let pp : F.formatter -> t -> unit
-  = fun fmt x ->
-    F.fprintf fmt "s$%d" x
+  = fun fmt x -> F.fprintf fmt "s$%d" x
 end
 
-module SubstMap =
-  Map.Make (struct type t = Symbol.t let compare = Symbol.compare end)
+module SubstMap = Map.Make (Symbol)
 
 module SymLinear =
 struct
-  module M = Map.Make(Symbol)
+  module M = Map.Make (Symbol)
 
   type t = int M.t
 
-  let compare = M.compare (fun x y -> x - y)
+  let compare : t -> t -> int
+  = M.compare (fun x y -> x - y)
 
-  let empty : t = M.empty
+  let empty : t
+  = M.empty
 
-  let add = M.add
-  let cardinal = M.cardinal
-  let choose = M.choose
-  let fold = M.fold
-  let mem = M.mem
+  let add : int -> int -> t -> t
+  = M.add
 
-  let initial : t = empty
+  let cardinal : t -> int
+  = M.cardinal
+
+  let choose : t -> (int * int)
+  = M.choose
+
+  let fold : (Symbol.t -> int -> 'b -> 'b) -> t -> 'b -> 'b
+  = M.fold
+
+  let mem : Symbol.t -> t -> bool
+  = M.mem
+
+  let initial : t
+  = empty
 
   let find : Symbol.t -> t -> int
   = fun s x ->
@@ -68,17 +77,13 @@ struct
     | Not_found -> 0
 
   let le : t -> t -> bool
-  = fun x y ->
-    M.for_all (fun s v -> v <= find s y) x
+  = fun x y -> M.for_all (fun s v -> v <= find s y) x
 
   let get_new : unit -> t
-  = fun () ->
-    M.add (Symbol.get_new ()) 1 empty
+  = fun () -> M.add (Symbol.get_new ()) 1 empty
 
-  (* TODO: Not efficient.  Modify the function if it runs too slow. *)
   let eq : t -> t -> bool
-  = fun x y ->
-    le x y && le y x
+  = fun x y -> le x y && le y x
 
   let pp1 : F.formatter -> (Symbol.t * int) -> unit
   = fun fmt (s, c) ->
@@ -97,11 +102,11 @@ struct
       pp1 fmt (s1, c1);
       M.iter (fun s c -> F.fprintf fmt " + %a" pp1 (s, c)) (M.remove s1 x)
 
-  let zero : t = M.empty
+  let zero : t
+  = M.empty
 
   let is_zero : t -> bool
-  = fun x ->
-    M.for_all (fun _ v -> v = 0) x
+  = fun x -> M.for_all (fun _ v -> v = 0) x
 
   let is_mod_zero : t -> int -> bool
   = fun x n ->
@@ -109,13 +114,11 @@ struct
     M.for_all (fun _ v -> v mod n = 0) x
 
   let neg : t -> t
-  = fun x ->
-    M.map (~-) x
+  = fun x -> M.map (~-) x
 
   (* Returns (Some n) only when n is not 0. *)
   let is_non_zero : int -> int option
-  = fun n ->
-    if n = 0 then None else Some n
+  = fun n -> if n = 0 then None else Some n
 
   let plus : t -> t -> t
   = fun x y ->
@@ -140,12 +143,10 @@ struct
     M.merge minus' x y
 
   let mult_const : t -> int -> t
-  = fun x n ->
-    M.map (( * ) n) x
+  = fun x n -> M.map (( * ) n) x
 
   let div_const : t -> int -> t
-  = fun x n ->
-    M.map ((/) n) x
+  = fun x n -> M.map ((/) n) x
 
   (* Returns a symbol when the map contains only one symbol s with the
      coefficient 1. *)
@@ -163,7 +164,8 @@ struct
     | Some _ -> true
     | None -> false
 
-  let get_symbols x = IList.map fst (M.bindings x)
+  let get_symbols : t -> Symbol.t list
+  = fun x -> IList.map fst (M.bindings x)
 end
 
 module Bound =
@@ -221,8 +223,7 @@ struct
     | Bot, Bot -> 0
 
   let of_int : int -> t
-  = fun n ->
-    Linear (n, SymLinear.empty)
+  = fun n -> Linear (n, SymLinear.empty)
 
   let of_sym : SymLinear.t -> t
   = fun s -> Linear (0, s)
@@ -252,8 +253,7 @@ struct
     | _ -> None
 
   let is_one_symbol : t -> bool
-  = fun x ->
-    one_symbol x <> None
+  = fun x -> one_symbol x <> None
 
   let use_symbol : Symbol.t -> t -> bool
   = fun s -> function
@@ -273,9 +273,11 @@ struct
           let se' = SymLinear.plus se1 (SymLinear.mult_const se2 coeff) in
           Linear (c', se')
       | MinMax (Min, _, s'), MInf when Symbol.eq s s' -> MInf
-      | MinMax (Max, c, s'), MInf when Symbol.eq s s' -> Linear (c, SymLinear.zero)
+      | MinMax (Max, c, s'), MInf when Symbol.eq s s' ->
+          Linear (c, SymLinear.zero)
       | MinMax (Max, _, s'), PInf when Symbol.eq s s' -> PInf
-      | MinMax (Min, c, s'), PInf when Symbol.eq s s' -> Linear (c, SymLinear.zero)
+      | MinMax (Min, c, s'), PInf when Symbol.eq s s' ->
+          Linear (c, SymLinear.zero)
       | MinMax (Min, c1, s'), Linear (c2, se)
         when Symbol.eq s s' && SymLinear.is_zero se ->
           Linear (min c1 c2, SymLinear.zero)
@@ -294,8 +296,7 @@ struct
 
   (* substitution symbols in ``x'' with respect to ``map'' *)
   let subst : t -> t -> t SubstMap.t -> t
-  = fun default x map ->
-    SubstMap.fold (fun s y x -> subst1 default x s y) map x
+  = fun default x map -> SubstMap.fold (fun s y x -> subst1 default x s y) map x
 
   let le : t -> t -> bool
   = fun x y ->
@@ -355,7 +356,7 @@ struct
            | Some x' -> MinMax (Min, c1, x')
            | None -> assert false)
       | MinMax (Max, c0, _), Linear (c1, x1)
-      | Linear (c1, x1), MinMax (Max, c0, _) 
+      | Linear (c1, x1), MinMax (Max, c0, _)
         when SymLinear.is_zero x1 && c0 < c1 -> Linear (c0, x1)
       | _, _ -> MInf
 
@@ -376,7 +377,7 @@ struct
            | Some x' -> MinMax (Max, c1, x')
            | None -> assert false)
       | MinMax (Min, c0, _), Linear (c1, x1)
-      | Linear (c1, x1), MinMax (Min, c0, _) 
+      | Linear (c1, x1), MinMax (Min, c0, _)
         when SymLinear.is_zero x1 && c0 > c1 -> Linear (c0, x1)
       | _, _ -> PInf
 
@@ -394,11 +395,14 @@ struct
     if le y x then x else
       PInf
 
-  let initial : t = of_int 0
+  let initial : t
+  = of_int 0
 
-  let zero : t = Linear (0, SymLinear.zero)
+  let zero : t
+  = Linear (0, SymLinear.zero)
 
-  let one : t = Linear (1, SymLinear.zero)
+  let one : t
+  = Linear (1, SymLinear.zero)
 
   let is_zero : t -> bool
   = fun x ->
@@ -504,11 +508,14 @@ struct
          | None -> None)
     | _, _ -> None
 
-  let make_min : t -> t -> t option = make_min_max Min
+  let make_min : t -> t -> t option
+  = make_min_max Min
 
-  let make_max : t -> t -> t option = make_min_max Max
+  let make_max : t -> t -> t option
+  = make_min_max Max
 
-  let get_symbols = function
+  let get_symbols : t -> Symbol.t list
+  = function
     | MInf | PInf -> []
     | Linear (_, se) -> SymLinear.get_symbols se
     | MinMax (_, _, s) -> [s]
@@ -519,112 +526,115 @@ module ItvPure =
 struct
   type astate = Bound.t * Bound.t
 
-  let compare : astate -> astate -> int
+  type t = astate
+
+  let compare : t -> t -> int
   = fun (x1, x2) (y1, y2) ->
     let i = Bound.compare x1 y1 in
     if i <> 0 then i else Bound.compare x2 y2
 
-  type t = astate
+  let initial : t
+  = (Bound.initial, Bound.initial)
 
-  let initial : astate = (Bound.initial, Bound.initial)
+  let lb : t -> Bound.t
+  = fst
 
-  let lb = fst
+  let ub : t -> Bound.t
+  = snd
 
-  let ub = snd
+  let make : Bound.t -> Bound.t -> t
+  = fun l u -> (l, u)
 
-  let make : Bound.t -> Bound.t -> astate
-  = fun l u ->
-    (l, u)
-
-  let subst : astate -> Bound.t SubstMap.t -> astate
+  let subst : t -> Bound.t SubstMap.t -> t
   = fun x map ->
     (Bound.subst Bound.MInf (lb x) map, Bound.subst Bound.PInf (ub x) map)
 
-  let (<=) : lhs:astate -> rhs:astate -> bool
-  = fun ~lhs:(l1, u1) ~rhs:(l2, u2) ->
-    Bound.le l2 l1 && Bound.le u1 u2
+  let (<=) : lhs:t -> rhs:t -> bool
+  = fun ~lhs:(l1, u1) ~rhs:(l2, u2) -> Bound.le l2 l1 && Bound.le u1 u2
 
-  let join : astate -> astate -> astate
-  = fun (l1, u1) (l2, u2) ->
-    (Bound.min l1 l2, Bound.max u1 u2)
+  let join : t -> t -> t
+  = fun (l1, u1) (l2, u2) -> (Bound.min l1 l2, Bound.max u1 u2)
 
-  let widen : prev:astate -> next:astate -> num_iters:int -> astate
+  let widen : prev:t -> next:t -> num_iters:int -> t
   = fun ~prev:(l1, u1) ~next:(l2, u2) ~num_iters:_ ->
     (Bound.widen_l l1 l2, Bound.widen_u u1 u2)
 
-  let pp : F.formatter -> astate -> unit
-  = fun fmt (l, u) ->
-    F.fprintf fmt "[%a, %a]" Bound.pp l Bound.pp u
+  let pp : F.formatter -> t -> unit
+  = fun fmt (l, u) -> F.fprintf fmt "[%a, %a]" Bound.pp l Bound.pp u
 
-  let of_int : int -> astate
-  = fun n ->
-    (Bound.of_int n, Bound.of_int n)
+  let of_int : int -> t
+  = fun n -> (Bound.of_int n, Bound.of_int n)
 
   let get_new_sym : unit -> t
   = fun () ->
-    (* just for pretty printing *)
     let lower = Bound.of_sym (SymLinear.get_new ()) in
     let upper = Bound.of_sym (SymLinear.get_new ()) in
     (lower, upper)
 
-  let top : astate = (Bound.MInf, Bound.PInf)
+  let top : t
+  = (Bound.MInf, Bound.PInf)
 
-  let pos : astate = (Bound.of_int 1, Bound.PInf)
+  let pos : t
+  = (Bound.of_int 1, Bound.PInf)
 
-  let nat : astate = (Bound.of_int 0, Bound.PInf)
+  let nat : t
+  = (Bound.of_int 0, Bound.PInf)
 
-  let zero : astate = of_int 0
+  let zero : t
+  = of_int 0
 
-  let one : astate = of_int 1
+  let one : t
+  = of_int 1
 
-  let true_sem : astate = one
+  let true_sem : t
+  = one
 
-  let false_sem : astate = zero
+  let false_sem : t
+  = zero
 
-  let unknown_bool : astate = (Bound.of_int 0, Bound.of_int 1)
+  let unknown_bool : t
+  = (Bound.of_int 0, Bound.of_int 1)
 
-  let is_true : astate -> bool
-  = fun (l, u) ->
-    Bound.le (Bound.of_int 1) l || Bound.le u (Bound.of_int (-1))
+  let is_true : t -> bool
+  = fun (l, u) -> Bound.le (Bound.of_int 1) l || Bound.le u (Bound.of_int (-1))
 
-  let is_false : astate -> bool
-  = fun (l, u) ->
-    Bound.is_zero l && Bound.is_zero u
+  let is_false : t -> bool
+  = fun (l, u) -> Bound.is_zero l && Bound.is_zero u
 
-  let is_const : astate -> int option
+  let is_const : t -> int option
   = fun (l, u) ->
     match Bound.is_const l, Bound.is_const u with
     | Some n, Some m when n = m -> Some n
     | _, _ -> None
 
-  let is_symbolic : astate -> bool
+  let is_symbolic : t -> bool
   = fun (lb, ub) -> Bound.is_symbolic lb || Bound.is_symbolic ub
 
-  let neg : astate -> astate
+  let neg : t -> t
   = fun (l, u) ->
     let l' = Option.default Bound.MInf (Bound.neg u) in
     let u' = Option.default Bound.PInf (Bound.neg l) in
     (l', u')
 
-  let lnot : astate -> astate
+  let lnot : t -> t
   = fun x ->
     if is_true x then false_sem else
     if is_false x then true_sem else
       unknown_bool
 
-  let plus : astate -> astate -> astate
+  let plus : t -> t -> t
   = fun (l1, u1) (l2, u2) ->
     let l' = Option.default Bound.MInf (Bound.plus l1 l2) in
     let u' = Option.default Bound.PInf (Bound.plus u1 u2) in
     (l', u')
 
-  let minus : astate -> astate -> astate
+  let minus : t -> t -> t
   = fun (l1, u1) (l2, u2) ->
     let l' = Option.default Bound.MInf (Bound.minus l1 u2) in
     let u' = Option.default Bound.PInf (Bound.minus u1 l2) in
     (l', u')
 
-  let mult_const : astate -> int -> astate
+  let mult_const : t -> int -> t
   = fun (l, u) n ->
     if n = 0 then zero else
     if n > 0 then
@@ -638,7 +648,7 @@ struct
 
   (* Returns a correct value only when all coefficients are divided by
      n without remainder. *)
-  let div_const : astate -> int -> astate
+  let div_const : t -> int -> t
   = fun (l, u) n ->
     assert (n <> 0);
     if n > 0 then
@@ -650,21 +660,21 @@ struct
       let u' = Option.default Bound.PInf (Bound.div_const l n) in
       (l', u')
 
-  let mult : astate -> astate -> astate
+  let mult : t -> t -> t
   = fun x y ->
     match is_const x, is_const y with
     | _, Some n -> mult_const x n
     | Some n, _ -> mult_const y n
     | None, None -> top
 
-  let div : astate -> astate -> astate
+  let div : t -> t -> t
   = fun x y ->
     match is_const y with
     | Some n when n <> 0 -> div_const x n
     | _ -> top
 
   (* x % [0,0] does nothing. *)
-  let mod_sem : astate -> astate -> astate
+  let mod_sem : t -> t -> t
   = fun x y ->
     match is_const x, is_const y with
     | Some n, Some m -> if m = 0 then x else of_int (n mod m)
@@ -672,76 +682,76 @@ struct
     | _, None -> top
 
   (* x << [-1,-1] does nothing. *)
-  let shiftlt : astate -> astate -> astate
+  let shiftlt : t -> t -> t
   = fun x y ->
     match is_const y with
     | Some n -> if n >= 0 then mult_const x (1 lsl n) else x
     | None -> top
 
   (* x >> [-1,-1] does nothing. *)
-  let shiftrt : astate -> astate -> astate
+  let shiftrt : t -> t -> t
   = fun x y ->
     match is_const y with
     | Some n -> if n >= 0 then div_const x (1 lsl n) else x
     | None -> top
 
-  let lt_sem : astate -> astate -> astate
+  let lt_sem : t -> t -> t
   = fun (l1, u1) (l2, u2) ->
     if Bound.lt u1 l2 then true_sem else
     if Bound.le u2 l1 then false_sem else
       unknown_bool
 
-  let gt_sem : astate -> astate -> astate
+  let gt_sem : t -> t -> t
   = fun x y -> lt_sem y x
 
-  let le_sem : astate -> astate -> astate
+  let le_sem : t -> t -> t
   = fun (l1, u1) (l2, u2) ->
     if Bound.le u1 l2 then true_sem else
     if Bound.lt u2 l1 then false_sem else
       unknown_bool
 
-  let ge_sem : astate -> astate -> astate
+  let ge_sem : t -> t -> t
   = fun x y -> le_sem y x
 
-  let eq_sem : astate -> astate -> astate
+  let eq_sem : t -> t -> t
   = fun (l1, u1) (l2, u2) ->
     if Bound.eq l1 u1 && Bound.eq u1 l2 && Bound.eq l2 u2 then true_sem else
     if Bound.lt u1 l2 || Bound.lt u2 l1 then false_sem else
       unknown_bool
 
-  let ne_sem : astate -> astate -> astate
+  let ne_sem : t -> t -> t
   = fun (l1, u1) (l2, u2) ->
     if Bound.eq l1 u1 && Bound.eq u1 l2 && Bound.eq l2 u2 then false_sem else
     if Bound.lt u1 l2 || Bound.lt u2 l1 then true_sem else
       unknown_bool
 
-  let land_sem : astate -> astate -> astate
+  let land_sem : t -> t -> t
   = fun x y ->
     if is_true x && is_true y then true_sem else
     if is_false x || is_false y then false_sem else
       unknown_bool
 
-  let lor_sem : astate -> astate -> astate
+  let lor_sem : t -> t -> t
   = fun x y ->
     if is_true x || is_true y then true_sem else
     if is_false x && is_false y then false_sem else
       unknown_bool
 
-  let valid : astate -> bool
+  let valid : t -> bool
   = fun (l, u) ->
     not (Bound.eq l Bound.PInf) && not (Bound.eq u Bound.MInf) && Bound.le l u
 
-  let invalid : astate -> bool
+  let invalid : t -> bool
   = fun (l, u) ->
     Bound.eq l Bound.PInf || Bound.eq u Bound.MInf || Bound.lt u l
 
-  let prune : astate -> astate -> astate option
+  let prune : t -> t -> t option
   = fun (l1, u1) y ->
     if not (valid y) then Some (l1, u1) else
       let x' = (Bound.prune_l l1 y, Bound.prune_u u1 y) in
       if invalid x' then None else Some x'
 
-  let prune_comp_arith : Binop.t -> astate -> astate -> astate option
+  let prune_comp_arith : Binop.t -> t -> t -> t option
   = fun c x (l, u) ->
     let y_opt =
       match c with
@@ -761,7 +771,7 @@ struct
     | Some y' -> prune x y'
     | None -> Some x
 
-  let prune_comp_minmax : Binop.t -> astate -> astate -> astate option
+  let prune_comp_minmax : Binop.t -> t -> t -> t option
   = fun c (lx, ux) (l, u) ->
     match c with
     | Binop.Lt ->
@@ -788,20 +798,20 @@ struct
          | None -> None)
     | _ -> assert false
 
-  let prune_comp : Binop.t -> astate -> astate -> astate option
+  let prune_comp : Binop.t -> t -> t -> t option
   = fun c x (l, u) ->
     if not (valid (l, u)) then Some x else
       let x = Option.default x (prune_comp_arith c x (l, u)) in
       let x = Option.default x (prune_comp_minmax c x (l, u)) in
       if invalid x then None else Some x
 
-  let prune_eq : astate -> astate -> astate option
+  let prune_eq : t -> t -> t option
   = fun x y ->
     match prune_comp Binop.Le x y with
     | None -> None
     | Some x' -> prune_comp Binop.Ge x' y
 
-  let prune_ne : astate -> astate -> astate option
+  let prune_ne : t -> t -> astate option
   = fun x (l, u) ->
     if not (Bound.eq l Bound.PInf)
     && not (Bound.eq u Bound.MInf)
@@ -809,21 +819,27 @@ struct
     then prune x (l, u)
     else Some x
 
-  let get_symbols (l, u) =
+  let get_symbols : t -> Symbol.t list
+  = fun (l, u) ->
     IList.append (Bound.get_symbols l) (Bound.get_symbols u)
 
-  let rm_bnd_bot (l, u) =
+  let rm_bnd_bot : t -> t option
+  = fun (l, u) ->
     match l, u with
     | Bound.Bot, _
     | _, Bound.Bot -> None
     | _, _ -> Some (l, u)
 
-  let has_bnd_bot (l, u) = l = Bound.Bot || u = Bound.Bot
+  let has_bnd_bot : t -> bool
+  = fun (l, u) ->
+    l = Bound.Bot || u = Bound.Bot
 end
 
-include AbstractDomain.BottomLifted(ItvPure)
+include AbstractDomain.BottomLifted (ItvPure)
 
-let compare : astate -> astate -> int
+type t = astate
+
+let compare : t -> t -> int
 = fun x y ->
   match x, y with
   | Bottom, Bottom -> 0
@@ -831,61 +847,65 @@ let compare : astate -> astate -> int
   | _, Bottom -> 1
   | NonBottom x, NonBottom y -> ItvPure.compare x y
 
-type t = astate
+let bot : t
+= initial
 
-let bot = initial
+let top : t
+= NonBottom ItvPure.top
 
-let top = NonBottom ItvPure.top
-
-let lb = function
+let lb : t -> Bound.t
+= function
   | NonBottom x -> ItvPure.lb x
   | _ -> raise (Failure "lower bound of bottom")
 
-let ub = function
+let ub : t -> Bound.t
+= function
   | NonBottom x -> ItvPure.ub x
   | _ -> raise (Failure "upper bound of bottom")
 
 let of_int : int -> astate
-= fun n ->
-  NonBottom (ItvPure.of_int n)
+= fun n -> NonBottom (ItvPure.of_int n)
 
 let is_bot : t -> bool
-= fun x ->
-  x = Bottom
+= fun x -> x = Bottom
 
-let zero : astate = of_int 0
+let zero : t
+= of_int 0
 
-let one : astate = of_int 1
+let one : t
+= of_int 1
 
-let pos : astate = NonBottom ItvPure.pos
+let pos : t
+= NonBottom ItvPure.pos
 
-let nat : astate = NonBottom ItvPure.nat
+let nat : t
+= NonBottom ItvPure.nat
 
-let make : Bound.t -> Bound.t -> astate
-= fun l u ->
-  if Bound.lt u l then Bottom else NonBottom (ItvPure.make l u)
+let make : Bound.t -> Bound.t -> t
+= fun l u -> if Bound.lt u l then Bottom else NonBottom (ItvPure.make l u)
 
-let is_symbolic : astate -> bool = function
+let is_symbolic : t -> bool
+= function
   | NonBottom x -> ItvPure.is_symbolic x
   | Bottom -> false
 
-let le : lhs:astate -> rhs:astate -> bool = (<=)
+let le : lhs:t -> rhs:t -> bool
+= (<=)
 
-let eq : astate -> astate -> bool
-= fun x y ->
-  (<=) ~lhs:x ~rhs:y && (<=) ~lhs:y ~rhs:x
+let eq : t -> t -> bool
+= fun x y -> (<=) ~lhs:x ~rhs:y && (<=) ~lhs:y ~rhs:x
 
-let to_string : astate -> string
+let to_string : t -> string
 = fun x ->
   pp F.str_formatter x;
   F.flush_str_formatter ()
 
-let lift1 : (ItvPure.t -> ItvPure.t) -> astate -> astate
+let lift1 : (ItvPure.t -> ItvPure.t) -> t -> t
 = fun f -> function
   | Bottom -> Bottom
   | NonBottom x -> NonBottom (f x)
 
-let lift1_opt : (ItvPure.t -> ItvPure.t option) -> astate -> astate
+let lift1_opt : (ItvPure.t -> ItvPure.t option) -> t -> t
 = fun f -> function
   | Bottom -> Bottom
   | NonBottom x ->
@@ -893,15 +913,14 @@ let lift1_opt : (ItvPure.t -> ItvPure.t option) -> astate -> astate
        | None -> Bottom
        | Some v -> NonBottom v)
 
-let lift2 : (ItvPure.t -> ItvPure.t -> ItvPure.t) -> astate -> astate -> astate
+let lift2 : (ItvPure.t -> ItvPure.t -> ItvPure.t) -> t -> t -> t
 = fun f x y ->
   match x, y with
   | Bottom, _
   | _, Bottom -> Bottom
   | NonBottom x, NonBottom y -> NonBottom (f x y)
 
-let lift2_opt
-  : (ItvPure.t -> ItvPure.t -> ItvPure.t option) -> astate -> astate -> astate
+let lift2_opt : (ItvPure.t -> ItvPure.t -> ItvPure.t option) -> t -> t -> t
 = fun f x y ->
   match x, y with
   | Bottom, _
@@ -911,64 +930,87 @@ let lift2_opt
        | Some v -> NonBottom v
        | None -> Bottom)
 
-let plus : astate -> astate -> astate = lift2 ItvPure.plus
+let plus : t -> t -> t
+= lift2 ItvPure.plus
 
-let minus : astate -> astate -> astate = lift2 ItvPure.minus
+let minus : t -> t -> t
+= lift2 ItvPure.minus
 
-let get_new_sym () = NonBottom (ItvPure.get_new_sym ())
+let get_new_sym : unit -> t
+= fun () -> NonBottom (ItvPure.get_new_sym ())
 
-let neg : astate -> astate = lift1 ItvPure.neg
+let neg : t -> t
+= lift1 ItvPure.neg
 
-let lnot : astate -> astate = lift1 ItvPure.lnot
+let lnot : t -> t
+= lift1 ItvPure.lnot
 
-let mult : astate -> astate -> astate = lift2 ItvPure.mult
+let mult : t -> t -> t
+= lift2 ItvPure.mult
 
-let div : astate -> astate -> astate = lift2 ItvPure.div
+let div : t -> t -> t
+= lift2 ItvPure.div
 
-let mod_sem : astate -> astate -> astate = lift2 ItvPure.mod_sem
+let mod_sem : t -> t -> t
+= lift2 ItvPure.mod_sem
 
-let shiftlt : astate -> astate -> astate = lift2 ItvPure.shiftlt
+let shiftlt : t -> t -> t
+= lift2 ItvPure.shiftlt
 
-let shiftrt : astate -> astate -> astate = lift2 ItvPure.shiftrt
+let shiftrt : t -> t -> t
+= lift2 ItvPure.shiftrt
 
-let lt_sem : astate -> astate -> astate = lift2 ItvPure.lt_sem
+let lt_sem : t -> t -> t
+= lift2 ItvPure.lt_sem
 
-let gt_sem : astate -> astate -> astate = lift2 ItvPure.gt_sem
+let gt_sem : t -> t -> t
+= lift2 ItvPure.gt_sem
 
-let le_sem : astate -> astate -> astate = lift2 ItvPure.le_sem
+let le_sem : t -> t -> t
+= lift2 ItvPure.le_sem
 
-let ge_sem : astate -> astate -> astate = lift2 ItvPure.ge_sem
+let ge_sem : t -> t -> t
+= lift2 ItvPure.ge_sem
 
-let eq_sem : astate -> astate -> astate = lift2 ItvPure.eq_sem
+let eq_sem : t -> t -> t
+= lift2 ItvPure.eq_sem
 
-let ne_sem : astate -> astate -> astate = lift2 ItvPure.ne_sem
+let ne_sem : t -> t -> t
+= lift2 ItvPure.ne_sem
 
-let land_sem : astate -> astate -> astate = lift2 ItvPure.land_sem
+let land_sem : t -> t -> t
+= lift2 ItvPure.land_sem
 
-let lor_sem : astate -> astate -> astate = lift2 ItvPure.lor_sem
+let lor_sem : t -> t -> t
+= lift2 ItvPure.lor_sem
 
-let prune : astate -> astate -> astate = lift2_opt ItvPure.prune
+let prune : t -> t -> t
+= lift2_opt ItvPure.prune
 
-let prune_comp : Binop.t -> astate -> astate -> astate
-= fun comp ->
-  lift2_opt (ItvPure.prune_comp comp)
+let prune_comp : Binop.t -> t -> t -> t
+= fun comp -> lift2_opt (ItvPure.prune_comp comp)
 
-let prune_eq : astate -> astate -> astate = lift2_opt ItvPure.prune_eq
+let prune_eq : t -> t -> t
+= lift2_opt ItvPure.prune_eq
 
-let prune_ne : astate -> astate -> astate = lift2_opt ItvPure.prune_ne
+let prune_ne : t -> t -> t
+= lift2_opt ItvPure.prune_ne
 
-let subst : astate -> Bound.t SubstMap.t -> astate
+let subst : t -> Bound.t SubstMap.t -> t
 = fun x map ->
   match x with
   | NonBottom x' -> NonBottom (ItvPure.subst x' map)
   | _ -> x
 
-let get_symbols = function
+let get_symbols : t -> Symbol.t list
+= function
   | Bottom -> []
   | NonBottom x -> ItvPure.get_symbols x
 
-let rm_bnd_bot = lift1_opt ItvPure.rm_bnd_bot
+let rm_bnd_bot : t -> t
+= lift1_opt ItvPure.rm_bnd_bot
 
-let has_bnd_bot = function
+let has_bnd_bot : t -> bool
+= function
   | Bottom -> false
   | NonBottom x -> ItvPure.has_bnd_bot x
