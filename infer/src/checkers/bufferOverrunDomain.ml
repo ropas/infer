@@ -13,7 +13,7 @@
  * LICENSE file in the root directory of this source tree. An additional grant
  * of patent rights can be found in the PATENTS file in the same directory.
  *)
-
+open! Utils
 open BasicDom
 
 module F = Format
@@ -380,7 +380,7 @@ struct
   = fun fmt x ->
     let pp_sep fmt () = F.fprintf fmt ", @," in
     let pp1 fmt (k, v) =
-      F.fprintf fmt "%a=%a" (Ident.pp Utils.pe_text) k (Pvar.pp Utils.pe_text) v
+      F.fprintf fmt "%a=%a" (Ident.pp pe_text) k (Pvar.pp pe_text) v
     in
 (*    F.fprintf fmt "@[<v 0>Logical Variables :@,";*)
     F.fprintf fmt "@[<hov 2>{ @,";
@@ -433,37 +433,34 @@ struct
   let weak_update_heap p v m = (fst m, Heap.weak_update p v (snd m), trd m)
 
   let get_heap_symbols (_, m, _) = Heap.get_symbols m
+
   let get_result (_, m, _) = Heap.get_result m
+
+  let can_strong_update ploc =
+    if PowLoc.cardinal ploc = 1 then 
+      let lv = PowLoc.choose ploc in
+      Loc.is_var lv 
+    else false
+
+  let update_mem : PowLoc.t -> Val.t -> astate -> astate
+  = fun ploc v s ->
+    if can_strong_update ploc then strong_update_heap ploc v s
+    else weak_update_heap ploc v s
 end
-
-
-(* TODO: what about removing the conditionset from the domain? *)
-(*include AbstractDomain.Pair(Mem)(ConditionSet)
-
-let (<=) ~lhs ~rhs =
-  if lhs == rhs then true else
-    Mem.(<=) ~lhs:(fst lhs) ~rhs:(fst rhs)
-
-let pp fmt m =
-  F.fprintf fmt "@[<v 2>%a@]" Mem.pp m
-
-let pp_summary fmt (m, c) =
-  F.fprintf fmt "%a" Mem.pp_summary m
-*)
 
 module Summary = 
 struct 
   type t = Mem.astate * Mem.astate * ConditionSet.t
 
-  let get_pre (pre, _, _) = pre
+  let get_input = fst3
 
-  let get_post (_, post, _) = post
+  let get_output = snd3
 
-  let get_conds (_, _, conds) = conds
+  let get_cond_set = trd3
 
-  let get_symbols s = Mem.get_heap_symbols (get_pre s)
+  let get_symbols s = Mem.get_heap_symbols (get_input s)
 
-  let get_result s = Mem.get_result (get_post s)
+  let get_result s = Mem.get_result (get_output s)
 
   let pp_symbols fmt s =
     let pp_sep fmt () = F.fprintf fmt ", @," in
@@ -474,9 +471,12 @@ struct
   let pp_result fmt s =
     F.fprintf fmt "Return value: %a" Val.pp (get_result s)
 
-  let pp fmt s =
+  let simple_pp fmt s =
     F.fprintf fmt "%a@,%a@,%a" pp_symbols s pp_result s
-      ConditionSet.pp (get_conds s)
+      ConditionSet.pp (get_cond_set s)
+
+  let pp fmt (entry_mem, exit_mem, condition_set) = 
+    F.fprintf fmt "%a@,%a@,%a@" Mem.pp entry_mem Mem.pp exit_mem ConditionSet.pp condition_set
 end
 
 include Mem

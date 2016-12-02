@@ -119,4 +119,194 @@ struct
     let nullpos = Itv.nat in
     ArrayBlk.make allocsite offset size stride nullpos
     |> Domain.Val.of_array_blk
+
+  let prune_unop
+    : Exp.t -> Domain.Mem.astate -> Domain.Mem.astate
+  = fun e mem ->
+    match e with
+    | Exp.Var x ->
+        (match Domain.Mem.find_alias x mem with
+         | Some x' ->
+             let lv = Loc.of_pvar x' in
+             let v = Domain.Mem.find_heap lv mem in
+             let v' = Domain.Val.prune v Domain.Val.zero in
+             Domain.Mem.update_mem (PowLoc.singleton lv) v' mem
+         | None -> mem)
+    | Exp.UnOp (Unop.LNot, Exp.Var x, _) ->
+        (match Domain.Mem.find_alias x mem with
+         | Some x' ->
+             let lv = Loc.of_pvar x' in
+             let v = Domain.Mem.find_heap lv mem in
+             let itv_v =
+               if Itv.is_bot (Domain.Val.get_itv v) then Itv.bot else
+                 Domain.Val.get_itv Domain.Val.zero
+             in
+             let v' = (itv_v,
+                       Domain.Val.get_pow_loc v,
+                       Domain.Val.get_array_blk v) in
+             Domain.Mem.update_mem (PowLoc.singleton lv) v' mem
+         | None -> mem)
+    | _ -> mem
+
+  let prune_binop_left
+    : Exp.t -> Location.t -> Domain.Mem.astate
+      -> Domain.Mem.astate
+  = fun e loc mem ->
+    match e with
+    | Exp.BinOp (Binop.Lt as comp, Exp.Var x, e')
+    | Exp.BinOp (Binop.Gt as comp, Exp.Var x, e')
+    | Exp.BinOp (Binop.Le as comp, Exp.Var x, e')
+    | Exp.BinOp (Binop.Ge as comp, Exp.Var x, e') ->
+        (match Domain.Mem.find_alias x mem with
+         | Some x' ->
+             let lv = Loc.of_pvar x' in
+             let v = Domain.Mem.find_heap lv mem in
+             let v' = Domain.Val.prune_comp comp v (eval e' mem loc) in
+             Domain.Mem.update_mem (PowLoc.singleton lv) v' mem
+         | None -> mem)
+    | Exp.BinOp (Binop.Eq, Exp.Var x, e') ->
+        (match Domain.Mem.find_alias x mem with
+         | Some x' ->
+             let lv = Loc.of_pvar x' in
+             let v = Domain.Mem.find_heap lv mem in
+             let v' = Domain.Val.prune_eq v (eval e' mem loc) in
+             Domain.Mem.update_mem (PowLoc.singleton lv) v' mem
+         | None -> mem)
+    | Exp.BinOp (Binop.Ne, Exp.Var x, e') ->
+        (match Domain.Mem.find_alias x mem with
+         | Some x' ->
+             let lv = Loc.of_pvar x' in
+             let v = Domain.Mem.find_heap lv mem in
+             let v' = Domain.Val.prune_ne v (eval e' mem loc) in
+             Domain.Mem.update_mem (PowLoc.singleton lv) v' mem
+         | None -> mem)
+    | _ -> mem
+
+  let comp_rev : Binop.t -> Binop.t
+  = function
+    | Binop.Lt -> Binop.Gt
+    | Binop.Gt -> Binop.Lt
+    | Binop.Le -> Binop.Ge
+    | Binop.Ge -> Binop.Le
+    | Binop.Eq -> Binop.Eq
+    | Binop.Ne -> Binop.Ne
+    | _ -> assert (false)
+
+  let comp_not : Binop.t -> Binop.t
+  = function
+    | Binop.Lt -> Binop.Ge
+    | Binop.Gt -> Binop.Le
+    | Binop.Le -> Binop.Gt
+    | Binop.Ge -> Binop.Lt
+    | Binop.Eq -> Binop.Ne
+    | Binop.Ne -> Binop.Eq
+    | _ -> assert (false)
+
+  let prune_binop_right
+    : Exp.t -> Location.t -> Domain.Mem.astate
+      -> Domain.Mem.astate
+  = fun e loc mem ->
+    match e with
+    | Exp.BinOp (Binop.Lt as c, e', Exp.Var x)
+    | Exp.BinOp (Binop.Gt as c, e', Exp.Var x)
+    | Exp.BinOp (Binop.Le as c, e', Exp.Var x)
+    | Exp.BinOp (Binop.Ge as c, e', Exp.Var x)
+    | Exp.BinOp (Binop.Eq as c, e', Exp.Var x)
+    | Exp.BinOp (Binop.Ne as c, e', Exp.Var x) ->
+        prune_binop_left (Exp.BinOp (comp_rev c, Exp.Var x, e')) loc mem
+    | _ -> mem
+
+  let rec prune
+    : Exp.t -> Location.t -> Domain.Mem.astate
+      -> Domain.Mem.astate
+  = fun e loc mem ->
+    let mem =
+      mem
+      |> prune_unop e
+      |> prune_binop_left e loc
+      |> prune_binop_right e loc
+    in
+    match e with
+    | Exp.BinOp (Binop.Ne, e, Exp.Const (Const.Cint i)) when IntLit.iszero i ->
+        prune e loc mem
+    | Exp.BinOp (Binop.Eq, e, Exp.Const (Const.Cint i)) when IntLit.iszero i ->
+        prune (Exp.UnOp (Unop.LNot, e, None)) loc mem
+    | Exp.UnOp (Unop.Neg, Exp.Var x, _) -> prune (Exp.Var x) loc mem
+    | Exp.BinOp (Binop.LAnd, e1, e2) ->
+        mem |> prune e1 loc |> prune e2 loc
+    | Exp.UnOp (Unop.LNot, Exp.BinOp (Binop.LOr, e1, e2), t) ->
+        mem
+        |> prune (Exp.UnOp (Unop.LNot, e1, t)) loc
+        |> prune (Exp.UnOp (Unop.LNot, e2, t)) loc
+    | Exp.UnOp (Unop.LNot, Exp.BinOp (Binop.Lt as c, e1, e2), _)
+    | Exp.UnOp (Unop.LNot, Exp.BinOp (Binop.Gt as c, e1, e2), _)
+    | Exp.UnOp (Unop.LNot, Exp.BinOp (Binop.Le as c, e1, e2), _)
+    | Exp.UnOp (Unop.LNot, Exp.BinOp (Binop.Ge as c, e1, e2), _)
+    | Exp.UnOp (Unop.LNot, Exp.BinOp (Binop.Eq as c, e1, e2), _)
+    | Exp.UnOp (Unop.LNot, Exp.BinOp (Binop.Ne as c, e1, e2), _) ->
+        prune (Exp.BinOp (comp_not c, e1, e2)) loc mem
+    | _ -> mem
+
+  let get_formals : Procdesc.t -> (Pvar.t * Typ.t) list
+  = fun pdesc ->
+    let proc_name = Procdesc.get_proc_name pdesc in
+    Procdesc.get_formals pdesc |> IList.map (fun (name, typ) -> (Pvar.mk name proc_name, typ))
+
+  let get_matching_pairs : Tenv.t -> Domain.Val.astate -> Domain.Val.astate -> Typ.t -> Domain.Mem.astate -> Domain.Mem.astate -> (Itv.Bound.t * Itv.Bound.t) list
+  = fun tenv formal actual typ caller_mem callee_mem ->
+    let add_pair itv1 itv2 l =
+      if itv1 <> Itv.bot && itv2 <> Itv.bot then
+        (Itv.lb itv1, Itv.lb itv2) 
+        :: (Itv.ub itv1, Itv.ub itv2) :: l
+      else l
+    in
+    let add_pair_val formal actual = 
+      let formal_itv = Domain.Val.get_itv formal in
+      let actual_itv = Domain.Val.get_itv actual in
+      let formal_arr = Domain.Val.get_array_blk formal in
+      let actual_arr = Domain.Val.get_array_blk actual in
+      let formal_arr_offset = formal_arr |> ArrayBlk.offsetof in
+      let formal_arr_size = formal_arr |> ArrayBlk.sizeof in
+      let actual_arr_offset = actual_arr |> ArrayBlk.offsetof in
+      let actual_arr_size = actual_arr |> ArrayBlk.sizeof in
+      add_pair formal_itv actual_itv [] 
+      |> add_pair formal_arr_offset actual_arr_offset 
+      |> add_pair formal_arr_size actual_arr_size
+    in
+    let pairs = add_pair_val formal actual in
+    match typ with 
+      Typ.Tptr (Typ.Tstruct typename, _) ->
+      begin
+        match Tenv.lookup tenv typename with
+          Some str -> 
+            IList.fold_left (fun pairs (fn, _, _) ->
+              let formal_loc = formal |> Domain.Val.get_all_locs in
+              let actual_loc = actual |> Domain.Val.get_all_locs in
+              let formal_fields = PowLoc.append_field formal_loc fn in
+              let actual_fields = PowLoc.append_field actual_loc fn in
+              let formal = Domain.Mem.find_heap_set formal_fields callee_mem in
+              let actual = Domain.Mem.find_heap_set actual_fields caller_mem in
+              (* (get_matching_pairs tenv formal actual typ caller_mem callee_mem) @ pairs *)
+              add_pair_val formal actual @ pairs
+            ) pairs str.StructTyp.fields
+        | _ -> pairs
+      end
+    | _ -> pairs
+
+  let get_subst_map tenv callee_pdesc params caller_mem callee_entry_mem loc =
+    let pairs = 
+      IList.fold_left2 (fun l (formal, typ) (actual,_) ->
+        let formal = Domain.Mem.find_heap (Loc.of_pvar formal) callee_entry_mem in
+        let actual = eval actual caller_mem loc in
+        (get_matching_pairs tenv formal actual typ caller_mem callee_entry_mem) @ l
+      ) [] (get_formals callee_pdesc) params
+    in
+    IList.fold_left (fun map (formal, actual) ->
+      match formal with 
+      | Itv.Bound.Linear (0, se1) when Itv.SymExp.cardinal se1 > 0 ->
+          let (symbol, coeff) = Itv.SymExp.choose se1 in
+          if coeff = 1 then
+            Itv.SubstMap.add symbol actual map
+          else (* impossible *) map
+      | _ -> (* impossible *) map) Itv.SubstMap.empty pairs
 end 
