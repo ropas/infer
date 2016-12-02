@@ -17,7 +17,6 @@
 
 open! Utils
 open BasicDom
-open BufferOverrunSemantics
 
 module F = Format
 module L = Logging
@@ -157,7 +156,6 @@ struct
           begin
             match Summary.read_summary tenv pdesc callee_pname with
             | Some summary ->
-              prerr_endline "read summary";
               let callee = extras callee_pname in
               let new_mem = instantiate_ret tenv callee callee_pname params mem summary loc in
               begin
@@ -245,7 +243,7 @@ struct
       | _ -> callee_cond
     with _ -> callee_cond
 
-  let collect_instrs { Callbacks.proc_desc; tenv; get_proc_desc } node (instrs: Sil.instr list) mem cond_set = 
+  let collect_instrs ({ ProcData.pdesc; tenv; extras } as proc_data) node (instrs: Sil.instr list) mem cond_set = 
     IList.fold_left (fun (cond_set, mem) instr ->
         F.fprintf F.err_formatter "Collect @ Pre-state : @.";
         Domain.pp F.err_formatter mem;
@@ -255,36 +253,33 @@ struct
         let cond_set = 
           match instr with
           | Sil.Load (_, exp, _, loc)
-          | Sil.Store (exp, _, _, loc) -> add_condition proc_desc node exp loc mem cond_set
+          | Sil.Store (exp, _, _, loc) -> add_condition pdesc node exp loc mem cond_set
           | Sil.Call (_, Const (Cfun callee_pname), params, loc, _) -> 
             begin
-              match Summary.read_summary tenv proc_desc callee_pname with
+              match Summary.read_summary tenv pdesc callee_pname with
               | Some summary ->
                   F.fprintf F.err_formatter "callee's summary @ %a" Domain.Summary.pp summary;
-                  let callee = get_proc_desc callee_pname in
+                  let callee = extras callee_pname in
                   instantiate_cond tenv callee params mem summary loc
                   |> Domain.ConditionSet.join cond_set
               | _ -> cond_set
             end
           | _ -> cond_set
         in
-        let mem = TransferFunctions.exec_instr mem 
-          { pdesc = proc_desc; tenv = tenv; extras = get_proc_desc} node instr
-        in
+        let mem = TransferFunctions.exec_instr mem proc_data node instr in
         F.fprintf F.err_formatter "@.@.";
         Domain.ConditionSet.pp F.err_formatter cond_set;
         (cond_set, mem)
     ) (cond_set, mem) instrs
     |> fst
 
-  let collect ({ Callbacks.proc_desc } as callback) inv_map = 
-    prerr_endline "COLLECT";
+  let collect ({ ProcData.pdesc; } as proc_data) inv_map = 
     Procdesc.fold_nodes (fun cond_set node ->
       let instrs = Analyzer.CFG.instr_ids node |> IList.map fst in 
       let pre = Analyzer.extract_pre (Analyzer.CFG.id node) inv_map in
       match pre with 
-        Some mem -> collect_instrs callback node instrs mem cond_set
-      | _ -> cond_set) Domain.ConditionSet.empty proc_desc
+        Some mem -> collect_instrs proc_data node instrs mem cond_set
+      | _ -> cond_set) Domain.ConditionSet.empty pdesc
 
   let report_error : Tenv.t -> Procdesc.t -> Domain.ConditionSet.t -> unit 
   = fun tenv proc_desc conds -> 
@@ -329,7 +324,7 @@ end
 
 module Interprocedural = 
 struct 
-  let checker ({ Callbacks.get_proc_desc; proc_desc; proc_name; tenv; } as callback) extras =
+  let checker { Callbacks.get_proc_desc; proc_desc; proc_name; tenv; } extras =
     let analyze_ondemand_ _ pdesc =
       let cfg = Analyzer.CFG.from_pdesc pdesc in
       let inv_map = Analyzer.exec_pdesc (ProcData.make pdesc tenv extras) in
@@ -337,7 +332,7 @@ struct
             (Analyzer.extract_post (Analyzer.CFG.id (Analyzer.CFG.start_node cfg)) inv_map,
              Analyzer.extract_post (Analyzer.CFG.id (Analyzer.CFG.exit_node cfg)) inv_map)
       in
-      let cond_set = Report.collect callback inv_map in
+      let cond_set = Report.collect (ProcData.make pdesc tenv extras) inv_map in
       let proc_name = Procdesc.get_proc_name proc_desc in
       F.fprintf F.err_formatter "@.@[<v 2>Collecting of %a :@,@," Procname.pp proc_name;
       F.fprintf F.err_formatter "Cond Set @ %a" Domain.ConditionSet.pp cond_set;
