@@ -64,6 +64,11 @@ struct
   let of_pvar pvar = Var (Var.of_pvar pvar)
   let of_id id = Var (Var.of_id id)
   let append_field l f = Field (l, f)
+
+  let is_return = function
+    | Var (Var.ProgramVar x) ->
+        Mangled.equal (Pvar.get_name x) Ident.name_return
+    | _ -> false
 end
 
 module PowLoc = 

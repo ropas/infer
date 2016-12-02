@@ -162,6 +162,8 @@ struct
     match one_symbol x with
     | Some _ -> true
     | None -> false
+
+  let get_symbols x = IList.map fst (M.bindings x)
 end
 
 module Bound =
@@ -474,6 +476,11 @@ struct
   let make_min : t -> t -> t option = make_min_max Min
 
   let make_max : t -> t -> t option = make_min_max Max
+
+  let get_symbols = function
+    | MInf | PInf -> []
+    | Linear (_, se) -> SymExp.get_symbols se
+    | MinMax (_, _, s) -> [s]
 end
 
 module ItvPure =
@@ -762,6 +769,9 @@ struct
     && Bound.eq l u
     then prune x (l, u)
     else Some x
+
+  let get_symbols (l, u) =
+    IList.append (Bound.get_symbols l) (Bound.get_symbols u)
 end
 
 include AbstractDomain.BottomLifted(ItvPure)
@@ -895,3 +905,7 @@ let subst : astate -> Bound.t SubstMap.t -> astate
   match x with
   | NonBottom x' -> NonBottom (ItvPure.subst x' map)
   | _ -> x
+
+let get_symbols = function
+  | Bottom -> []
+  | NonBottom x -> ItvPure.get_symbols x
