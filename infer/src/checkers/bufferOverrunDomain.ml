@@ -102,7 +102,7 @@ struct
   = fun x subst_map -> 
     fold (fun e -> add (Condition.subst e subst_map)) x empty
 
-  let pp fmt x = 
+  let pp_summary fmt x =
     let pp_sep fmt () = F.fprintf fmt ", @," in
     let pp_element fmt v = Condition.pp fmt v in
     F.fprintf fmt "@[<v 0>Safety conditions:@,";
@@ -111,10 +111,10 @@ struct
     F.fprintf fmt " }@]";
     F.fprintf fmt "@]"
 
-  let pp_summary fmt x =
+  let pp fmt x =
     let pp_sep fmt () = F.fprintf fmt ", @," in
     let pp_element fmt v = Condition.pp fmt v in
-    F.fprintf fmt "@[<v 2>Safety Conditions :@,@,";
+    F.fprintf fmt "@[<v 2>Safety conditions :@,@,";
     F.fprintf fmt "@[<hov 1>{";
     F.pp_print_list ~pp_sep pp_element fmt (elements x);
     F.fprintf fmt " }@]";
@@ -335,7 +335,10 @@ struct
     PowLoc.fold (fun x -> add x (Val.join v (find x mem))) locs mem
 
   let pp_summary fmt mem =
-    iter (fun k v -> F.fprintf fmt "%a -> %a@," Loc.pp k Val.pp v) mem
+    let pp_map fmt (k, v) = F.fprintf fmt "%a -> %a" Loc.pp k Val.pp v in
+    F.fprintf fmt "@[<v 2>{ ";
+    F.pp_print_list pp_map fmt (bindings mem);
+    F.fprintf fmt " }@]"
 
   let get_symbols mem =
     IList.flatten (IList.map (fun (_, v) -> Val.get_symbols v) (bindings mem))
@@ -414,9 +417,8 @@ struct
     F.fprintf fmt "Stack : @ %a, @ Heap : @ %a, @ Alias : @ %a" 
       Stack.pp stack Heap.pp heap Alias.pp alias
   let pp_summary : F.formatter -> astate -> unit
-  = fun fmt (stack, heap, _) ->
-    F.fprintf fmt "@[<v 2>Abstract Memory :@,@,";
-    F.fprintf fmt "%a" Stack.pp_summary stack;
+  = fun fmt (_, heap, _) ->
+    F.fprintf fmt "@[<v 0>Symbols :@,";
     F.fprintf fmt "%a" Heap.pp_summary heap ;
     F.fprintf fmt "@]"
   let find_stack k m = Stack.find k (fst m)
@@ -469,12 +471,14 @@ struct
     F.pp_print_list ~pp_sep Itv.Symbol.pp fmt (get_symbols s);
     F.fprintf fmt "}@]"
 
+  let pp_symbol_map fmt s = Mem.pp_summary fmt (get_input s)
+
   let pp_result fmt s =
     F.fprintf fmt "Return value: %a" Val.pp (get_result s)
 
-  let simple_pp fmt s =
-    F.fprintf fmt "%a@,%a@,%a" pp_symbols s pp_result s
-      ConditionSet.pp (get_cond_set s)
+  let pp_summary fmt s =
+    F.fprintf fmt "%a@,%a@,%a" pp_symbol_map s pp_result s
+      ConditionSet.pp_summary (get_cond_set s)
 
   let pp fmt (entry_mem, exit_mem, condition_set) = 
     F.fprintf fmt "%a@,%a@,%a@" Mem.pp entry_mem Mem.pp exit_mem ConditionSet.pp condition_set
