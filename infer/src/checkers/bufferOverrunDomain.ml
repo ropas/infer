@@ -104,7 +104,7 @@ struct
   let pp fmt x = 
     let pp_sep fmt () = F.fprintf fmt ", @," in
     let pp_element fmt v = Condition.pp fmt v in
-    F.fprintf fmt "@[<v 0>Safety Conditions :@,";
+    F.fprintf fmt "@[<v 0>Safety conditions:@,";
     F.fprintf fmt "@[<hov 2>{ ";
     F.pp_print_list ~pp_sep pp_element fmt (elements x);
     F.fprintf fmt " }@]";
