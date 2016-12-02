@@ -1,9 +1,9 @@
 (*
- * Copyright (c) 2016 - present 
+ * Copyright (c) 2016 - present
  * Kihong Heo (http://ropas.snu.ac.kr/~khheo)
  * Sungkeun Cho (http://ropas.snu.ac.kr/~skcho)
  * Kwangkeun Yi (http://ropas.snu.ac.kr/~kwang)
- * 
+ *
  * ROSAEC(Research On Software Analysis for Error-free Computing) Center
  * Programming Research Laboratory
  * Seoul National University, Korea
@@ -20,10 +20,15 @@ open BasicDom
 module F = Format
 module L = Logging
 
-module Condition = 
-struct 
-  type t = { idx : Itv.astate; size : Itv.astate; 
-             proc_desc : Procdesc.t; loc : Location.t; id : string }
+module Condition =
+struct
+  type t =
+    { idx : Itv.astate;
+      size : Itv.astate;
+      proc_desc : Procdesc.t;
+      loc : Location.t;
+      id : string }
+
   and astate = t
 
   let compare : t -> t -> int
@@ -36,68 +41,90 @@ struct
         if i <> 0 then i else
           String.compare x.id y.id
 
-  let set_size_pos : t -> t 
+  let set_size_pos : t -> t
   = fun c ->
-    let size = 
+    let size =
       if Itv.Bound.le (Itv.lb c.size) Itv.Bound.zero
       then Itv.make Itv.Bound.zero (Itv.ub c.size)
-      else c.size 
+      else c.size
     in
     { c with size }
 
-  let pp_location fmt c =
+  let pp_location : F.formatter -> t -> unit
+  = fun fmt c ->
     let fname = DB.source_file_to_string c.loc.Location.file in
     let pos = Location.to_string c.loc in
     F.fprintf fmt "%s:%s" fname pos
 
-  let pp fmt c = 
+  let pp : F.formatter -> t -> unit
+  = fun fmt c ->
     let c = set_size_pos c in
     F.fprintf fmt "%a < %a at %a" Itv.pp c.idx Itv.pp c.size pp_location c
 
-  let get_location c = c.loc
-  let get_proc_desc c = c.proc_desc
-  let get_proc_name c = Procdesc.get_proc_name c.proc_desc
-  let make proc_desc id ~idx ~size loc = { proc_desc; idx; size; loc ; id }
+  let pp_element : F.formatter -> t -> unit
+  = pp
 
-  let check c = 
+  let get_location : t -> Location.t
+  = fun c -> c.loc
+
+  let get_proc_desc : t -> Procdesc.t
+  = fun c -> c.proc_desc
+
+  let get_proc_name : t -> Procname.t
+  = fun c -> Procdesc.get_proc_name c.proc_desc
+
+  let make : Procdesc.t -> string -> idx:Itv.t -> size:Itv.t -> Location.t -> t
+  = fun proc_desc id ~idx ~size loc -> { proc_desc; idx; size; loc; id }
+
+  let check : t -> bool
+  = fun c ->
     let c = set_size_pos c in
-    if not Config.debug_mode && (Itv.is_symbolic c.idx || Itv.is_symbolic c.size) then true
-    else 
+    if not Config.debug_mode
+    && (Itv.is_symbolic c.idx || Itv.is_symbolic c.size)
+    then true
+    else
       let not_overrun = Itv.lt_sem c.idx c.size in
       let not_underrun = Itv.le_sem Itv.zero c.idx in
       (not_overrun = Itv.one) && (not_underrun = Itv.one)
-  
-  let subst c subst_map =
-    { c with idx = Itv.subst c.idx subst_map; size = Itv.subst c.size subst_map; }
 
-  let has_bnd_bot x = Itv.has_bnd_bot x.idx || Itv.has_bnd_bot x.size
+  let subst : t -> Itv.Bound.t Itv.SubstMap.t -> t
+  = fun c subst_map ->
+    { c with idx = Itv.subst c.idx subst_map;
+             size = Itv.subst c.size subst_map; }
 
-  let to_string c =
+  let has_bnd_bot : t -> bool
+  = fun x -> Itv.has_bnd_bot x.idx || Itv.has_bnd_bot x.size
+
+  let to_string : t -> string
+  = fun c ->
     let c = set_size_pos c in
     "Offset : " ^ Itv.to_string c.idx ^ " Size : " ^ Itv.to_string c.size
-
 end
 
-module ConditionSet = 
+module ConditionSet =
 struct
-  module PPSet = PrettyPrintable.MakePPSet(struct include Condition let pp_element = pp end)
+  module PPSet = PrettyPrintable.MakePPSet (Condition)
   include AbstractDomain.FiniteSet (PPSet)
- 
-  let add_bo_safety pdesc id ~idx ~size loc cond = 
-    add (Condition.make pdesc id ~idx ~size loc) cond
 
-  module Map = Map.Make(struct
+  module Map = Map.Make (struct
       type t = string * Location.t
-      let compare (s1, l1) (s2, l2) =
+
+      let compare : t -> t -> int
+      = fun (s1, l1) (s2, l2) ->
         let i = String.compare s1 s2 in
         if i <> 0 then i else Location.compare l1 l2
     end)
 
-  let subst : astate -> Itv.Bound.t Itv.SubstMap.t -> astate
-  = fun x subst_map -> 
-    fold (fun e -> add (Condition.subst e subst_map)) x empty
+  let add_bo_safety
+    : Procdesc.t -> string -> idx:Itv.t -> size:Itv.t -> Location.t -> t -> t
+  = fun pdesc id ~idx ~size loc cond ->
+    add (Condition.make pdesc id ~idx ~size loc) cond
 
-  let pp_summary fmt x =
+  let subst : t -> Itv.Bound.t Itv.SubstMap.t -> t
+  = fun x subst_map -> fold (fun e -> add (Condition.subst e subst_map)) x empty
+
+  let pp_summary : F.formatter -> t -> unit
+  = fun fmt x ->
     let pp_sep fmt () = F.fprintf fmt ", @," in
     let pp_element fmt v = Condition.pp fmt v in
     F.fprintf fmt "@[<v 0>Safety conditions:@,";
@@ -106,7 +133,8 @@ struct
     F.fprintf fmt " }@]";
     F.fprintf fmt "@]"
 
-  let pp fmt x =
+  let pp : Format.formatter -> t -> unit
+  = fun fmt x ->
     let pp_sep fmt () = F.fprintf fmt ", @," in
     let pp_element fmt v = Condition.pp fmt v in
     F.fprintf fmt "@[<v 2>Safety conditions :@,";
@@ -115,165 +143,189 @@ struct
     F.fprintf fmt " }@]";
     F.fprintf fmt "@]"
 
-  let rm_bnd_bot x = filter (fun c -> not (Condition.has_bnd_bot c)) x
+  let rm_bnd_bot : t -> t
+  = fun x -> filter (fun c -> not (Condition.has_bnd_bot c)) x
 end
 
 module Val =
 struct
-  include AbstractDomain.Pair3(Itv)(PowLoc)(ArrayBlk)
+  include AbstractDomain.Pair3 (Itv) (PowLoc) (ArrayBlk)
 
   type t = astate
 
-  let bot = initial
+  let bot : t
+  = initial
 
-  let rec joins : astate list -> astate
+  let rec joins : t list -> t
   = function
     | [] -> bot
     | [a] -> a
     | a :: b -> join a (joins b)
 
-  let get_itv = fst3
-  let get_pow_loc = snd3
-  let get_array_blk = trd3
-  let get_all_locs (_,p,a) = ArrayBlk.get_pow_loc a |> PowLoc.join p 
+  let get_itv : t -> Itv.t
+  = fst3
 
-  let top_itv = (Itv.top, PowLoc.bot, ArrayBlk.bot)
-  let pos_itv = (Itv.pos, PowLoc.bot, ArrayBlk.bot)
+  let get_pow_loc : t -> PowLoc.t
+  = snd3
 
-  let of_int : int -> astate
-  = fun n ->
-    (Itv.of_int n, PowLoc.bot, ArrayBlk.bot)
+  let get_array_blk : t -> ArrayBlk.astate
+  = trd3
 
-  let of_pow_loc : PowLoc.t -> astate
-  = fun x ->
-    (Itv.bot, x, ArrayBlk.bot)
+  let get_all_locs : t -> PowLoc.t
+  = fun (_, p, a) -> ArrayBlk.get_pow_loc a |> PowLoc.join p
 
-  let of_array_blk : ArrayBlk.astate -> astate
-  = fun a ->
-    (Itv.bot, PowLoc.bot, a)
+  let top_itv : t
+  = (Itv.top, PowLoc.bot, ArrayBlk.bot)
 
-  let zero : astate = of_int 0
+ let pos_itv : t
+  = (Itv.pos, PowLoc.bot, ArrayBlk.bot)
 
-  let get_new_sym : unit -> t 
+  let of_int : int -> t
+  = fun n -> (Itv.of_int n, PowLoc.bot, ArrayBlk.bot)
+
+  let of_pow_loc : PowLoc.t -> t
+  = fun x -> (Itv.bot, x, ArrayBlk.bot)
+
+  let of_array_blk : ArrayBlk.astate -> t
+  = fun a -> (Itv.bot, PowLoc.bot, a)
+
+  let zero : t
+  = of_int 0
+
+  let get_new_sym : unit -> t
   = fun () -> (Itv.get_new_sym (), PowLoc.bot, ArrayBlk.bot)
 
-  let unknown_bit : astate -> astate
-  = fun (_, x, a) ->
-    (Itv.top, x, a)
+  let unknown_bit : t -> t
+  = fun (_, x, a) -> (Itv.top, x, a)
 
-  let neg : astate -> astate
-  = fun (n, x, a) ->
-    (Itv.neg n, x, a)
+  let neg : t -> t
+  = fun (n, x, a) -> (Itv.neg n, x, a)
 
-  let lnot : astate -> astate
-  = fun (n, x, a) ->
-    (Itv.lnot n, x, a)
+  let lnot : t -> t
+  = fun (n, x, a) -> (Itv.lnot n, x, a)
 
-  let lift_itv_func : (Itv.t -> Itv.t -> Itv.t) -> astate -> astate -> astate
-  = fun f (n1, _, _) (n2, _, _) ->
-    (f n1 n2, PowLoc.bot, ArrayBlk.bot)
+  let lift_itv_func : (Itv.t -> Itv.t -> Itv.t) -> t -> t -> t
+  = fun f (n1, _, _) (n2, _, _) -> (f n1 n2, PowLoc.bot, ArrayBlk.bot)
 
-  let lift_itv_func_preserve : (Itv.t -> Itv.t -> Itv.t) -> astate -> astate -> astate
-  = fun f (n1, x1, a1) (n2, _, _) ->
-    (f n1 n2, x1, a1)
+  let lift_itv_func_preserve : (Itv.t -> Itv.t -> Itv.t) -> t -> t -> t
+  = fun f (n1, x1, a1) (n2, _, _) -> (f n1 n2, x1, a1)
 
-  let plus : astate -> astate -> astate
+  let plus : t -> t -> t
   = fun (n1, _, a1) (n2, _, _) ->
     (Itv.plus n1 n2, PowLoc.bot, ArrayBlk.plus_offset a1 n2)
 
-  let minus : astate -> astate -> astate
+  let minus : t -> t -> t
   = fun (n1, _, a1) (n2, _, a2) ->
     let n = Itv.join (Itv.minus n1 n2) (ArrayBlk.diff a1 a2) in
     let a = ArrayBlk.minus_offset a1 n2 in
     (n, PowLoc.bot, a)
 
-  let mult : astate -> astate -> astate = lift_itv_func Itv.mult
+  let mult : t -> t -> t
+  = lift_itv_func Itv.mult
 
-  let div : astate -> astate -> astate = lift_itv_func Itv.div
+  let div : t -> t -> t
+  = lift_itv_func Itv.div
 
-  let mod_sem : astate -> astate -> astate = lift_itv_func Itv.mod_sem
+  let mod_sem : t -> t -> t
+  = lift_itv_func Itv.mod_sem
 
-  let shiftlt : astate -> astate -> astate = lift_itv_func Itv.shiftlt
+  let shiftlt : t -> t -> t
+  = lift_itv_func Itv.shiftlt
 
-  let shiftrt : astate -> astate -> astate = lift_itv_func Itv.shiftrt
+  let shiftrt : t -> t -> t
+  = lift_itv_func Itv.shiftrt
 
-  let lt_sem : astate -> astate -> astate = lift_itv_func Itv.lt_sem
+  let lt_sem : t -> t -> t
+  = lift_itv_func Itv.lt_sem
 
-  let gt_sem : astate -> astate -> astate = lift_itv_func Itv.gt_sem
+  let gt_sem : t -> t -> t
+  = lift_itv_func Itv.gt_sem
 
-  let le_sem : astate -> astate -> astate = lift_itv_func Itv.le_sem
+  let le_sem : t -> t -> t
+  = lift_itv_func Itv.le_sem
 
-  let ge_sem : astate -> astate -> astate = lift_itv_func Itv.ge_sem
+  let ge_sem : t -> t -> t
+  = lift_itv_func Itv.ge_sem
 
-  let eq_sem : astate -> astate -> astate = lift_itv_func Itv.eq_sem
+  let eq_sem : t -> t -> t
+  = lift_itv_func Itv.eq_sem
 
-  let ne_sem : astate -> astate -> astate = lift_itv_func Itv.ne_sem
+  let ne_sem : t -> t -> t
+  = lift_itv_func Itv.ne_sem
 
-  let land_sem : astate -> astate -> astate = lift_itv_func Itv.land_sem
+  let land_sem : t -> t -> t
+  = lift_itv_func Itv.land_sem
 
-  let lor_sem : astate -> astate -> astate = lift_itv_func Itv.lor_sem
+  let lor_sem : t -> t -> t
+  = lift_itv_func Itv.lor_sem
 
-  let prune : astate -> astate -> astate
+  let prune : t -> t -> t
   = lift_itv_func_preserve Itv.prune
 
-  let prune_comp : Binop.t -> astate -> astate -> astate
-  = fun c ->
-    lift_itv_func_preserve (Itv.prune_comp c)
+  let prune_comp : Binop.t -> t -> t -> t
+  = fun c -> lift_itv_func_preserve (Itv.prune_comp c)
 
-  let prune_eq : astate -> astate -> astate
+  let prune_eq : t -> t -> t
   = lift_itv_func_preserve Itv.prune_eq
 
-  let prune_ne : astate -> astate -> astate
+  let prune_ne : t -> t -> t
   = lift_itv_func_preserve Itv.prune_ne
 
-  let plus_pi : astate -> astate -> astate
+  let plus_pi : t -> t -> t
   = fun (_, _, a1) (n2, _, _) ->
     (Itv.bot, PowLoc.bot, ArrayBlk.plus_offset a1 n2)
 
-  let minus_pi : astate -> astate -> astate
+  let minus_pi : t -> t -> t
   = fun (_, _, a1) (n2, _, _) ->
     (Itv.bot, PowLoc.bot, ArrayBlk.minus_offset a1 n2)
 
-  let minus_pp : astate -> astate -> astate
-  = fun (_, _, a1) (_, _, a2) ->
-    (ArrayBlk.diff a1 a2, PowLoc.bot, ArrayBlk.bot)
+  let minus_pp : t -> t -> t
+  = fun (_, _, a1) (_, _, a2) -> (ArrayBlk.diff a1 a2, PowLoc.bot, ArrayBlk.bot)
 
-  let subst (i,p,a) subst_map = 
+  let subst : t -> Itv.Bound.t Itv.SubstMap.t -> t
+  = fun (i, p, a) subst_map ->
     (Itv.subst i subst_map, p, ArrayBlk.subst a subst_map)
 
-  let get_symbols (i, _, a) =
-    IList.append (Itv.get_symbols i) (ArrayBlk.get_symbols a)
+  let get_symbols : t -> Itv.Symbol.t list
+  = fun (i, _, a) -> IList.append (Itv.get_symbols i) (ArrayBlk.get_symbols a)
 
-  let rm_bnd_bot (i, l, a) = (Itv.rm_bnd_bot i, l, ArrayBlk.rm_bnd_bot a)
+  let rm_bnd_bot : t -> t
+  = fun (i, l, a) -> (Itv.rm_bnd_bot i, l, ArrayBlk.rm_bnd_bot a)
 end
 
-module Stack = 
+module Stack =
 struct
-  module PPMap = 
-  struct 
+  module PPMap =
+  struct
     module Ord = struct include Loc let pp_key = pp end
+    include PrettyPrintable.MakePPMap (Ord)
 
-    include PrettyPrintable.MakePPMap(Ord)
+    let pp_collection
+      : pp_item:(F.formatter -> 'a -> unit) -> F.formatter -> 'a list -> unit
+    = fun ~pp_item fmt c ->
+      let pp_sep fmt () = F.fprintf fmt ",@," in
+      F.pp_print_list ~pp_sep pp_item fmt c
 
-    let pp_collection ~pp_item fmt c =
-      let pp_collection fmt c =
-        let pp_sep fmt () = F.fprintf fmt ",@," in
-        F.pp_print_list ~pp_sep pp_item fmt c in
-      F.fprintf fmt "%a" pp_collection c
-
-    let pp ~pp_value fmt m =
-      let pp_item fmt (k, v) = F.fprintf fmt "%a -> %a" Ord.pp_key k pp_value v in
+    let pp
+      : pp_value:(F.formatter -> 'a -> unit) -> F.formatter -> 'a t -> unit
+    = fun ~pp_value fmt m ->
+      let pp_item fmt (k, v) =
+        F.fprintf fmt "%a -> %a" Ord.pp_key k pp_value v
+      in
       F.fprintf fmt "@[<v 2>{ ";
       pp_collection ~pp_item fmt (bindings m);
       F.fprintf fmt " }@]"
   end
-  include AbstractDomain.Map(PPMap)(Val)
-  let find l m =
-      try find l m with
-      | Not_found -> Val.bot
 
-  let find_set : PowLoc.t -> astate -> Val.astate
-  = fun locs mem -> 
+  include AbstractDomain.Map (PPMap) (Val)
+
+  let find : Loc.t -> astate -> Val.t
+  = fun l m ->
+    try find l m with
+    | Not_found -> Val.bot
+
+  let find_set : PowLoc.t -> astate -> Val.t
+  = fun locs mem ->
     let find_join loc acc = Val.join acc (find loc mem) in
     PowLoc.fold find_join locs Val.bot
 
@@ -285,7 +337,8 @@ struct
   = fun locs v mem ->
     PowLoc.fold (fun x -> add x (Val.join v (find x mem))) locs mem
 
-  let pp_summary fmt mem =
+  let pp_summary : F.formatter -> astate -> unit
+  = fun fmt mem ->
     let pp_not_logical_var k v =
       if Loc.is_logical_var k then () else
         F.fprintf fmt "%a -> %a@," Loc.pp k Val.pp v
@@ -293,68 +346,78 @@ struct
     iter pp_not_logical_var mem
 end
 
-module Heap = 
+module Heap =
 struct
-  module PPMap = 
-  struct 
+  module PPMap =
+  struct
     module Ord = struct include Loc let pp_key = pp end
+    include PrettyPrintable.MakePPMap (Ord)
 
-    include PrettyPrintable.MakePPMap(Ord)
+    let pp_collection
+      : pp_item:(F.formatter -> 'a -> unit) -> F.formatter -> 'a list -> unit
+    = fun ~pp_item fmt c ->
+      let pp_sep fmt () = F.fprintf fmt ",@," in
+      F.pp_print_list ~pp_sep pp_item fmt c
 
-    let pp_collection ~pp_item fmt c =
-      let pp_collection fmt c =
-        let pp_sep fmt () = F.fprintf fmt ",@," in
-        F.pp_print_list ~pp_sep pp_item fmt c in
-      F.fprintf fmt "%a" pp_collection c
-
-    let pp ~pp_value fmt m =
-      let pp_item fmt (k, v) = F.fprintf fmt "%a -> %a" Ord.pp_key k pp_value v in
+    let pp : pp_value:(F.formatter -> 'a -> unit) -> F.formatter -> 'a t -> unit
+    = fun ~pp_value fmt m ->
+      let pp_item fmt (k, v) =
+        F.fprintf fmt "%a -> %a" Ord.pp_key k pp_value v
+      in
       F.fprintf fmt "@[<v 2>{ ";
       pp_collection ~pp_item fmt (bindings m);
       F.fprintf fmt " }@]"
   end
 
-  include AbstractDomain.Map(PPMap)(Val)
-  let find l m =
-      try find l m with
-      | Not_found -> Val.bot
+  include AbstractDomain.Map (PPMap) (Val)
 
-  let find_set : PowLoc.t -> astate -> Val.astate
-  = fun locs mem -> 
+  let find : Loc.t -> astate -> Val.t
+  = fun l m ->
+    try find l m with
+    | Not_found -> Val.bot
+
+  let find_set : PowLoc.t -> astate -> Val.t
+  = fun locs mem ->
     let find_join loc acc = Val.join acc (find loc mem) in
     PowLoc.fold find_join locs Val.bot
 
-  let strong_update : PowLoc.t -> Val.astate -> astate -> astate
+  let strong_update : PowLoc.t -> Val.t -> astate -> astate
   = fun locs v mem ->
     PowLoc.fold (fun x -> add x v) locs mem
 
-  let weak_update : PowLoc.t -> Val.astate -> astate -> astate
+  let weak_update : PowLoc.t -> Val.t -> astate -> astate
   = fun locs v mem ->
     PowLoc.fold (fun x -> add x (Val.join v (find x mem))) locs mem
 
-  let pp_summary fmt mem =
+  let pp_summary : F.formatter -> astate -> unit
+  = fun fmt mem ->
     let pp_map fmt (k, v) = F.fprintf fmt "%a -> %a" Loc.pp k Val.pp v in
     F.fprintf fmt "@[<v 2>{ ";
     F.pp_print_list pp_map fmt (bindings mem);
     F.fprintf fmt " }@]"
 
-  let get_symbols mem =
+  let get_symbols : astate -> Itv.Symbol.t list
+  = fun mem ->
     IList.flatten (IList.map (fun (_, v) -> Val.get_symbols v) (bindings mem))
 
-  let get_result mem =
+  let get_result : astate -> Val.t
+  = fun mem ->
     let mem = filter (fun l _ -> Loc.is_return l) mem in
     if is_empty mem then Val.bot else snd (choose mem)
 end
 
 module Alias =
 struct
-  module M = Map.Make(Ident)
+  module M = Map.Make (Ident)
 
-  type astate = Pvar.t M.t
+  type t = Pvar.t M.t
 
-  let initial : astate = M.empty
+  type astate = t
 
-  let (<=) : lhs:astate -> rhs:astate -> bool
+  let initial : t
+  = M.empty
+
+  let (<=) : lhs:t -> rhs:t -> bool
   = fun ~lhs ~rhs ->
     let is_in_rhs k v =
       match M.find k rhs with
@@ -363,7 +426,7 @@ struct
     in
     M.for_all is_in_rhs lhs
 
-  let join : astate -> astate -> astate
+  let join : t -> t -> t
   = fun x y ->
     let join_v _ v1_opt v2_opt =
       match v1_opt, v2_opt with
@@ -374,115 +437,153 @@ struct
     in
     M.merge join_v x y
 
-  let widen : prev:astate -> next:astate -> num_iters:int -> astate
-  = fun ~prev ~next ~num_iters:_ ->
-    join prev next
+  let widen : prev:t -> next:t -> num_iters:int -> t
+  = fun ~prev ~next ~num_iters:_ -> join prev next
 
-  let pp : F.formatter -> astate -> unit
+  let pp : F.formatter -> t -> unit
   = fun fmt x ->
     let pp_sep fmt () = F.fprintf fmt ", @," in
     let pp1 fmt (k, v) =
       F.fprintf fmt "%a=%a" (Ident.pp pe_text) k (Pvar.pp pe_text) v
     in
-(*    F.fprintf fmt "@[<v 0>Logical Variables :@,";*)
+    (* F.fprintf fmt "@[<v 0>Logical Variables :@,"; *)
     F.fprintf fmt "@[<hov 2>{ @,";
     F.pp_print_list ~pp_sep pp1 fmt (M.bindings x);
     F.fprintf fmt " }@]";
     F.fprintf fmt "@]"
 
-  let load : Ident.t -> Exp.t -> astate -> astate
+  let load : Ident.t -> Exp.t -> t -> t
   = fun id exp m ->
     match exp with
     | Exp.Lvar x -> M.add id x m
     | _ -> m
 
-  let store : Exp.t -> Exp.t -> astate -> astate
+  let store : Exp.t -> Exp.t -> t -> t
   = fun e _ m ->
     match e with
     | Exp.Lvar x -> M.filter (fun _ y -> not (Pvar.equal x y)) m
     | _ -> m
 
-  let find : Ident.t -> astate -> Pvar.t option
-  = fun k m ->
-    try Some (M.find k m) with Not_found -> None
+  let find : Ident.t -> t -> Pvar.t option
+  = fun k m -> try Some (M.find k m) with Not_found -> None
 end
 
-module Mem = 
+module Mem =
 struct
-  include AbstractDomain.Pair3(Stack)(Heap)(Alias)
-  let pp : F.formatter -> astate -> unit
+  include AbstractDomain.Pair3 (Stack) (Heap) (Alias)
+
+  type t = astate
+
+  let pp : F.formatter -> t -> unit
   = fun fmt (stack, heap, _) ->
     F.fprintf fmt "Stack :@,";
     F.fprintf fmt "%a@," Stack.pp stack;
     F.fprintf fmt "Heap :@,";
     F.fprintf fmt "%a" Heap.pp heap
 
-  let pp_summary : F.formatter -> astate -> unit
+  let pp_summary : F.formatter -> t -> unit
   = fun fmt (_, heap, _) ->
     F.fprintf fmt "@[<v 0>Parameters :@,";
     F.fprintf fmt "%a" Heap.pp_summary heap ;
     F.fprintf fmt "@]"
-  let find_stack k m = Stack.find k (fst m)
-  let find_stack_set k m = Stack.find_set k (fst m)
-  let find_heap k m = Heap.find k (snd m)
-  let find_heap_set k m = Heap.find_set k (snd m)
-  let find_alias k m = Alias.find k (trd m)
-  let load_alias id e m = (fst m, snd m, Alias.load id e (trd m))
-  let store_alias e1 e2 m = (fst m, snd m, Alias.store e1 e2 (trd m))
-  let add_stack k v m = (Stack.add k v (fst m), snd m, trd m)
-  let add_heap k v m = (fst m, Heap.add k v (snd m), trd m)
-  let strong_update_stack p v m = (Stack.strong_update p v (fst m), snd m, trd m)
-  let strong_update_heap p v m = (fst m, Heap.strong_update p v (snd m), trd m)
-  let weak_update_stack p v m = (Stack.weak_update p v (fst m), snd m, trd m)
-  let weak_update_heap p v m = (fst m, Heap.weak_update p v (snd m), trd m)
 
-  let get_heap_symbols (_, m, _) = Heap.get_symbols m
+  let find_stack : Loc.t -> t -> Val.t
+  = fun k m -> Stack.find k (fst m)
 
-  let get_result (_, m, _) = Heap.get_result m
+  let find_stack_set : PowLoc.t -> t -> Val.t
+  = fun k m -> Stack.find_set k (fst m)
 
-  let can_strong_update ploc =
-    if PowLoc.cardinal ploc = 1 then 
-      let lv = PowLoc.choose ploc in
-      Loc.is_var lv 
-    else false
+  let find_heap : Loc.t -> t -> Val.t
+  = fun k m -> Heap.find k (snd m)
 
-  let update_mem : PowLoc.t -> Val.t -> astate -> astate
+  let find_heap_set : PowLoc.t -> t -> Val.t
+  = fun k m -> Heap.find_set k (snd m)
+
+  let find_alias : Ident.t -> t -> Pvar.t option
+  = fun k m -> Alias.find k (trd m)
+
+  let load_alias : Ident.t -> Exp.t -> t -> t
+  = fun id e m -> (fst m, snd m, Alias.load id e (trd m))
+
+  let store_alias : Exp.t -> Exp.t -> t -> t
+  = fun e1 e2 m -> (fst m, snd m, Alias.store e1 e2 (trd m))
+
+  let add_stack : Loc.t -> Val.t -> t -> t
+  = fun k v m -> (Stack.add k v (fst m), snd m, trd m)
+
+  let add_heap : Loc.t -> Val.t -> t -> t
+  = fun k v m -> (fst m, Heap.add k v (snd m), trd m)
+
+  let strong_update_stack : PowLoc.t -> Val.t -> t -> t
+  = fun p v m -> (Stack.strong_update p v (fst m), snd m, trd m)
+
+  let strong_update_heap : PowLoc.t -> Val.t -> t -> t
+  = fun p v m -> (fst m, Heap.strong_update p v (snd m), trd m)
+
+  let weak_update_stack : PowLoc.t -> Val.t -> t -> t
+  = fun p v m -> (Stack.weak_update p v (fst m), snd m, trd m)
+
+  let weak_update_heap : PowLoc.t -> Val.t -> t -> t
+  = fun p v m -> (fst m, Heap.weak_update p v (snd m), trd m)
+
+  let get_heap_symbols : t -> Itv.Symbol.t list
+  = fun (_, m, _) -> Heap.get_symbols m
+
+  let get_result : t -> Val.t
+  = fun (_, m, _) -> Heap.get_result m
+
+  let can_strong_update : PowLoc.t -> bool
+  = fun ploc ->
+    if PowLoc.cardinal ploc = 1 then Loc.is_var (PowLoc.choose ploc) else false
+
+  let update_mem : PowLoc.t -> Val.t -> t -> t
   = fun ploc v s ->
-    if can_strong_update ploc then strong_update_heap ploc v s
+    if can_strong_update ploc
+    then strong_update_heap ploc v s
     else weak_update_heap ploc v s
 end
 
-module Summary = 
-struct 
-  type t = Mem.astate * Mem.astate * ConditionSet.t
+module Summary =
+struct
+  type t = Mem.t * Mem.t * ConditionSet.t
 
-  let get_input = fst3
+  let get_input : t -> Mem.t
+  = fst3
 
-  let get_output = snd3
+  let get_output : t -> Mem.t
+  = snd3
 
-  let get_cond_set = trd3
+  let get_cond_set : t -> ConditionSet.t
+  = trd3
 
-  let get_symbols s = Mem.get_heap_symbols (get_input s)
+  let get_symbols : t -> Itv.Symbol.t list
+  = fun s -> Mem.get_heap_symbols (get_input s)
 
-  let get_result s = Mem.get_result (get_output s)
+  let get_result : t -> Val.t
+  = fun s -> Mem.get_result (get_output s)
 
-  let pp_symbols fmt s =
+  let pp_symbols : F.formatter -> t -> unit
+  = fun fmt s ->
     let pp_sep fmt () = F.fprintf fmt ", @," in
     F.fprintf fmt "@[<hov 2>Symbols: {";
     F.pp_print_list ~pp_sep Itv.Symbol.pp fmt (get_symbols s);
     F.fprintf fmt "}@]"
 
-  let pp_symbol_map fmt s = Mem.pp_summary fmt (get_input s)
+  let pp_symbol_map : F.formatter -> t -> unit
+  = fun fmt s -> Mem.pp_summary fmt (get_input s)
 
-  let pp_result fmt s =
-    F.fprintf fmt "Return value: %a" Val.pp (get_result s)
+  let pp_result : F.formatter -> t -> unit
+  = fun fmt s -> F.fprintf fmt "Return value: %a" Val.pp (get_result s)
 
-  let pp_summary fmt s =
+  let pp_summary : F.formatter -> t -> unit
+  = fun fmt s ->
     F.fprintf fmt "%a@,%a@,%a" pp_symbol_map s pp_result s
       ConditionSet.pp_summary (get_cond_set s)
 
-  let pp fmt (entry_mem, exit_mem, condition_set) = 
-    F.fprintf fmt "%a@,%a@,%a@" Mem.pp entry_mem Mem.pp exit_mem ConditionSet.pp condition_set
+  let pp : F.formatter -> t -> unit
+  = fun fmt (entry_mem, exit_mem, condition_set) ->
+    F.fprintf fmt "%a@,%a@,%a@"
+      Mem.pp entry_mem Mem.pp exit_mem ConditionSet.pp condition_set
 end
 
 include Mem
