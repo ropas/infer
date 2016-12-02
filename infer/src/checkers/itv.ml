@@ -815,6 +815,8 @@ struct
     | Bound.Bot, _
     | _, Bound.Bot -> None
     | _, _ -> Some (l, u)
+
+  let has_bnd_bot (l, u) = l = Bound.Bot || u = Bound.Bot
 end
 
 include AbstractDomain.BottomLifted(ItvPure)
@@ -964,3 +966,7 @@ let get_symbols = function
   | NonBottom x -> ItvPure.get_symbols x
 
 let rm_bnd_bot = lift1_opt ItvPure.rm_bnd_bot
+
+let has_bnd_bot = function
+  | Bottom -> false
+  | NonBottom x -> ItvPure.has_bnd_bot x

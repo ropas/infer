@@ -70,6 +70,8 @@ struct
   let to_string x =
     let size = set_size_pos x.size in
     "Offset : " ^ Itv.to_string x.idx ^ " Size : " ^ Itv.to_string size
+
+  let has_bnd_bot x = Itv.has_bnd_bot x.idx || Itv.has_bnd_bot x.size
 end
 
 module ConditionSet = 
@@ -119,6 +121,8 @@ struct
     F.pp_print_list ~pp_sep pp_element fmt (elements x);
     F.fprintf fmt " }@]";
     F.fprintf fmt "@]"
+
+  let rm_bnd_bot x = filter (fun c -> not (Condition.has_bnd_bot c)) x
 end
 
 module Val =

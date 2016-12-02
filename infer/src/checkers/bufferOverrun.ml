@@ -272,6 +272,7 @@ struct
               | Some summary ->
                   let callee = extras callee_pname in
                   instantiate_cond tenv callee params mem summary loc
+                  |> Domain.ConditionSet.rm_bnd_bot
                   |> Domain.ConditionSet.join cond_set
               | _ -> cond_set
             end
