@@ -132,7 +132,7 @@ type payload =
     quandary : QuandarySummary.t option;
     siof : SiofDomain.astate option;
     threadsafety : ThreadSafetyDomain.astate option;
-    buffer_overrun : BufferOverrunDomain.summary option;
+    buffer_overrun : BufferOverrunDomain.Summary.t option;
   }
 
 (** Procedure summary *)

@@ -436,7 +436,9 @@ let pp_summary fmt (m, c) =
 *)
 include Mem
 
-
-type summary = Mem.astate * Mem.astate * ConditionSet.t
-let pp_summary_ fmt (entry_mem, exit_mem, condition_set) = 
-  F.fprintf fmt "%a@,%a@,%a" Mem.pp entry_mem Mem.pp exit_mem ConditionSet.pp condition_set
+module Summary = 
+struct 
+  type t = Mem.astate * Mem.astate * ConditionSet.t
+  let pp fmt (entry_mem, exit_mem, condition_set) = 
+    F.fprintf fmt "%a@,%a@,%a" Mem.pp entry_mem Mem.pp exit_mem ConditionSet.pp condition_set
+end

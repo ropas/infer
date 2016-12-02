@@ -328,7 +328,7 @@ type payload =
     quandary : QuandarySummary.t option;
     siof : SiofDomain.astate option;
     threadsafety : ThreadSafetyDomain.astate option;
-    buffer_overrun : BufferOverrunDomain.summary option;
+    buffer_overrun : BufferOverrunDomain.Summary.t option;
   }
 
 type summary =
@@ -464,7 +464,7 @@ let pp_payload pe fmt { preposts; typestate; crashcontext_frame; quandary; siof;
     (pp_opt QuandarySummary.pp) quandary
     (pp_opt SiofDomain.pp) siof
     (pp_opt ThreadSafetyDomain.pp) threadsafety
-    (pp_opt BufferOverrunDomain.pp_summary_) buffer_overrun
+    (pp_opt BufferOverrunDomain.Summary.pp) buffer_overrun
 
 
 let pp_summary_text ~whole_seconds fmt summary =

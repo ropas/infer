@@ -23,7 +23,7 @@ module F = Format
 module L = Logging
 
 module Summary = Summary.Make (struct
-    type summary = BufferOverrunDomain.summary 
+    type summary = BufferOverrunDomain.Summary.t
 
     let update_payload astate payload = 
       { payload with Specs.buffer_overrun = Some astate }
@@ -468,44 +468,44 @@ let add_condition : Procdesc.t -> CFG.node -> Exp.t -> Location.t -> Domain.Mem.
       else cond_set
   | None -> prerr_endline "None array"; cond_set
 
-let collect ({ Callbacks.proc_desc; tenv; get_proc_desc } as callbacks) node (instrs: Sil.instr list) mem cond_set = 
-  IList.fold_left (fun (cond_set, mem) instr ->
-      F.fprintf F.err_formatter "Pre-state : @.";
-      Domain.pp F.err_formatter mem;
-      F.fprintf F.err_formatter "@.@.";
-      Sil.pp_instr pe_text F.err_formatter instr;
-      F.fprintf F.err_formatter "@.@.";
-  match instr with
-  | Sil.Load (id, exp, _, loc) -> 
-      (add_condition proc_desc node exp loc mem cond_set, 
-       TransferFunctions.exec_instr mem { pdesc = proc_desc; tenv = tenv; extras = get_proc_desc}
-       node instr)
-  | Sil.Store (exp1, _, exp2, loc) -> prerr_endline "store report"; 
-      let cond_set = add_condition proc_desc node exp1 loc mem cond_set in
-      F.fprintf F.err_formatter "Store Condition %a" Domain.ConditionSet.pp cond_set;
-      (cond_set,
-       TransferFunctions.exec_instr mem { pdesc = proc_desc; tenv = tenv; extras = get_proc_desc}
-       node instr)
-(*    add_condition pdesc node exp2 loc mem;*)
-  | Sil.Call (ret, Const (Cfun callee_pname), params, loc, _) -> (cond_set, mem)
-(*          let callee = extras callee_pname in
-(*          let old_conds = get_conditions () in*)
-          begin
-            match Summary.read_summary tenv pdesc callee_pname with
-            | Some summary ->
-              let new_mem = instantiate tenv callee callee_pname params mem summary loc in
-              let new_mem = 
-                match ret with Some (id,_) -> 
-                  Domain.Mem.add_stack (Loc.of_var (Var.of_id id))
-                   (Domain.Mem.find_heap (Loc.of_pvar (Pvar.get_ret_pvar callee_pname)) new_mem) mem
-                | _ -> mem
-              in
-              new_mem(*, Domain.ConditionSet.join old_conds new_conds)*)
-            | None -> handle_unknown_call pdesc ret callee_pname params node mem
-          end*)
-  | _ -> (cond_set, mem)
-  ) (cond_set, mem) instrs
-|> fst
+  let collect ({ Callbacks.proc_desc; tenv; get_proc_desc } as callbacks) node (instrs: Sil.instr list) mem cond_set = 
+    IList.fold_left (fun (cond_set, mem) instr ->
+        F.fprintf F.err_formatter "Pre-state : @.";
+        Domain.pp F.err_formatter mem;
+        F.fprintf F.err_formatter "@.@.";
+        Sil.pp_instr pe_text F.err_formatter instr;
+        F.fprintf F.err_formatter "@.@.";
+    match instr with
+    | Sil.Load (id, exp, _, loc) -> 
+        (add_condition proc_desc node exp loc mem cond_set, 
+         TransferFunctions.exec_instr mem { pdesc = proc_desc; tenv = tenv; extras = get_proc_desc}
+         node instr)
+    | Sil.Store (exp1, _, exp2, loc) -> prerr_endline "store report"; 
+        let cond_set = add_condition proc_desc node exp1 loc mem cond_set in
+        F.fprintf F.err_formatter "Store Condition %a" Domain.ConditionSet.pp cond_set;
+        (cond_set,
+         TransferFunctions.exec_instr mem { pdesc = proc_desc; tenv = tenv; extras = get_proc_desc}
+         node instr)
+  (*    add_condition pdesc node exp2 loc mem;*)
+    | Sil.Call (ret, Const (Cfun callee_pname), params, loc, _) -> (cond_set, mem)
+  (*          let callee = extras callee_pname in
+  (*          let old_conds = get_conditions () in*)
+            begin
+              match Summary.read_summary tenv pdesc callee_pname with
+              | Some summary ->
+                let new_mem = instantiate tenv callee callee_pname params mem summary loc in
+                let new_mem = 
+                  match ret with Some (id,_) -> 
+                    Domain.Mem.add_stack (Loc.of_var (Var.of_id id))
+                     (Domain.Mem.find_heap (Loc.of_pvar (Pvar.get_ret_pvar callee_pname)) new_mem) mem
+                  | _ -> mem
+                in
+                new_mem(*, Domain.ConditionSet.join old_conds new_conds)*)
+              | None -> handle_unknown_call pdesc ret callee_pname params node mem
+            end*)
+    | _ -> (cond_set, mem)
+    ) (cond_set, mem) instrs
+  |> fst
   let report_error : Tenv.t -> Procdesc.t -> Domain.ConditionSet.t -> unit 
   = fun tenv proc_desc conds -> 
     let proc_name = Procdesc.get_proc_name proc_desc in
