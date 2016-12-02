@@ -66,7 +66,8 @@ struct
     | Exp.Const c -> eval_const c
     | Exp.Cast (_, e) -> eval e mem loc
     | Exp.Lfield (e, fn, _) ->
-        eval e mem loc |> Domain.Val.get_all_locs |> flip PowLoc.append_field fn |> Domain.Val.of_pow_loc
+        eval e mem loc |> Domain.Val.get_all_locs |> flip PowLoc.append_field fn 
+        |> Domain.Val.of_pow_loc
     | Exp.Lindex (e1, _) -> 
         let arr = eval e1 mem loc in  (* must have array blk *)
 (*        let idx = eval e2 mem loc in*)
@@ -123,7 +124,8 @@ struct
 
   let get_allocsite pdesc node inst_num dimension =
     Procname.to_string (Procdesc.get_attributes pdesc).ProcAttributes.proc_name
-    ^ "-" ^ string_of_int (CFG.underlying_id node) ^ "-" ^ string_of_int inst_num ^ "-" ^ string_of_int dimension
+    ^ "-" ^ string_of_int (CFG.underlying_id node) ^ "-" ^ string_of_int inst_num 
+    ^ "-" ^ string_of_int dimension
     |> Allocsite.make
 
   let eval_array_alloc
@@ -265,16 +267,17 @@ struct
   let get_formals : Procdesc.t -> (Pvar.t * Typ.t) list
   = fun pdesc ->
     let proc_name = Procdesc.get_proc_name pdesc in
-    Procdesc.get_formals pdesc |> IList.map (fun (name, typ) -> (Pvar.mk name proc_name, typ))
+    Procdesc.get_formals pdesc 
+    |> IList.map (fun (name, typ) -> (Pvar.mk name proc_name, typ))
 
   let get_matching_pairs : Tenv.t -> Domain.Val.astate -> Domain.Val.astate -> 
     Typ.t -> Domain.Mem.astate -> Domain.Mem.astate -> (Itv.Bound.t * Itv.Bound.t) list
   = fun tenv formal actual typ caller_mem callee_mem ->
-    let add_pair itv1 itv2 l =
-      if itv1 <> Itv.bot && itv2 <> Itv.bot then
-        (Itv.lb itv1, Itv.lb itv2) :: (Itv.ub itv1, Itv.ub itv2) :: l
-      else if itv1 <> Itv.bot && itv2 = Itv.bot then
-        (Itv.lb itv1, Itv.Bound.Bot) :: (Itv.ub itv1, Itv.Bound.Bot) :: l
+    let add_pair formal actual l =
+      if formal <> Itv.bot && actual <> Itv.bot then
+        (Itv.lb formal, Itv.lb actual) :: (Itv.ub formal, Itv.ub actual) :: l
+      else if formal <> Itv.bot && actual = Itv.bot then
+        (Itv.lb formal, Itv.Bound.Bot) :: (Itv.ub formal, Itv.Bound.Bot) :: l
       else
         l
     in
@@ -324,8 +327,8 @@ struct
           let (symbol, coeff) = Itv.SymLinear.choose se1 in
           if coeff = 1
           then Itv.SubstMap.add symbol actual map
-          else map              (* impossible *)
-      | _ -> map                (* impossible *)
+          else assert false 
+      | _ -> assert false
     in
     IList.fold_left add_pair Itv.SubstMap.empty pairs
 

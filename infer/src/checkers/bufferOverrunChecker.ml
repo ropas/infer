@@ -31,7 +31,10 @@ module Summary = Summary.Make (struct
       payload.Specs.buffer_overrun
   end)
 
-module SubstMap = Map.Make(struct type t = Itv.Bound.t let compare = Itv.Bound.compare end)
+module SubstMap = Map.Make(struct 
+    type t = Itv.Bound.t 
+    let compare = Itv.Bound.compare 
+  end)
 
 module TransferFunctions (CFG : ProcCfg.S) = 
 struct
@@ -210,6 +213,7 @@ struct
   module CFG = ProcCfg.Normal
   module Semantics = BufferOverrunSemantics.Make(CFG)
   module TransferFunctions = TransferFunctions(CFG)
+  type extras = Procname.t -> Procdesc.t option
 
   let add_condition : Procdesc.t -> CFG.node -> Exp.t -> Location.t -> Domain.Mem.astate 
     -> Domain.ConditionSet.t -> Domain.ConditionSet.t
@@ -243,7 +247,8 @@ struct
     | None -> cond_set
 
   let instantiate_cond tenv callee_pdesc params caller_mem summary loc =
-    let (callee_entry_mem, callee_cond) = (Domain.Summary.get_input summary, Domain.Summary.get_cond_set summary) in
+    let (callee_entry_mem, callee_cond) = 
+      (Domain.Summary.get_input summary, Domain.Summary.get_cond_set summary) in
     match callee_pdesc with
     | Some pdesc ->
         Semantics.get_subst_map tenv pdesc params caller_mem callee_entry_mem loc
@@ -264,7 +269,9 @@ struct
       F.fprintf F.err_formatter "================================@.@."
     end
 
-  let collect_instrs ({ ProcData.pdesc; tenv; extras } as proc_data) node (instrs: Sil.instr list) mem cond_set = 
+  let collect_instrs : extras ProcData.t -> CFG.node -> Sil.instr list -> Domain.Mem.astate 
+      -> Domain.ConditionSet.t -> Domain.ConditionSet.t 
+  = fun ({ ProcData.pdesc; tenv; extras } as proc_data) node instrs mem cond_set ->
     IList.fold_left (fun (cond_set, mem) instr ->
         let cond_set = 
           match instr with
