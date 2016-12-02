@@ -274,7 +274,10 @@ struct
       if itv1 <> Itv.bot && itv2 <> Itv.bot then
         (Itv.lb itv1, Itv.lb itv2) 
         :: (Itv.ub itv1, Itv.ub itv2) :: l
-      else l
+      else if itv1 <> Itv.bot && itv2 = Itv.bot then
+        (Itv.lb itv1, Itv.Bound.Bot) :: (Itv.ub itv1, Itv.Bound.Bot) :: l
+      else
+        l
     in
     let add_pair_val formal actual = 
       let formal_itv = Domain.Val.get_itv formal in
@@ -320,7 +323,7 @@ struct
       IList.fold_left2 (fun l (formal, typ) (actual,_) ->
         let formal = Domain.Mem.find_heap (Loc.of_pvar formal) callee_entry_mem in
         let actual = eval actual caller_mem loc in
-        (get_matching_pairs tenv formal actual typ caller_mem callee_entry_mem) @ l
+        IList.append (get_matching_pairs tenv formal actual typ caller_mem callee_entry_mem) l
       ) [] (get_formals callee_pdesc) params
     in
     IList.fold_left (fun map (formal, actual) ->

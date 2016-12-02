@@ -131,14 +131,13 @@ struct
       (Domain.Summary.get_input summary, Domain.Summary.get_output summary) in
     try 
       match callee_pdesc with 
-        Some pdesc ->
+      | Some pdesc ->
           let subst_map = Semantics.get_subst_map tenv pdesc params caller_mem callee_entry_mem loc in
           let ret_loc = Loc.of_pvar (Pvar.get_ret_pvar callee_pname) in
           let ret_val = Domain.Mem.find_heap ret_loc callee_exit_mem in
-          let new_ret_val = Domain.Val.subst ret_val subst_map in
-          Domain.Mem.add_heap ret_loc new_ret_val callee_exit_mem
-      | _ -> callee_exit_mem
-    with _ -> callee_exit_mem (* when #formal <> #actual *)
+          Domain.Val.subst ret_val subst_map
+      | _ -> Domain.Val.bot
+    with _ -> Domain.Val.bot (* when #formal <> #actual *)
 
   let print_debug_info instr pre post = 
     if Config.debug_mode then 
@@ -167,19 +166,18 @@ struct
           |> Domain.Mem.store_alias exp1 exp2
       | Prune (exp, loc, _, _) -> Semantics.prune exp loc mem
       | Call (ret, Const (Cfun callee_pname), params, loc, _) ->
-          begin
-            match Summary.read_summary tenv pdesc callee_pname with
-            | Some summary ->
-              let callee = extras callee_pname in
-              let new_mem = instantiate_ret tenv callee callee_pname params mem summary loc in
-              begin
-                match ret with Some (id,_) -> 
-                  Domain.Mem.add_stack (Loc.of_var (Var.of_id id))
-                   (Domain.Mem.find_heap (Loc.of_pvar (Pvar.get_ret_pvar callee_pname)) new_mem) mem
-                | _ -> mem
-              end
-            | None -> handle_unknown_call pdesc ret callee_pname params node mem
-          end
+          (match Summary.read_summary tenv pdesc callee_pname with
+           | Some summary ->
+               let callee = extras callee_pname in
+               let ret_val =
+                 instantiate_ret tenv callee callee_pname params mem summary loc
+                 |> Domain.Val.rm_bnd_bot
+               in
+               (match ret with
+                | Some (id,_) ->
+                    Domain.Mem.add_stack (Loc.of_var (Var.of_id id)) ret_val mem
+                | _ -> mem)
+           | None -> handle_unknown_call pdesc ret callee_pname params node mem)
       | Declare_locals (locals, _) ->
           (* static array allocation *)
           let mem = IList.fold_left (fun (mem, c) (pvar, typ) ->

@@ -85,6 +85,11 @@ struct
     let s2 = Itv.get_symbols arr.size in
     let s3 = Itv.get_symbols arr.stride in
     IList.flatten [s1; s2; s3]
+
+  let rm_bnd_bot arr =
+    { offset = Itv.rm_bnd_bot arr.offset;
+      size = Itv.rm_bnd_bot arr.size;
+      stride = Itv.rm_bnd_bot arr.stride }
 end
 
 module PPMap = PrettyPrintable.MakePPMap 
@@ -142,3 +147,7 @@ let subst a subst_map = map (fun info -> ArrInfo.subst info subst_map) a
 
 let get_symbols a =
   IList.flatten (IList.map (fun (_, ai) -> ArrInfo.get_symbols ai) (bindings a))
+
+let rm_bnd_bot : astate -> astate
+= fun a ->
+  map ArrInfo.rm_bnd_bot a

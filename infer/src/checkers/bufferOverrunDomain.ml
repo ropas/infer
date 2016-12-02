@@ -247,6 +247,8 @@ struct
 
   let get_symbols (i, _, a) =
     IList.append (Itv.get_symbols i) (ArrayBlk.get_symbols a)
+
+  let rm_bnd_bot (i, l, a) = (Itv.rm_bnd_bot i, l, ArrayBlk.rm_bnd_bot a)
 end
 
 module Stack = 

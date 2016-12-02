@@ -802,6 +802,12 @@ struct
 
   let get_symbols (l, u) =
     IList.append (Bound.get_symbols l) (Bound.get_symbols u)
+
+  let rm_bnd_bot (l, u) =
+    match l, u with
+    | Bound.Bot, _
+    | _, Bound.Bot -> None
+    | _, _ -> Some (l, u)
 end
 
 include AbstractDomain.BottomLifted(ItvPure)
@@ -865,6 +871,14 @@ let lift1 : (ItvPure.t -> ItvPure.t) -> astate -> astate
 = fun f -> function
   | Bottom -> Bottom
   | NonBottom x -> NonBottom (f x)
+
+let lift1_opt : (ItvPure.t -> ItvPure.t option) -> astate -> astate
+= fun f -> function
+  | Bottom -> Bottom
+  | NonBottom x ->
+      (match f x with
+       | None -> Bottom
+       | Some v -> NonBottom v)
 
 let lift2 : (ItvPure.t -> ItvPure.t -> ItvPure.t) -> astate -> astate -> astate
 = fun f x y ->
@@ -939,3 +953,5 @@ let subst : astate -> Bound.t SubstMap.t -> astate
 let get_symbols = function
   | Bottom -> []
   | NonBottom x -> ItvPure.get_symbols x
+
+let rm_bnd_bot = lift1_opt ItvPure.rm_bnd_bot
