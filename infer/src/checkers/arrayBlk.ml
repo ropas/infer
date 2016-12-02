@@ -1,4 +1,21 @@
+(*
+ * Copyright (c) 2016 - present
+ * Kihong Heo (http://ropas.snu.ac.kr/~khheo)
+ * Sungkeun Cho (http://ropas.snu.ac.kr/~skcho)
+ * Kwangkeun Yi (http://ropas.snu.ac.kr/~kwang)
+ *
+ * ROSAEC(Research On Software Analysis for Error-free Computing) Center
+ * Programming Research Laboratory
+ * Seoul National University, Korea
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ *)
+
 (* Abstract Array Block *)
+
 open BasicDom
 
 module ArrInfo = 
@@ -7,42 +24,34 @@ struct
     offset    : Itv.t;
     size      : Itv.t;
     stride    : Itv.t;
-    null_pos  : Itv.t;
-(*    structure : PowStruct.t;*)
   }
   type astate = t
 
-  let bot = { offset = Itv.bot; size = Itv.bot; stride = Itv.bot; null_pos = Itv.bot; (* structure = PowStruct.bot *)}
+  let bot = { offset = Itv.bot; size = Itv.bot; stride = Itv.bot; }
   let initial = bot
-  let top = { offset = Itv.top; size = Itv.top; stride = Itv.top; null_pos = Itv.top; (* structure = PowStruct.bot *)}
-  let input = { offset = Itv.zero; size = Itv.pos; stride = Itv.one; null_pos = Itv.nat; (* structure = PowStruct.bot *)}
+  let top = { offset = Itv.top; size = Itv.top; stride = Itv.top; }
+  let input = { offset = Itv.zero; size = Itv.pos; stride = Itv.one; }
   
-  let make (o,s,stride,null(*,structure*)) = 
-    { offset = o; size = s; stride = stride; null_pos = null; (* structure = structure *)}
+  let make (o,s,stride) = 
+    { offset = o; size = s; stride = stride; }
   
   let compare a1 a2 =
     let i = Itv.compare a1.offset a2.offset in
     if i <> 0 then i else
       let i = Itv.compare a1.size a2.size in
       if i <> 0 then i else
-        let i = Itv.compare a1.stride a2.stride in
-        if i <> 0 then i else
-          Itv.compare a1.null_pos a2.null_pos
+        Itv.compare a1.stride a2.stride
 
   let join a1 a2 = 
     if a1 == a2 then a2 else
     { offset    = Itv.join a1.offset a2.offset;
       size      = Itv.join a1.size a2.size;
-      stride    = Itv.join a1.stride a2.stride;
-      null_pos  = Itv.join a1.null_pos a2.null_pos;
-(*      structure = PowStruct.join a1.structure a2.structure; *)}
+      stride    = Itv.join a1.stride a2.stride; }
   let widen ~prev ~next ~num_iters = 
     if prev == next then next else
     { offset    = Itv.widen ~prev:prev.offset ~next:next.offset ~num_iters;
       size      = Itv.widen ~prev:prev.size ~next:next.size ~num_iters;
-      stride    = Itv.widen ~prev:prev.stride ~next:next.stride ~num_iters;
-      null_pos  = Itv.widen ~prev:prev.null_pos ~next:next.null_pos ~num_iters;
-(*      structure = PowStruct.widen a1.structure a2.structure; *)}
+      stride    = Itv.widen ~prev:prev.stride ~next:next.stride ~num_iters; }
 
   let eq a1 a2 = 
     if a1 == a2 then true
@@ -50,8 +59,6 @@ struct
       Itv.eq a1.offset a2.offset
       && Itv.eq a1.size a2.size
       && Itv.eq a1.stride a2.stride
-      && Itv.eq a1.null_pos a2.null_pos
-(*      && PowStruct.eq a1.structure a2.structure*)
 
   let (<=) ~lhs ~rhs = 
     if lhs == rhs then true
@@ -59,14 +66,10 @@ struct
       Itv.le ~lhs:lhs.offset ~rhs:rhs.offset
       && Itv.le ~lhs:lhs.size ~rhs:rhs.size
       && Itv.le ~lhs:lhs.stride ~rhs:rhs.stride
-      && Itv.le ~lhs:lhs.null_pos ~rhs:rhs.null_pos
-(*      && PowStruct.le a1.structure a2.structure*)
 
   let weak_plus_size arr i = { arr with size = Itv.join arr.size (Itv.plus i arr.size) }
   let plus_offset arr i = { arr with offset = Itv.plus arr.offset i }
   let minus_offset arr i = { arr with offset = Itv.minus arr.offset i }
-  let set_null_pos arr i = { arr with null_pos = i }
-  let plus_null_pos arr i = { arr with null_pos = Itv.plus arr.null_pos i }
 
   let diff arr1 arr2 =
     let i1 = Itv.mult arr1.offset arr1.stride in
@@ -75,14 +78,16 @@ struct
 
   let subst arr subst_map = { arr with offset = Itv.subst arr.offset subst_map; size = Itv.subst arr.size subst_map; }
   let pp fmt arr = 
-    Format.fprintf fmt "offset : %a, size : %a, stride : %a" Itv.pp arr.offset Itv.pp arr.size Itv.pp arr.stride
+    if Config.debug_mode then 
+      Format.fprintf fmt "offset : %a, size : %a, stride : %a" Itv.pp arr.offset Itv.pp arr.size Itv.pp arr.stride
+    else 
+      Format.fprintf fmt "offset : %a, size : %a" Itv.pp arr.offset Itv.pp arr.size
 
   let get_symbols arr =
     let s1 = Itv.get_symbols arr.offset in
     let s2 = Itv.get_symbols arr.size in
     let s3 = Itv.get_symbols arr.stride in
-    let s4 = Itv.get_symbols arr.null_pos in
-    IList.flatten [s1; s2; s3; s4]
+    IList.flatten [s1; s2; s3]
 end
 
 module PPMap = PrettyPrintable.MakePPMap 
@@ -93,9 +98,9 @@ module PPMap = PrettyPrintable.MakePPMap
 include AbstractDomain.Map(PPMap)(ArrInfo)
 
 let bot = initial
-let make : Allocsite.t -> Itv.t -> Itv.t -> Itv.t -> Itv.t -> astate
-= fun a o sz st np ->
-  add a (ArrInfo.make (o, sz, st, np(*, PowStruct.bot*))) bot
+let make : Allocsite.t -> Itv.t -> Itv.t -> Itv.t -> astate
+= fun a o sz st ->
+  add a (ArrInfo.make (o, sz, st)) bot
 
 let offsetof : astate -> Itv.t
 = fun a ->
@@ -104,10 +109,6 @@ let offsetof : astate -> Itv.t
 let sizeof : astate -> Itv.t
 = fun a ->
   fold (fun _ arr -> Itv.join arr.ArrInfo.size) a Itv.bot
-
-let nullof : astate -> Itv.t
-= fun a ->
-  fold (fun _ arr -> Itv.join arr.ArrInfo.null_pos) a Itv.bot
 
 let extern allocsite = 
   add allocsite ArrInfo.top empty 
@@ -126,14 +127,6 @@ let plus_offset : astate -> Itv.t -> astate
 let minus_offset : astate -> Itv.t -> astate
 = fun arr i ->
   map (fun a -> ArrInfo.minus_offset a i) arr
-
-let set_null_pos : astate -> Itv.t -> astate
-= fun arr i ->
-  map (fun a -> ArrInfo.set_null_pos a i) arr
-
-let plus_null_pos : astate -> Itv.t -> astate
-= fun arr i ->
-  map (fun a -> ArrInfo.plus_null_pos a i) arr
 
 let diff : astate -> astate -> Itv.t
 = fun arr1 arr2 ->

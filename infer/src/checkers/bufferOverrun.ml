@@ -71,7 +71,7 @@ struct
     match Procname.get_method callee_pname with
     | "malloc" | "__new_array" -> model_malloc pdesc ret params node mem
     | "realloc" -> model_realloc pdesc ret params node mem
-    | "strlen" -> model_positive_itv ret mem
+    | "strlen" | "fgetc" -> model_positive_itv ret mem
     | _ ->
         (match ret with
            Some (id, _) ->
@@ -93,21 +93,32 @@ struct
 
   let declare_symbolic_array pdesc tenv node loc typ inst_num dimension mem =
     let (offset, size) = (Itv.get_new_sym (), Itv.get_new_sym ()) in
-    let mem = Domain.Mem.add_heap loc (Semantics.eval_array_alloc pdesc node typ offset size inst_num dimension) mem in
+    let arr = Semantics.eval_array_alloc pdesc node typ offset size inst_num dimension in
+    let mem = 
+      Domain.Mem.add_heap loc arr mem 
+      |> Domain.Mem.strong_update_heap 
+          (arr |> Domain.Val.get_array_blk |> ArrayBlk.get_pow_loc) 
+          (Domain.Val.get_new_sym ())
+    in
     match typ with 
       Typ.Tstruct typename ->
       begin
         match Tenv.lookup tenv typename with
           Some str -> 
             IList.fold_left (fun mem (fn, typ, _) ->
-              let loc = Domain.Mem.find_heap loc mem |> Domain.Val.get_all_locs |> PowLoc.choose in
+              let loc = Domain.Mem.find_heap loc mem 
+                |> Domain.Val.get_all_locs 
+                |> PowLoc.choose 
+              in
               let field = Loc.append_field loc fn in
               let (offset, size) = (Itv.get_new_sym (), Itv.get_new_sym ()) in
               match typ with 
                 Typ.Tint _ | Typ.Tfloat _ -> 
                   Domain.Mem.add_heap field (Domain.Val.get_new_sym ()) mem
               | Typ.Tptr (typ, _) -> 
-                  Domain.Mem.add_heap field (Semantics.eval_array_alloc pdesc node typ offset size inst_num dimension) mem
+                  Domain.Mem.add_heap field 
+                    (Semantics.eval_array_alloc pdesc node typ offset size 
+                      inst_num dimension) mem
                   (*declare_symbolic_array pdesc tenv node field typ (inst_num+1) dimension mem*)
               | _ -> mem
             ) mem str.StructTyp.fields
