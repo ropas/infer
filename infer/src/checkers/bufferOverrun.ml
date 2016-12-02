@@ -127,15 +127,16 @@ struct
   let instantiate_ret tenv callee_pdesc callee_pname params caller_mem summary loc =
     let (callee_entry_mem, callee_exit_mem) = 
       (Domain.Summary.get_input summary, Domain.Summary.get_output summary) in
-    try 
-      match callee_pdesc with 
-      | Some pdesc ->
-          let subst_map = Semantics.get_subst_map tenv pdesc params caller_mem callee_entry_mem loc in
-          let ret_loc = Loc.of_pvar (Pvar.get_ret_pvar callee_pname) in
-          let ret_val = Domain.Mem.find_heap ret_loc callee_exit_mem in
-          Domain.Val.subst ret_val subst_map
-      | _ -> Domain.Val.bot
-    with _ -> Domain.Val.bot (* when #formal <> #actual *)
+    match callee_pdesc with
+    | Some pdesc ->
+        let subst_map =
+          Semantics.get_subst_map tenv pdesc params caller_mem
+            callee_entry_mem loc
+        in
+        let ret_loc = Loc.of_pvar (Pvar.get_ret_pvar callee_pname) in
+        let ret_val = Domain.Mem.find_heap ret_loc callee_exit_mem in
+        Domain.Val.subst ret_val subst_map
+    | _ -> Domain.Val.bot
 
   let print_debug_info instr pre post = 
     if Config.debug_mode then 
@@ -240,13 +241,11 @@ struct
 
   let instantiate_cond tenv callee_pdesc params caller_mem summary loc =
     let (callee_entry_mem, callee_cond) = (Domain.Summary.get_input summary, Domain.Summary.get_cond_set summary) in
-    try 
-      match callee_pdesc with 
-        Some pdesc ->
-          let subst_map = Semantics.get_subst_map tenv pdesc params caller_mem callee_entry_mem loc in
-          Domain.ConditionSet.subst callee_cond subst_map
-      | _ -> callee_cond
-    with _ -> callee_cond
+    match callee_pdesc with
+    | Some pdesc ->
+        Semantics.get_subst_map tenv pdesc params caller_mem callee_entry_mem loc
+        |> Domain.ConditionSet.subst callee_cond
+    | _ -> callee_cond
 
   let print_debug_info instr pre cond_set = 
     if Config.debug_mode then 

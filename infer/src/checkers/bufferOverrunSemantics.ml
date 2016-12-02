@@ -272,8 +272,7 @@ struct
   = fun tenv formal actual typ caller_mem callee_mem ->
     let add_pair itv1 itv2 l =
       if itv1 <> Itv.bot && itv2 <> Itv.bot then
-        (Itv.lb itv1, Itv.lb itv2) 
-        :: (Itv.ub itv1, Itv.ub itv2) :: l
+        (Itv.lb itv1, Itv.lb itv2) :: (Itv.ub itv1, Itv.ub itv2) :: l
       else if itv1 <> Itv.bot && itv2 = Itv.bot then
         (Itv.lb itv1, Itv.Bound.Bot) :: (Itv.ub itv1, Itv.Bound.Bot) :: l
       else
@@ -318,20 +317,35 @@ struct
         add_pair_val formal_arr_elem actual_arr_elem @ pairs        
     | _ -> pairs
 
-  let get_subst_map tenv callee_pdesc params caller_mem callee_entry_mem loc =
-    let pairs = 
-      IList.fold_left2 (fun l (formal, typ) (actual,_) ->
-        let formal = Domain.Mem.find_heap (Loc.of_pvar formal) callee_entry_mem in
-        let actual = eval actual caller_mem loc in
-        IList.append (get_matching_pairs tenv formal actual typ caller_mem callee_entry_mem) l
-      ) [] (get_formals callee_pdesc) params
-    in
-    IList.fold_left (fun map (formal, actual) ->
+  let subst_map_of_pairs pairs =
+    let add_pair map (formal, actual) =
       match formal with 
       | Itv.Bound.Linear (0, se1) when Itv.SymLinear.cardinal se1 > 0 ->
           let (symbol, coeff) = Itv.SymLinear.choose se1 in
-          if coeff = 1 then
-            Itv.SubstMap.add symbol actual map
-          else (* impossible *) map
-      | _ -> (* impossible *) map) Itv.SubstMap.empty pairs
+          if coeff = 1
+          then Itv.SubstMap.add symbol actual map
+          else map              (* impossible *)
+      | _ -> map                (* impossible *)
+    in
+    IList.fold_left add_pair Itv.SubstMap.empty pairs
+
+  let rec list_fold2_def default f xs ys acc =
+    match xs, ys with
+    | [x], _ -> f x (IList.fold_left Domain.Val.join Domain.Val.bot ys) acc
+    | [], _ -> acc
+    | x :: xs', [] -> list_fold2_def default f xs' ys (f x default acc)
+    | x :: xs', y :: ys' -> list_fold2_def default f xs' ys' (f x y acc)
+
+  let get_subst_map tenv callee_pdesc params caller_mem callee_entry_mem loc =
+    let formals = get_formals callee_pdesc in
+    let actuals = IList.map (fun (a, _) -> eval a caller_mem loc) params in
+    let add_pair (formal, typ) actual l =
+      let formal = Domain.Mem.find_heap (Loc.of_pvar formal) callee_entry_mem in
+      let new_matching =
+        get_matching_pairs tenv formal actual typ caller_mem callee_entry_mem
+      in
+      IList.append new_matching l
+    in
+    list_fold2_def Domain.Val.bot add_pair formals actuals []
+    |> subst_map_of_pairs
 end 
