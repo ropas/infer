@@ -39,9 +39,7 @@ struct
   module Domain = Domain
   module Semantics = BufferOverrunSemantics.Make(CFG)
   type extras = Procname.t -> Procdesc.t option
-  exception Not_implemented 
 
- 
   (* heuristic *)
   let get_malloc_info = function
     | Exp.BinOp (Binop.Mult, Exp.Sizeof (typ, _, _), ((Exp.Const _) as size))
