@@ -174,6 +174,9 @@ let fold_calls: ('a => (Procname.t, Location.t) => 'a) => 'a => t => 'a;
 /** fold over all nodes and their instructions */
 let fold_instrs: ('a => Node.t => Sil.instr => 'a) => 'a => t => 'a;
 
+/** fold over all nodes */
+let fold_nodes: ('a => Node.t => 'a) => 'a => t => 'a;
+
 
 /** Only call from Cfg. */
 let from_proc_attributes: called_from_cfg::bool => ProcAttributes.t => t;

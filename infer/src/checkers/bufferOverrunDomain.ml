@@ -422,22 +422,21 @@ end
 
 
 (* TODO: what about removing the conditionset from the domain? *)
-include AbstractDomain.Pair(Mem)(ConditionSet)
+(*include AbstractDomain.Pair(Mem)(ConditionSet)
 
 let (<=) ~lhs ~rhs =
   if lhs == rhs then true else
     Mem.(<=) ~lhs:(fst lhs) ~rhs:(fst rhs)
 
-let pp fmt (m, c) =
-  F.fprintf fmt "@[<v 2>( %a,@,%a )@]" Mem.pp m ConditionSet.pp c
+let pp fmt m =
+  F.fprintf fmt "@[<v 2>%a@]" Mem.pp m
 
 let pp_summary fmt (m, c) =
-  F.fprintf fmt "%a@,%a" Mem.pp_summary m ConditionSet.pp_summary c
+  F.fprintf fmt "%a" Mem.pp_summary m
+*)
+include Mem
 
-let get_mem : astate -> Mem.astate = fst
 
-let get_conds : astate -> ConditionSet.astate = snd
-
-type summary = astate * astate
-let pp_summary_ fmt (entry_mem, exit_mem) = 
-  F.fprintf fmt "%a@,%a" pp entry_mem pp exit_mem
+type summary = Mem.astate * Mem.astate * ConditionSet.t
+let pp_summary_ fmt (entry_mem, exit_mem, condition_set) = 
+  F.fprintf fmt "%a@,%a@,%a" Mem.pp entry_mem Mem.pp exit_mem ConditionSet.pp condition_set
