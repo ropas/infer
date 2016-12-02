@@ -516,11 +516,18 @@ end
 module ItvPure =
 struct
   type astate = Bound.t * Bound.t
+
+  let compare : astate -> astate -> int
+  = fun (x1, x2) (y1, y2) ->
+    let i = Bound.compare x1 y1 in
+    if i <> 0 then i else Bound.compare x2 y2
+
   type t = astate
 
   let initial : astate = (Bound.initial, Bound.initial)
 
   let lb = fst
+
   let ub = snd
 
   let make : Bound.t -> Bound.t -> astate
@@ -814,9 +821,11 @@ include AbstractDomain.BottomLifted(ItvPure)
 
 let compare : astate -> astate -> int
 = fun x y ->
-  if (<=) ~lhs:x ~rhs:y then
-    if (<=) ~lhs:y ~rhs:x then 0 else -1
-  else 1
+  match x, y with
+  | Bottom, Bottom -> 0
+  | Bottom, _ -> -1
+  | _, Bottom -> 1
+  | NonBottom x, NonBottom y -> ItvPure.compare x y
 
 type t = astate
 
