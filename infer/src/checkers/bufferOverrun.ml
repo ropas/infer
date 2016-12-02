@@ -243,13 +243,21 @@ struct
       | _ -> callee_cond
     with _ -> callee_cond
 
+  let print_debug_info instr pre cond_set = 
+    if Config.debug_mode then 
+    begin
+      F.fprintf F.err_formatter "Pre-state : @.";
+      Domain.pp F.err_formatter pre;
+      F.fprintf F.err_formatter "@.@.";
+      Sil.pp_instr pe_text F.err_formatter instr;
+      F.fprintf F.err_formatter "@.@.";
+      Domain.ConditionSet.pp F.err_formatter cond_set;
+      F.fprintf F.err_formatter "@.@.";
+    end
+   
+
   let collect_instrs ({ ProcData.pdesc; tenv; extras } as proc_data) node (instrs: Sil.instr list) mem cond_set = 
     IList.fold_left (fun (cond_set, mem) instr ->
-        F.fprintf F.err_formatter "Collect @ Pre-state : @.";
-        Domain.pp F.err_formatter mem;
-        F.fprintf F.err_formatter "@.@.";
-        Sil.pp_instr pe_text F.err_formatter instr;
-        F.fprintf F.err_formatter "@.@.";
         let cond_set = 
           match instr with
           | Sil.Load (_, exp, _, loc)
@@ -258,7 +266,6 @@ struct
             begin
               match Summary.read_summary tenv pdesc callee_pname with
               | Some summary ->
-                  F.fprintf F.err_formatter "callee's summary @ %a" Domain.Summary.pp summary;
                   let callee = extras callee_pname in
                   instantiate_cond tenv callee params mem summary loc
                   |> Domain.ConditionSet.join cond_set
@@ -267,8 +274,7 @@ struct
           | _ -> cond_set
         in
         let mem = TransferFunctions.exec_instr mem proc_data node instr in
-        F.fprintf F.err_formatter "@.@.";
-        Domain.ConditionSet.pp F.err_formatter cond_set;
+        print_debug_info instr mem cond_set;
         (cond_set, mem)
     ) (cond_set, mem) instrs
     |> fst
@@ -282,19 +288,14 @@ struct
       | _ -> cond_set) Domain.ConditionSet.empty pdesc
 
   let report_error : Tenv.t -> Procdesc.t -> Domain.ConditionSet.t -> unit 
-  = fun tenv proc_desc conds -> 
-    let proc_name = Procdesc.get_proc_name proc_desc in
-    F.fprintf F.err_formatter "@.Conditions of %a :@,@," Procname.pp proc_name;
-    Domain.ConditionSet.pp F.err_formatter conds;
+  = fun tenv _ conds -> 
     Domain.ConditionSet.iter (fun cond ->
         let safe = Domain.Condition.check cond in
         (* report symbol-related alarms only in debug mode *)
         if not safe then
         (
           Checkers.ST.report_error tenv
-  (*          proc_name*)
             (Domain.Condition.get_proc_name cond)
-  (*          proc_desc*)
             (Domain.Condition.get_proc_desc cond)
             "BUFFER-OVERRUN CHECKER"
             (Domain.Condition.get_location cond)
@@ -333,9 +334,6 @@ struct
              Analyzer.extract_post (Analyzer.CFG.id (Analyzer.CFG.exit_node cfg)) inv_map)
       in
       let cond_set = Report.collect (ProcData.make pdesc tenv extras) inv_map in
-      let proc_name = Procdesc.get_proc_name proc_desc in
-      F.fprintf F.err_formatter "@.@[<v 2>Collecting of %a :@,@," Procname.pp proc_name;
-      F.fprintf F.err_formatter "Cond Set @ %a" Domain.ConditionSet.pp cond_set;
       match entry_mem, exit_mem with
       | Some entry_mem, Some exit_mem -> 
           Summary.write_summary (Procdesc.get_proc_name pdesc) 
