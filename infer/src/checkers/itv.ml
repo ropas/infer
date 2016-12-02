@@ -175,11 +175,14 @@ struct
     | Min -> F.fprintf fmt "min"
     | Max -> F.fprintf fmt "max"
 
+  (* NOTE: Bot in Bound is assigned only when stitching with the bottom
+     value. *)
   type t =
     | MInf
     | Linear of int * SymLinear.t
     | MinMax of min_max_t * int * Symbol.t
     | PInf
+    | Bot
 
   let compare : t -> t -> int
   = fun x y ->
@@ -200,6 +203,9 @@ struct
     | MinMax _, _ -> -1
     | _, MinMax _ -> 1
     | PInf, PInf -> 0
+    | PInf, _ -> -1
+    | _, PInf -> 1
+    | Bot, Bot -> 0
 
   let of_int : int -> t
   = fun n ->
@@ -210,7 +216,7 @@ struct
 
   let is_symbolic : t -> bool
   = function
-    | MInf | PInf -> false
+    | MInf | PInf | Bot -> false
     | Linear (_, se) -> SymLinear.cardinal se > 0
     | MinMax _ -> true
 
@@ -238,18 +244,14 @@ struct
 
   let use_symbol : Symbol.t -> t -> bool
   = fun s -> function
-    | PInf | MInf -> false
+    | PInf | MInf | Bot -> false
     | Linear (_, se) -> SymLinear.find s se <> 0
     | MinMax (_, _, s') -> Symbol.eq s s'
 
   let subst1 : t -> t -> Symbol.t -> t -> t
   = fun default x s y ->
-    if (default = PInf && x = MInf) 
-        || (default = MInf && x = PInf) then x
-    else if not (use_symbol s x) then x else
+    if not (use_symbol s x) then x else
       match x, y with
-      | MInf, _
-      | PInf, _ -> x
       | _, _ when eq_symbol s x -> y
       | Linear (c1, se1), Linear (c2, se2) ->
           let coeff = SymLinear.find s se1 in
@@ -284,6 +286,7 @@ struct
 
   let le : t -> t -> bool
   = fun x y ->
+    assert (x <> Bot && y <> Bot);
     match x, y with
     | MInf, _
     | _, PInf -> true
@@ -303,6 +306,7 @@ struct
 
   let lt : t -> t -> bool
   = fun x y ->
+    assert (x <> Bot && y <> Bot);
     match x, y with
     | MInf, Linear _
     | MInf, MinMax _
@@ -317,10 +321,13 @@ struct
 
   let eq : t -> t -> bool
   = fun x y ->
-    le x y && le y x
+    if x = Bot && y = Bot then true else
+    if x = Bot || y = Bot then false else
+      le x y && le y x
 
   let min : t -> t -> t
   = fun x y ->
+    assert (x <> Bot && y <> Bot);
     if le x y then x else
     if le y x then y else
       match x, y with
@@ -338,6 +345,7 @@ struct
 
   let max : t -> t -> t
   = fun x y ->
+    assert (x <> Bot && y <> Bot);
     if le x y then y else
     if le y x then x else
       match x, y with
@@ -355,12 +363,14 @@ struct
 
   let widen_l : t -> t -> t
   = fun x y ->
+    assert (x <> Bot && y <> Bot);
     if x = PInf || y = PInf then failwith "Lower bound cannot be +oo." else
     if le x y then x else
       MInf
 
   let widen_u : t -> t -> t
   = fun x y ->
+    assert (x <> Bot && y <> Bot);
     if x = MInf || y = MInf then failwith "Upper bound cannot be -oo." else
     if le y x then x else
       PInf
@@ -369,6 +379,7 @@ struct
   = fun fmt -> function
     | MInf -> F.fprintf fmt "-oo"
     | PInf -> F.fprintf fmt "+oo"
+    | Bot -> F.fprintf fmt "_|_"
     | Linear (c, x) ->
         if SymLinear.le x SymLinear.empty then
           F.fprintf fmt "%d" c
@@ -385,17 +396,22 @@ struct
   let one : t = Linear (1, SymLinear.zero)
 
   let is_zero : t -> bool
-  = function
-    | Linear (c, x) -> c = 0 && SymLinear.is_zero x
+  = fun x ->
+    assert (x <> Bot);
+    match x with
+    | Linear (c, y) -> c = 0 && SymLinear.is_zero y
     | _ -> false
 
   let is_const : t -> int option
-  = function
-    | Linear (c, x) when SymLinear.is_zero x -> Some c
+  = fun x ->
+    assert (x <> Bot);
+    match x with
+    | Linear (c, y) when SymLinear.is_zero y -> Some c
     | _ -> None
 
   let plus : t -> t -> t option
   = fun x y ->
+    assert (x <> Bot && y <> Bot);
     match x, y with
     | MInf, PInf
     | PInf, MInf -> failwith "Cannot calculate +oo + -oo."
@@ -411,6 +427,7 @@ struct
 
   let minus : t -> t -> t option
   = fun x y ->
+    assert (x <> Bot && y <> Bot);
     match x, y with
     | PInf, PInf -> failwith "Cannot calculate +oo - +oo."
     | MInf, MInf -> failwith "Cannot calculate -oo - -oo."
@@ -423,6 +440,7 @@ struct
 
   let mult_const : t -> int -> t option
   = fun x n ->
+    assert (x <> Bot);
     assert (n <> 0);
     match x with
     | MInf -> Some (if n > 0 then MInf else PInf)
@@ -432,6 +450,7 @@ struct
 
   let div_const : t -> int -> t option
   = fun x n ->
+    assert (x <> Bot);
     if n = 0 then Some zero else
       match x with
       | MInf -> Some (if n > 0 then MInf else PInf)
@@ -448,21 +467,25 @@ struct
     | PInf -> Some MInf
     | Linear (c, x) -> Some (Linear (-c, SymLinear.neg x))
     | MinMax _ -> None
+    | Bot -> assert false
 
   let prune_l : t -> (t * t) -> t
   = fun x (l, u) ->
+    assert (x <> Bot && l <> Bot && u <> Bot);
     match plus u one with
     | Some u' when le l x && le x u -> u'
     | _ -> x
 
   let prune_u : t -> (t * t) -> t
   = fun x (l, u) ->
+    assert (x <> Bot && l <> Bot && u <> Bot);
     match minus l one with
     | Some l' when le l x && le x u -> l'
     | _ -> x
 
   let make_min_max : min_max_t -> t -> t -> t option
   = fun m x y ->
+    assert (x <> Bot && y <> Bot);
     match x, y with
     | Linear (cx, x'), Linear (cy, y')
       when cy = 0 && SymLinear.is_zero x' && SymLinear.is_one_symbol y' ->
@@ -484,6 +507,7 @@ struct
     | MInf | PInf -> []
     | Linear (_, se) -> SymLinear.get_symbols se
     | MinMax (_, _, s) -> [s]
+    | Bot -> assert false
 end
 
 module ItvPure =
