@@ -354,7 +354,6 @@ struct
           (match SymLinear.one_symbol x0 with
            | Some x' -> MinMax (Min, c1, x')
            | None -> assert false)
-      (* TODO *)
       | MinMax (Max, c0, _), Linear (c1, x1)
       | Linear (c1, x1), MinMax (Max, c0, _) 
         when SymLinear.is_zero x1 && c0 < c1 -> Linear (c0, x1)
@@ -376,6 +375,9 @@ struct
           (match SymLinear.one_symbol x0 with
            | Some x' -> MinMax (Max, c1, x')
            | None -> assert false)
+      | MinMax (Min, c0, _), Linear (c1, x1)
+      | Linear (c1, x1), MinMax (Min, c0, _) 
+        when SymLinear.is_zero x1 && c0 > c1 -> Linear (c0, x1)
       | _, _ -> PInf
 
   let widen_l : t -> t -> t
