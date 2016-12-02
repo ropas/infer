@@ -18,7 +18,7 @@ module F = Format
 let active_procedure_checkers () =
   let checkers_enabled = Config.checkers_enabled in
 
-  let java_checkers =
+(*  let java_checkers =
     let l =
       [
         Checkers.callback_check_access, false;
@@ -40,22 +40,24 @@ let active_procedure_checkers () =
         PrintfArgs.callback_printf_args, checkers_enabled;
         AnnotationReachability.Interprocedural.check_and_report, checkers_enabled;
         ThreadSafety.method_analysis, false;
+        BufferOverrunChecker.checker, checkers_enabled;
       ] in
     (* make sure SimpleChecker.ml is not dead code *)
     if false then (let module SC = SimpleChecker.Make in ());
-    IList.map (fun (x, y) -> (x, y, Some Config.Java)) l in
+    IList.map (fun (x, y) -> (x, y, Some Config.Java)) l in*)
   let c_cpp_checkers =
     let l =
       [
-        Checkers.callback_print_c_method_calls, false;
+(*        Checkers.callback_print_c_method_calls, false;
         CheckDeadCode.callback_check_dead_code, false;
         Checkers.callback_print_access_to_globals, false;
         CppTaintAnalysis.checker, Config.quandary;
-        Siof.checker, checkers_enabled;
+        Siof.checker, checkers_enabled;*)
+        BufferOverrunChecker.checker, checkers_enabled;
       ] in
     IList.map (fun (x, y) -> (x, y, Some Config.Clang)) l in
 
-  java_checkers @ c_cpp_checkers
+(*  java_checkers @*) c_cpp_checkers
 
 let active_cluster_checkers () =
   [(Checkers.callback_check_cluster_access, false, Some Config.Java);

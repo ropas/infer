@@ -20,7 +20,7 @@ let module Node: {
   type t;
 
   /** node id */
-  type id = private int;
+  type id = int;
 
   /** kind of cfg node */
   type nodekind =
@@ -174,6 +174,9 @@ let fold_calls: ('a => (Procname.t, Location.t) => 'a) => 'a => t => 'a;
 /** fold over all nodes and their instructions */
 let fold_instrs: ('a => Node.t => Sil.instr => 'a) => 'a => t => 'a;
 
+/** fold over all nodes */
+let fold_nodes: ('a => Node.t => 'a) => 'a => t => 'a;
+
 
 /** Only call from Cfg. */
 let from_proc_attributes: called_from_cfg::bool => ProcAttributes.t => t;
@@ -279,3 +282,5 @@ let set_start_node: t => Node.t => unit;
 
 /** indicate that we have performed preanalysis on the CFG assoociated with [t] */
 let signal_did_preanalysis: t => unit;
+
+let is_loop_head: t => Node.t => bool;
