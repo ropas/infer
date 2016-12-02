@@ -1,3 +1,19 @@
+(*
+ * Copyright (c) 2016 - present 
+ * Kihong Heo (http://ropas.snu.ac.kr/~khheo)
+ * Sungkeun Cho (http://ropas.snu.ac.kr/~skcho)
+ * Kwangkeun Yi (http://ropas.snu.ac.kr/~kwang)
+ * 
+ * ROSAEC(Research On Software Analysis for Error-free Computing) Center
+ * Programming Research Laboratory
+ * Seoul National University, Korea
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ *)
+
 open! Utils
 open BasicDom
 
@@ -303,8 +319,8 @@ struct
     in
     IList.fold_left (fun map (formal, actual) ->
       match formal with 
-      | Itv.Bound.Linear (0, se1) when Itv.SymExp.cardinal se1 > 0 ->
-          let (symbol, coeff) = Itv.SymExp.choose se1 in
+      | Itv.Bound.Linear (0, se1) when Itv.SymLinear.cardinal se1 > 0 ->
+          let (symbol, coeff) = Itv.SymLinear.choose se1 in
           if coeff = 1 then
             Itv.SubstMap.add symbol actual map
           else (* impossible *) map

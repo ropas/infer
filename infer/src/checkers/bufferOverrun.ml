@@ -14,12 +14,12 @@
  * of patent rights can be found in the PATENTS file in the same directory.
  *)
 
-
 open! Utils
 open BasicDom
 
 module F = Format
 module L = Logging
+module Domain = BufferOverrunDomain
 
 module Summary = Summary.Make (struct
     type summary = BufferOverrunDomain.Summary.t
@@ -36,7 +36,7 @@ module SubstMap = Map.Make(struct type t = Itv.Bound.t let compare = Itv.Bound.c
 module TransferFunctions (CFG : ProcCfg.S) = 
 struct
   module CFG = CFG
-  module Domain = BufferOverrunDomain
+  module Domain = Domain
   module Semantics = BufferOverrunSemantics.Make(CFG)
   type extras = Procname.t -> Procdesc.t option
   exception Not_implemented 
@@ -81,7 +81,9 @@ struct
   let rec declare_array pdesc node loc typ len inst_num dimension mem = 
     let size = IntLit.to_int len |> Itv.of_int in
     let arr = Semantics.eval_array_alloc pdesc node typ Itv.zero size inst_num dimension in
-    let mem = if dimension = 1 then Domain.Mem.add_stack loc arr mem else Domain.Mem.add_heap loc arr mem 
+    let mem = 
+      if dimension = 1 then Domain.Mem.add_stack loc arr mem 
+      else Domain.Mem.add_heap loc arr mem 
     in
     let loc = Loc.of_allocsite (Semantics.get_allocsite pdesc node inst_num dimension) in
     match typ with 
@@ -188,13 +190,8 @@ struct
     output_mem
 end
 
-module Analyzer =
-  AbstractInterpreter.Make
-    (ProcCfg.Normal)
-    (Scheduler.ReversePostorder)
-    (TransferFunctions)
-
-module Domain = BufferOverrunDomain
+module Analyzer = AbstractInterpreter.Make
+    (ProcCfg.Normal) (Scheduler.ReversePostorder) (TransferFunctions)
 
 module Report =
 struct 
@@ -254,7 +251,6 @@ struct
       Domain.ConditionSet.pp F.err_formatter cond_set;
       F.fprintf F.err_formatter "@.@.";
     end
-   
 
   let collect_instrs ({ ProcData.pdesc; tenv; extras } as proc_data) node (instrs: Sil.instr list) mem cond_set = 
     IList.fold_left (fun (cond_set, mem) instr ->

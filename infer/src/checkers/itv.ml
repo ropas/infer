@@ -44,7 +44,7 @@ end
 module SubstMap =
   Map.Make (struct type t = Symbol.t let compare = Symbol.compare end)
 
-module SymExp =
+module SymLinear =
 struct
   module M = Map.Make(Symbol)
 
@@ -177,7 +177,7 @@ struct
 
   type t =
     | MInf
-    | Linear of int * SymExp.t
+    | Linear of int * SymLinear.t
     | MinMax of min_max_t * int * Symbol.t
     | PInf
 
@@ -189,7 +189,7 @@ struct
     | _, MInf -> 1
     | Linear (c1, se1), Linear (c2, se2) ->
         let i = c1 - c2 in
-        if i <> 0 then i else SymExp.compare se1 se2
+        if i <> 0 then i else SymLinear.compare se1 se2
     | Linear _, _ -> -1
     | _, Linear _ -> 1
     | MinMax (m1, c1, s1), MinMax (m2, c2, s2) ->
@@ -203,15 +203,15 @@ struct
 
   let of_int : int -> t
   = fun n ->
-    Linear (n, SymExp.empty)
+    Linear (n, SymLinear.empty)
 
-  let of_sym : SymExp.t -> t
+  let of_sym : SymLinear.t -> t
   = fun s -> Linear (0, s)
 
   let is_symbolic : t -> bool
   = function
     | MInf | PInf -> false
-    | Linear (_, se) -> SymExp.cardinal se > 0
+    | Linear (_, se) -> SymLinear.cardinal se > 0
     | MinMax _ -> true
 
   let opt_lift : ('a -> 'b -> bool) -> 'a option -> 'b option -> bool
@@ -224,12 +224,12 @@ struct
   let eq_symbol : Symbol.t -> t -> bool
   = fun s -> function
     | Linear (c, se) ->
-        c = 0 && opt_lift Symbol.eq (SymExp.one_symbol se) (Some s)
+        c = 0 && opt_lift Symbol.eq (SymLinear.one_symbol se) (Some s)
     | _ -> false
 
   let one_symbol : t -> Symbol.t option
   = function
-    | Linear (c, se) when c = 0 -> SymExp.one_symbol se
+    | Linear (c, se) when c = 0 -> SymLinear.one_symbol se
     | _ -> None
 
   let is_one_symbol : t -> bool
@@ -239,32 +239,34 @@ struct
   let use_symbol : Symbol.t -> t -> bool
   = fun s -> function
     | PInf | MInf -> false
-    | Linear (_, se) -> SymExp.find s se <> 0
+    | Linear (_, se) -> SymLinear.find s se <> 0
     | MinMax (_, _, s') -> Symbol.eq s s'
 
   let subst1 : t -> t -> Symbol.t -> t -> t
   = fun default x s y ->
-    if not (use_symbol s x) then x else
+    if (default = PInf && x = MInf) 
+        || (default = MInf && x = PInf) then x
+    else if not (use_symbol s x) then x else
       match x, y with
       | MInf, _
       | PInf, _ -> x
       | _, _ when eq_symbol s x -> y
       | Linear (c1, se1), Linear (c2, se2) ->
-          let coeff = SymExp.find s se1 in
+          let coeff = SymLinear.find s se1 in
           let c' = c1 + coeff * c2 in
-          let se1 = SymExp.add s 0 se1 in
-          let se' = SymExp.plus se1 (SymExp.mult_const se2 coeff) in
+          let se1 = SymLinear.add s 0 se1 in
+          let se' = SymLinear.plus se1 (SymLinear.mult_const se2 coeff) in
           Linear (c', se')
       | MinMax (Min, _, s'), MInf when Symbol.eq s s' -> MInf
-      | MinMax (Max, c, s'), MInf when Symbol.eq s s' -> Linear (c, SymExp.zero)
+      | MinMax (Max, c, s'), MInf when Symbol.eq s s' -> Linear (c, SymLinear.zero)
       | MinMax (Max, _, s'), PInf when Symbol.eq s s' -> PInf
-      | MinMax (Min, c, s'), PInf when Symbol.eq s s' -> Linear (c, SymExp.zero)
+      | MinMax (Min, c, s'), PInf when Symbol.eq s s' -> Linear (c, SymLinear.zero)
       | MinMax (Min, c1, s'), Linear (c2, se)
-        when Symbol.eq s s' && SymExp.is_zero se ->
-          Linear (min c1 c2, SymExp.zero)
+        when Symbol.eq s s' && SymLinear.is_zero se ->
+          Linear (min c1 c2, SymLinear.zero)
       | MinMax (Max, c1, s'), Linear (c2, se)
-        when Symbol.eq s s' && SymExp.is_zero se ->
-          Linear (max c1 c2, SymExp.zero)
+        when Symbol.eq s s' && SymLinear.is_zero se ->
+          Linear (max c1 c2, SymLinear.zero)
       | MinMax (m, c, s'), _ when Symbol.eq s s' && is_one_symbol y ->
           (match one_symbol y with
            | Some s'' -> MinMax (m, c, s'')
@@ -275,6 +277,7 @@ struct
           MinMax (Max, max c1 c2, s'')
       | _ -> default
 
+  (* substitution symbols in ``x'' with respect to ``map'' *)
   let subst : t -> t -> t SubstMap.t -> t
   = fun default x map ->
     SubstMap.fold (fun s y x -> subst1 default x s y) map x
@@ -286,15 +289,15 @@ struct
     | _, PInf -> true
     | _, MInf
     | PInf, _ -> false
-    | Linear (c0, x0), Linear (c1, x1) -> c0 <= c1 && SymExp.eq x0 x1
+    | Linear (c0, x0), Linear (c1, x1) -> c0 <= c1 && SymLinear.eq x0 x1
     | MinMax (Min, c0, x0), MinMax (Min, c1, x1)
     | MinMax (Max, c0, x0), MinMax (Max, c1, x1) -> c0 <= c1 && Symbol.eq x0 x1
     | MinMax (Min, c0, x0), Linear (c1, x1) ->
-        (c0 <= c1 && SymExp.is_zero x1)
-        || (c1 = 0 && opt_lift Symbol.eq (SymExp.one_symbol x1) (Some x0))
+        (c0 <= c1 && SymLinear.is_zero x1)
+        || (c1 = 0 && opt_lift Symbol.eq (SymLinear.one_symbol x1) (Some x0))
     | Linear (c1, x1), MinMax (Max, c0, x0) ->
-        (c1 <= c0 && SymExp.is_zero x1)
-        || (c1 = 0 && opt_lift Symbol.eq (SymExp.one_symbol x1) (Some x0))
+        (c1 <= c0 && SymLinear.is_zero x1)
+        || (c1 = 0 && opt_lift Symbol.eq (SymLinear.one_symbol x1) (Some x0))
     | MinMax (Min, c0, x0), MinMax (Max, c1, x1) -> c0 <= c1 || Symbol.eq x0 x1
     | _, _ -> false
 
@@ -306,9 +309,9 @@ struct
     | MInf, PInf
     | Linear _, PInf
     | MinMax _, PInf -> true
-    | Linear (c0, x0), Linear (c1, x1) -> c0 < c1 && SymExp.eq x0 x1
-    | MinMax (Min, c0, _), Linear (c1, x1) -> c0 < c1 && SymExp.is_zero x1
-    | Linear (c1, x1), MinMax (Max, c0, _) -> c1 < c0 && SymExp.is_zero x1
+    | Linear (c0, x0), Linear (c1, x1) -> c0 < c1 && SymLinear.eq x0 x1
+    | MinMax (Min, c0, _), Linear (c1, x1) -> c0 < c1 && SymLinear.is_zero x1
+    | Linear (c1, x1), MinMax (Max, c0, _) -> c1 < c0 && SymLinear.is_zero x1
     | MinMax (Min, c0, _), MinMax (Max, c1, _) -> c0 < c1
     | _, _ -> false
 
@@ -322,13 +325,13 @@ struct
     if le y x then y else
       match x, y with
       | Linear (c0, x0), Linear (c1, x1)
-        when SymExp.is_zero x0 && c1 = 0 && SymExp.is_one_symbol x1 ->
-          (match SymExp.one_symbol x1 with
+        when SymLinear.is_zero x0 && c1 = 0 && SymLinear.is_one_symbol x1 ->
+          (match SymLinear.one_symbol x1 with
            | Some x' -> MinMax (Min, c0, x')
            | None -> assert false)
       | Linear (c0, x0), Linear (c1, x1)
-        when SymExp.is_zero x1 && c0 = 0 && SymExp.is_one_symbol x0 ->
-          (match SymExp.one_symbol x0 with
+        when SymLinear.is_zero x1 && c0 = 0 && SymLinear.is_one_symbol x0 ->
+          (match SymLinear.one_symbol x0 with
            | Some x' -> MinMax (Min, c1, x')
            | None -> assert false)
       | _, _ -> MInf
@@ -339,13 +342,13 @@ struct
     if le y x then x else
       match x, y with
       | Linear (c0, x0), Linear (c1, x1)
-        when SymExp.is_zero x0 && c1 = 0 && SymExp.is_one_symbol x1 ->
-          (match SymExp.one_symbol x1 with
+        when SymLinear.is_zero x0 && c1 = 0 && SymLinear.is_one_symbol x1 ->
+          (match SymLinear.one_symbol x1 with
            | Some x' -> MinMax (Max, c0, x')
            | None -> assert false)
       | Linear (c0, x0), Linear (c1, x1)
-        when SymExp.is_zero x1 && c0 = 0 && SymExp.is_one_symbol x0 ->
-          (match SymExp.one_symbol x0 with
+        when SymLinear.is_zero x1 && c0 = 0 && SymLinear.is_one_symbol x0 ->
+          (match SymLinear.one_symbol x0 with
            | Some x' -> MinMax (Max, c1, x')
            | None -> assert false)
       | _, _ -> PInf
@@ -367,28 +370,28 @@ struct
     | MInf -> F.fprintf fmt "-oo"
     | PInf -> F.fprintf fmt "+oo"
     | Linear (c, x) ->
-        if SymExp.le x SymExp.empty then
+        if SymLinear.le x SymLinear.empty then
           F.fprintf fmt "%d" c
         else if c = 0 then
-          F.fprintf fmt "%a" SymExp.pp x
+          F.fprintf fmt "%a" SymLinear.pp x
         else
-          F.fprintf fmt "%a + %d" SymExp.pp x c
+          F.fprintf fmt "%a + %d" SymLinear.pp x c
     | MinMax (m, c, x) -> F.fprintf fmt "%a(%d, %a)" min_max_pp m c Symbol.pp x
 
   let initial : t = of_int 0
 
-  let zero : t = Linear (0, SymExp.zero)
+  let zero : t = Linear (0, SymLinear.zero)
 
-  let one : t = Linear (1, SymExp.zero)
+  let one : t = Linear (1, SymLinear.zero)
 
   let is_zero : t -> bool
   = function
-    | Linear (c, x) -> c = 0 && SymExp.is_zero x
+    | Linear (c, x) -> c = 0 && SymLinear.is_zero x
     | _ -> false
 
   let is_const : t -> int option
   = function
-    | Linear (c, x) when SymExp.is_zero x -> Some c
+    | Linear (c, x) when SymLinear.is_zero x -> Some c
     | _ -> None
 
   let plus : t -> t -> t option
@@ -403,7 +406,7 @@ struct
     | _, _ when is_zero x -> Some y
     | _, _ when is_zero y -> Some x
     | Linear (c1, x1), Linear (c2, x2) ->
-        Some (Linear (c1 + c2, SymExp.plus x1 x2))
+        Some (Linear (c1 + c2, SymLinear.plus x1 x2))
     | _, _ -> None
 
   let minus : t -> t -> t option
@@ -415,7 +418,7 @@ struct
     | MInf, _ -> Some MInf
     | _, _ when is_zero y -> Some x
     | Linear (c1, x1), Linear (c2, x2) ->
-        Some (Linear (c1 - c2, SymExp.minus x1 x2))
+        Some (Linear (c1 - c2, SymLinear.minus x1 x2))
     | _, _ -> None
 
   let mult_const : t -> int -> t option
@@ -424,7 +427,7 @@ struct
     match x with
     | MInf -> Some (if n > 0 then MInf else PInf)
     | PInf -> Some (if n > 0 then PInf else MInf)
-    | Linear (c, x') -> Some (Linear (c * n, SymExp.mult_const x' n))
+    | Linear (c, x') -> Some (Linear (c * n, SymLinear.mult_const x' n))
     | _ -> None
 
   let div_const : t -> int -> t option
@@ -434,8 +437,8 @@ struct
       | MInf -> Some (if n > 0 then MInf else PInf)
       | PInf -> Some (if n > 0 then PInf else MInf)
       | Linear (c, x') ->
-          if c mod n = 0 && SymExp.is_mod_zero x' n then
-            Some (Linear (c / n, SymExp.div_const x' n))
+          if c mod n = 0 && SymLinear.is_mod_zero x' n then
+            Some (Linear (c / n, SymLinear.div_const x' n))
           else None
       | _ -> None
 
@@ -443,7 +446,7 @@ struct
   = function
     | MInf -> Some PInf
     | PInf -> Some MInf
-    | Linear (c, x) -> Some (Linear (-c, SymExp.neg x))
+    | Linear (c, x) -> Some (Linear (-c, SymLinear.neg x))
     | MinMax _ -> None
 
   let prune_l : t -> (t * t) -> t
@@ -462,13 +465,13 @@ struct
   = fun m x y ->
     match x, y with
     | Linear (cx, x'), Linear (cy, y')
-      when cy = 0 && SymExp.is_zero x' && SymExp.is_one_symbol y' ->
-        (match SymExp.one_symbol y' with
+      when cy = 0 && SymLinear.is_zero x' && SymLinear.is_one_symbol y' ->
+        (match SymLinear.one_symbol y' with
          | Some s -> Some (MinMax (m, cx, s))
          | None -> None)
     | Linear (cx, x'), Linear (cy, y')
-      when cx = 0 && SymExp.is_zero y' && SymExp.is_one_symbol x' ->
-        (match SymExp.one_symbol x' with
+      when cx = 0 && SymLinear.is_zero y' && SymLinear.is_one_symbol x' ->
+        (match SymLinear.one_symbol x' with
          | Some s -> Some (MinMax (m, cy, s))
          | None -> None)
     | _, _ -> None
@@ -479,7 +482,7 @@ struct
 
   let get_symbols = function
     | MInf | PInf -> []
-    | Linear (_, se) -> SymExp.get_symbols se
+    | Linear (_, se) -> SymLinear.get_symbols se
     | MinMax (_, _, s) -> [s]
 end
 
@@ -524,8 +527,8 @@ struct
   let get_new_sym : unit -> t
   = fun () ->
     (* just for pretty printing *)
-    let lower = Bound.of_sym (SymExp.get_new ()) in
-    let upper = Bound.of_sym (SymExp.get_new ()) in
+    let lower = Bound.of_sym (SymLinear.get_new ()) in
+    let upper = Bound.of_sym (SymLinear.get_new ()) in
     (lower, upper)
 
   let top : astate = (Bound.MInf, Bound.PInf)
