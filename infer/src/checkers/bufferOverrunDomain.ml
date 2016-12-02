@@ -41,11 +41,14 @@ struct
     then Itv.make Itv.Bound.zero (Itv.ub s)
     else s
 
+  let location_pp fmt e =
+    let fname = DB.source_file_to_string e.loc.Location.file in
+    let pos = Location.to_string e.loc in
+    F.fprintf fmt "%s:%s" fname pos
+
   let pp fmt e = 
     let size = set_size_pos e.size in
-    F.fprintf fmt "%a < %a at %a in %s" Itv.pp e.idx Itv.pp size 
-      Location.pp e.loc 
-      (DB.source_file_to_string e.loc.Location.file)
+    F.fprintf fmt "%a < %a at %a" Itv.pp e.idx Itv.pp size location_pp e
 
   let get_location e = e.loc
   let get_proc_desc e = e.proc_desc
@@ -240,6 +243,9 @@ struct
 
   let subst (i,p,a) subst_map = 
     (Itv.subst i subst_map, p, ArrayBlk.subst a subst_map)
+
+  let get_symbols (i, _, a) =
+    IList.append (Itv.get_symbols i) (ArrayBlk.get_symbols a)
 end
 
 module Stack = 
@@ -329,6 +335,13 @@ struct
 
   let pp_summary fmt mem =
     iter (fun k v -> F.fprintf fmt "%a -> %a@," Loc.pp k Val.pp v) mem
+
+  let get_symbols mem =
+    IList.flatten (IList.map (fun (_, v) -> Val.get_symbols v) (bindings mem))
+
+  let get_result mem =
+    let mem = filter (fun l _ -> Loc.is_return l) mem in
+    if is_empty mem then Val.bot else snd (choose mem)
 end
 
 module Alias =
@@ -418,6 +431,9 @@ struct
   let strong_update_heap p v m = (fst m, Heap.strong_update p v (snd m), trd m)
   let weak_update_stack p v m = (Stack.weak_update p v (fst m), snd m, trd m)
   let weak_update_heap p v m = (fst m, Heap.weak_update p v (snd m), trd m)
+
+  let get_heap_symbols (_, m, _) = Heap.get_symbols m
+  let get_result (_, m, _) = Heap.get_result m
 end
 
 
@@ -434,11 +450,33 @@ let pp fmt m =
 let pp_summary fmt (m, c) =
   F.fprintf fmt "%a" Mem.pp_summary m
 *)
-include Mem
 
 module Summary = 
 struct 
   type t = Mem.astate * Mem.astate * ConditionSet.t
-  let pp fmt (entry_mem, exit_mem, condition_set) = 
-    F.fprintf fmt "%a@,%a@,%a" Mem.pp entry_mem Mem.pp exit_mem ConditionSet.pp condition_set
+
+  let get_pre (pre, _, _) = pre
+
+  let get_post (_, post, _) = post
+
+  let get_conds (_, _, conds) = conds
+
+  let get_symbols s = Mem.get_heap_symbols (get_pre s)
+
+  let get_result s = Mem.get_result (get_post s)
+
+  let pp_symbols fmt s =
+    let pp_sep fmt () = F.fprintf fmt ", @," in
+    F.fprintf fmt "@[<hov 2>Symbols: {";
+    F.pp_print_list ~pp_sep Itv.Symbol.pp fmt (get_symbols s);
+    F.fprintf fmt "}@]"
+
+  let pp_result fmt s =
+    F.fprintf fmt "Return value: %a" Val.pp (get_result s)
+
+  let pp fmt s =
+    F.fprintf fmt "%a@,%a@,%a" pp_symbols s pp_result s
+      ConditionSet.pp (get_conds s)
 end
+
+include Mem

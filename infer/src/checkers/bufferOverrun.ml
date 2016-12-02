@@ -595,10 +595,10 @@ end
 let checker ({ Callbacks.get_proc_desc; Callbacks.tenv; proc_desc } as callback) =
   let post = Interprocedural.checker callback get_proc_desc in
   match post with 
-  | Some (_, post, cond_set) ->
+  | Some ((_, _, cond_set) as s) ->
       let proc_name = Procdesc.get_proc_name proc_desc in
-      F.fprintf F.err_formatter "@.@[<v 2>Summary of %a :@,@," Procname.pp proc_name;
-      Domain.pp_summary F.err_formatter post;
+      F.fprintf F.err_formatter "@.@[<v 2>Summary of %a :@," Procname.pp proc_name;
+      Domain.Summary.pp F.err_formatter s;
       F.fprintf F.err_formatter "@]@.";
       if Procname.to_string proc_name = "main" then
         Report.report_error tenv proc_desc cond_set

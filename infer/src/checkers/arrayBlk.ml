@@ -76,6 +76,13 @@ struct
   let subst arr subst_map = { arr with offset = Itv.subst arr.offset subst_map; size = Itv.subst arr.size subst_map; }
   let pp fmt arr = 
     Format.fprintf fmt "offset : %a, size : %a, stride : %a" Itv.pp arr.offset Itv.pp arr.size Itv.pp arr.stride
+
+  let get_symbols arr =
+    let s1 = Itv.get_symbols arr.offset in
+    let s2 = Itv.get_symbols arr.size in
+    let s3 = Itv.get_symbols arr.stride in
+    let s4 = Itv.get_symbols arr.null_pos in
+    IList.flatten [s1; s2; s3; s4]
 end
 
 module PPMap = PrettyPrintable.MakePPMap 
@@ -142,3 +149,6 @@ let get_pow_loc : astate -> PowLoc.t = fun array ->
   fold pow_loc_of_allocsite array PowLoc.bot
 
 let subst a subst_map = map (fun info -> ArrInfo.subst info subst_map) a
+
+let get_symbols a =
+  IList.flatten (IList.map (fun (_, ai) -> ArrInfo.get_symbols ai) (bindings a))
