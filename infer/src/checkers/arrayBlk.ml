@@ -78,10 +78,7 @@ struct
 
   let subst arr subst_map = { arr with offset = Itv.subst arr.offset subst_map; size = Itv.subst arr.size subst_map; }
   let pp fmt arr = 
-    if Config.debug_mode then 
-      Format.fprintf fmt "offset : %a, size : %a, stride : %a" Itv.pp arr.offset Itv.pp arr.size Itv.pp arr.stride
-    else 
-      Format.fprintf fmt "offset : %a, size : %a" Itv.pp arr.offset Itv.pp arr.size
+    Format.fprintf fmt "offset : %a, size : %a" Itv.pp arr.offset Itv.pp arr.size
 
   let get_symbols arr =
     let s1 = Itv.get_symbols arr.offset in

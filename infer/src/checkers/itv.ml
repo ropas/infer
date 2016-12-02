@@ -168,18 +168,31 @@ end
 
 module Bound =
 struct
-  type min_max_t = Min | Max
-
-  let min_max_pp : F.formatter -> min_max_t -> unit
-  = fun fmt -> function
-    | Min -> F.fprintf fmt "min"
-    | Max -> F.fprintf fmt "max"
-
   type t =
     | MInf
     | Linear of int * SymLinear.t
     | MinMax of min_max_t * int * Symbol.t
     | PInf
+  and min_max_t = Min | Max
+
+  let pp_min_max : F.formatter -> min_max_t -> unit
+  = fun fmt -> function
+    | Min -> F.fprintf fmt "min"
+    | Max -> F.fprintf fmt "max"
+
+
+  let pp : F.formatter -> t -> unit
+  = fun fmt -> function
+    | MInf -> F.fprintf fmt "-oo"
+    | PInf -> F.fprintf fmt "+oo"
+    | Linear (c, x) ->
+        if SymLinear.le x SymLinear.empty then
+          F.fprintf fmt "%d" c
+        else if c = 0 then
+          F.fprintf fmt "%a" SymLinear.pp x
+        else
+          F.fprintf fmt "%a + %d" SymLinear.pp x c
+    | MinMax (m, c, x) -> F.fprintf fmt "%a(%d, %a)" pp_min_max m c Symbol.pp x
 
   let compare : t -> t -> int
   = fun x y ->
@@ -334,6 +347,10 @@ struct
           (match SymLinear.one_symbol x0 with
            | Some x' -> MinMax (Min, c1, x')
            | None -> assert false)
+      (* TODO *)
+      | MinMax (Max, c0, _), Linear (c1, x1)
+      | Linear (c1, x1), MinMax (Max, c0, _) 
+        when SymLinear.is_zero x1 && c0 < c1 -> Linear (c0, x1)
       | _, _ -> MInf
 
   let max : t -> t -> t
@@ -364,19 +381,6 @@ struct
     if x = MInf || y = MInf then failwith "Upper bound cannot be -oo." else
     if le y x then x else
       PInf
-
-  let pp : F.formatter -> t -> unit
-  = fun fmt -> function
-    | MInf -> F.fprintf fmt "-oo"
-    | PInf -> F.fprintf fmt "+oo"
-    | Linear (c, x) ->
-        if SymLinear.le x SymLinear.empty then
-          F.fprintf fmt "%d" c
-        else if c = 0 then
-          F.fprintf fmt "%a" SymLinear.pp x
-        else
-          F.fprintf fmt "%a + %d" SymLinear.pp x c
-    | MinMax (m, c, x) -> F.fprintf fmt "%a(%d, %a)" min_max_pp m c Symbol.pp x
 
   let initial : t = of_int 0
 

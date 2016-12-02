@@ -413,12 +413,12 @@ module Mem =
 struct
   include AbstractDomain.Pair3(Stack)(Heap)(Alias)
   let pp : F.formatter -> astate -> unit
-  = fun fmt (stack, heap, alias) ->
-    F.fprintf fmt "Stack : @ %a, @ Heap : @ %a, @ Alias : @ %a" 
-      Stack.pp stack Heap.pp heap Alias.pp alias
+  = fun fmt (stack, heap, _) ->
+    F.fprintf fmt "Stack : @ %a, @ Heap : @ %a, @ " 
+      Stack.pp stack Heap.pp heap
   let pp_summary : F.formatter -> astate -> unit
   = fun fmt (_, heap, _) ->
-    F.fprintf fmt "@[<v 0>Symbols :@,";
+    F.fprintf fmt "@[<v 0>Parameters :@,";
     F.fprintf fmt "%a" Heap.pp_summary heap ;
     F.fprintf fmt "@]"
   let find_stack k m = Stack.find k (fst m)
