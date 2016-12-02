@@ -132,8 +132,7 @@ struct
   = fun pdesc node typ offset size inst_num dimension ->
     let allocsite = get_allocsite pdesc node inst_num dimension in
     let stride = sizeof typ |> Itv.of_int in
-    let nullpos = Itv.nat in
-    ArrayBlk.make allocsite offset size stride nullpos
+    ArrayBlk.make allocsite offset size stride 
     |> Domain.Val.of_array_blk
 
   let prune_unop
@@ -268,7 +267,8 @@ struct
     let proc_name = Procdesc.get_proc_name pdesc in
     Procdesc.get_formals pdesc |> IList.map (fun (name, typ) -> (Pvar.mk name proc_name, typ))
 
-  let get_matching_pairs : Tenv.t -> Domain.Val.astate -> Domain.Val.astate -> Typ.t -> Domain.Mem.astate -> Domain.Mem.astate -> (Itv.Bound.t * Itv.Bound.t) list
+  let get_matching_pairs : Tenv.t -> Domain.Val.astate -> Domain.Val.astate -> 
+    Typ.t -> Domain.Mem.astate -> Domain.Mem.astate -> (Itv.Bound.t * Itv.Bound.t) list
   = fun tenv formal actual typ caller_mem callee_mem ->
     let add_pair itv1 itv2 l =
       if itv1 <> Itv.bot && itv2 <> Itv.bot then
@@ -307,6 +307,12 @@ struct
             ) pairs str.StructTyp.fields
         | _ -> pairs
       end
+    | Typ.Tptr (_ ,_) ->
+        let formal_loc = formal |> Domain.Val.get_all_locs in
+        let actual_loc = actual |> Domain.Val.get_all_locs in
+        let formal_arr_elem = Domain.Mem.find_heap_set formal_loc callee_mem in
+        let actual_arr_elem = Domain.Mem.find_heap_set actual_loc caller_mem in
+        add_pair_val formal_arr_elem actual_arr_elem @ pairs        
     | _ -> pairs
 
   let get_subst_map tenv callee_pdesc params caller_mem callee_entry_mem loc =
