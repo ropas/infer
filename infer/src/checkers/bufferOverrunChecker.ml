@@ -253,13 +253,15 @@ struct
   let print_debug_info instr pre cond_set = 
     if Config.debug_mode then 
     begin
-      F.fprintf F.err_formatter "Pre-state : @.";
+      F.fprintf F.err_formatter "@.@.================================@.";
+      F.fprintf F.err_formatter "@[<v 2>Pre-state : @,";
       Domain.pp F.err_formatter pre;
-      F.fprintf F.err_formatter "@.@.";
+      F.fprintf F.err_formatter "@]@.@.";
       Sil.pp_instr pe_text F.err_formatter instr;
-      F.fprintf F.err_formatter "@.@.";
+      F.fprintf F.err_formatter "@[<v 2>@.@.";
       Domain.ConditionSet.pp F.err_formatter cond_set;
-      F.fprintf F.err_formatter "@.";
+      F.fprintf F.err_formatter "@]@.";
+      F.fprintf F.err_formatter "================================@.@."
     end
 
   let collect_instrs ({ ProcData.pdesc; tenv; extras } as proc_data) node (instrs: Sil.instr list) mem cond_set = 
