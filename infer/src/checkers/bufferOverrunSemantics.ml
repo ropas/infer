@@ -319,8 +319,8 @@ struct
     in
     IList.fold_left (fun map (formal, actual) ->
       match formal with 
-      | Itv.Bound.Linear (0, se1) when Itv.SymExp.cardinal se1 > 0 ->
-          let (symbol, coeff) = Itv.SymExp.choose se1 in
+      | Itv.Bound.Linear (0, se1) when Itv.SymLinear.cardinal se1 > 0 ->
+          let (symbol, coeff) = Itv.SymLinear.choose se1 in
           if coeff = 1 then
             Itv.SubstMap.add symbol actual map
           else (* impossible *) map
