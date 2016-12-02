@@ -102,6 +102,7 @@ struct
             IList.fold_left (fun mem (fn, typ, _) ->
               let loc = Domain.Mem.find_heap loc mem |> Domain.Val.get_all_locs |> PowLoc.choose in
               let field = Loc.append_field loc fn in
+              let (offset, size) = (Itv.get_new_sym (), Itv.get_new_sym ()) in
               match typ with 
                 Typ.Tint _ | Typ.Tfloat _ -> 
                   Domain.Mem.add_heap field (Domain.Val.get_new_sym ()) mem
@@ -362,12 +363,10 @@ let checker ({ Callbacks.get_proc_desc; Callbacks.tenv; proc_desc } as callback)
   match post with 
   | Some ((_, _, cond_set) as s) ->
       let proc_name = Procdesc.get_proc_name proc_desc in
-
       F.fprintf F.err_formatter "@.@[<v 2>Summary of %a :@," Procname.pp proc_name;
       Domain.Summary.simple_pp F.err_formatter s;
       F.fprintf F.err_formatter "@]@.";
       if Procname.to_string proc_name = "main" then
         Report.report_error tenv proc_desc cond_set
-        (*(Domain.get_conds post |> Domain.ConditionSet.merge)*)
-(*        my_report_error tenv proc_desc (Domain.get_conds post |> Domain.ConditionSet.merge)        *)
+(*        my_report_error tenv proc_desc cond_set    *)
   | _ -> ()
