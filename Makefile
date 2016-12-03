@@ -13,7 +13,7 @@ ifeq ($(IS_FACEBOOK_TREE),yes)
   include $(ROOT_DIR)/facebook/Makefile.env
 endif
 
-BUILD_SYSTEMS_TESTS = assembly clang_translation project_root_rel
+BUILD_SYSTEMS_TESTS = assembly clang_translation linters project_root_rel
 ifneq ($(ANT),no)
 BUILD_SYSTEMS_TESTS += ant
 endif
@@ -309,7 +309,7 @@ ifeq ($(BUILD_C_ANALYZERS),yes)
 	done
 	$(INSTALL_PROGRAM) -C $(INFERCLANG_BIN) $(DESTDIR)$(libdir)/infer/infer/bin/
 	(cd $(DESTDIR)$(libdir)/infer/infer/bin/ && \
-	 $(LN_S) -f $(INFERCLANG_BIN) $(INFERCLANG_BIN)++)
+	 $(LN_S) -f InferClang InferClang++)
 endif
 ifneq ($(XCODE_SELECT),no)
 	@for i in $$(find infer/lib/xcode_wrappers/*); do \
