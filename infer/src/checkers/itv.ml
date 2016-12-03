@@ -42,8 +42,11 @@ struct
   = fun pname i -> (pname, i)
 
   let pp : F.formatter -> t -> unit
-  = fun fmt x -> F.fprintf fmt "%s-s$%d" 
-    (fst x |> Procname.to_string) (snd x)
+  = fun fmt x -> 
+    if Config.ropas_debug = 0 then
+      F.fprintf fmt "s$%d" (snd x)
+    else
+      F.fprintf fmt "%s-s$%d" (fst x |> Procname.to_string) (snd x)
 end
 
 module SubstMap = Map.Make (Symbol)

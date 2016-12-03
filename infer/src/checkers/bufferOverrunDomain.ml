@@ -79,7 +79,7 @@ struct
   let check : t -> bool
   = fun c ->
     let c = set_size_pos c in
-    if not Config.debug_mode
+    if  Config.ropas_debug <= 1 
     && (Itv.is_symbolic c.idx || Itv.is_symbolic c.size)
     then true
     else

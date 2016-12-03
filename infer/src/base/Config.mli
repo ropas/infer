@@ -273,8 +273,9 @@ val write_dotty : bool
 val write_html : bool
 val xcode_developer_dir : string option
 val xcpretty : bool
-val xml_specs : bool
-
+val xml_specs : bool                 
+val ropas_debug : int
+val ropas_report : bool
 
 (** Global variables *)
 

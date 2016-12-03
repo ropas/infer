@@ -1298,6 +1298,13 @@ and xml_specs =
   CLOpt.mk_bool ~deprecated:["xml"] ~long:"xml-specs"
     "Export specs into XML files file1.xml ... filen.xml"
 
+and ropas_debug =
+  CLOpt.mk_int ~default:0 ~long:"ropas-debug"
+    ~exes:CLOpt.[Toplevel] "Debug mode for ROPAS"
+
+and ropas_report =
+  CLOpt.mk_bool ~default:false ~long:"ropas-report"
+    ~exes:CLOpt.[Toplevel] "Alarm printer by ROPAS"
 
 (** Parse Command Line Args *)
 
@@ -1535,7 +1542,8 @@ and write_html = !write_html
 and xcode_developer_dir = !xcode_developer_dir
 and xcpretty = !xcpretty
 and xml_specs = !xml_specs
-
+and ropas_debug = !ropas_debug
+and ropas_report = !ropas_report
 
 (** Configuration values derived from command-line options *)
 

@@ -168,7 +168,7 @@ struct
     | _ -> Domain.Val.bot
 
   let print_debug_info instr pre post = 
-    if Config.debug_mode then 
+    if Config.ropas_debug >= 2 then 
     begin
       F.fprintf F.err_formatter "@.@.================================@.";
       F.fprintf F.err_formatter "@[<v 2>Pre-state : @,";
@@ -254,7 +254,7 @@ struct
         let size = ArrayBlk.sizeof arr in
         let offset = ArrayBlk.offsetof arr in
         let idx = Itv.plus offset idx in
-          (if Config.debug_mode then
+          (if Config.ropas_debug >= 2 then
              (F.fprintf F.err_formatter "@[<v 2>Add condition :@,";
               F.fprintf F.err_formatter "array: %a@," ArrayBlk.pp arr;
               F.fprintf F.err_formatter "  idx: %a@," Itv.pp idx;
@@ -274,7 +274,7 @@ struct
     | _ -> callee_cond
 
   let print_debug_info instr pre cond_set = 
-    if Config.debug_mode then 
+    if Config.ropas_debug >= 2 then 
     begin
       F.fprintf F.err_formatter "@.@.================================@.";
       F.fprintf F.err_formatter "@[<v 2>Pre-state : @,";
@@ -404,6 +404,10 @@ let checker ({ Callbacks.get_proc_desc; Callbacks.tenv; proc_desc } as callback)
       Domain.Summary.pp_summary F.err_formatter s;
       F.fprintf F.err_formatter "@]@.";
       if Procname.to_string proc_name = "main" then
-        Report.report_error tenv proc_desc cond_set
-(*        my_report_error tenv proc_desc cond_set    *)
+      begin
+        if Config.ropas_report then
+          Report.my_report_error tenv proc_desc cond_set    
+        else
+          Report.report_error tenv proc_desc cond_set
+      end
   | _ -> ()
