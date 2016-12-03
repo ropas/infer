@@ -311,7 +311,7 @@ struct
            | _ -> pairs)
       | Typ.Tptr (_ ,_) ->
           let v1' = deref_ptr v1 callee_mem in
-          let v2' = deref_ptr v1 caller_mem in
+          let v2' = deref_ptr v2 caller_mem in
           add_pair_val v1' v2' pairs
       | _ -> pairs
     in
