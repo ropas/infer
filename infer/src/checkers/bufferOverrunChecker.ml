@@ -80,7 +80,7 @@ struct
     | "strlen" | "fgetc" -> model_positive_itv ret mem
     | _ -> model_unknown_itv ret mem
 
-  let rec declare_array pdesc node loc typ len inst_num dimension mem = 
+  let rec declare_array pdesc node loc typ len ~inst_num ~dimension mem = 
     let size = IntLit.to_int len |> Itv.of_int in
     let arr = Semantics.eval_array_alloc pdesc node typ Itv.zero size inst_num dimension in
     let mem = 
@@ -90,7 +90,7 @@ struct
     let loc = Loc.of_allocsite (Semantics.get_allocsite pdesc node inst_num dimension) in
     match typ with 
       Typ.Tarray (typ, Some len) -> 
-        declare_array pdesc node loc typ len inst_num (dimension + 1) mem
+        declare_array pdesc node loc typ len ~inst_num ~dimension:(dimension + 1) mem
     | _ -> mem
 
   let declare_symbolic_array pdesc tenv node loc typ ~inst_num ~sym_num ~dimension mem =
@@ -134,7 +134,7 @@ struct
       end
     | _ -> (mem, sym_num+6)
 
-  let declare_symbolic_parameter pdesc tenv node mem = 
+  let declare_symbolic_parameter pdesc tenv node inst_num mem = 
     let pname = Procdesc.get_proc_name pdesc in
     (* formal parameters *)
     IList.fold_left (fun (mem, inst_num, sym_num) (pvar, typ) ->
@@ -150,7 +150,7 @@ struct
           in
           (mem, inst_num+1, sym_num)
       | _ -> (mem, inst_num, sym_num) (* add other cases if necessary *)) 
-    (mem, 0, 0) (Semantics.get_formals pdesc)
+    (mem, inst_num, 0) (Semantics.get_formals pdesc)
     |> fst3
       
   let instantiate_ret tenv callee_pdesc callee_pname params caller_mem summary loc =
@@ -210,13 +210,15 @@ struct
            | None -> handle_unknown_call pdesc ret callee_pname params node mem)
       | Declare_locals (locals, _) ->
           (* array allocation in stack e.g., int arr[10] *)
-          let mem = IList.fold_left (fun (mem, c) (pvar, typ) ->
+          let (mem, inst_num) = IList.fold_left (fun (mem, inst_num) (pvar, typ) ->
               match typ with
                 Typ.Tarray (typ, Some len) ->
-                  (declare_array pdesc node (Loc.of_var (Var.of_pvar pvar)) typ len c 1 mem, c+1)
-              | _ -> (mem, c)) (mem, 1) locals |> fst
+                  (declare_array pdesc node (Loc.of_var (Var.of_pvar pvar)) typ 
+                     len ~inst_num ~dimension:1 mem, 
+                   inst_num+1)
+              | _ -> (mem, inst_num)) (mem, 1) locals
           in
-          declare_symbolic_parameter pdesc tenv node mem
+          declare_symbolic_parameter pdesc tenv node inst_num mem
       | Call (_, _, _, _, _) | Remove_temps _ | Abstract _ | Nullify _ -> mem
     in
     print_debug_info instr mem output_mem;
