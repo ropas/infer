@@ -756,17 +756,13 @@ struct
     if is_false x && is_false y then false_sem else
       unknown_bool
 
-  let valid : t -> bool
-  = fun (l, u) ->
-    not (Bound.eq l Bound.PInf) && not (Bound.eq u Bound.MInf) && Bound.le l u
-
   let invalid : t -> bool
   = fun (l, u) ->
     Bound.eq l Bound.PInf || Bound.eq u Bound.MInf || Bound.lt u l
 
   let prune : t -> t -> t option
   = fun (l1, u1) y ->
-    if not (valid y) then Some (l1, u1) else
+    if invalid y then Some (l1, u1) else
       let x' = (Bound.prune_l l1 y, Bound.prune_u u1 y) in
       if invalid x' then None else Some x'
 
@@ -819,7 +815,7 @@ struct
 
   let prune_comp : Binop.t -> t -> t -> t option
   = fun c x (l, u) ->
-    if not (valid (l, u)) then Some x else
+    if invalid (l, u) then Some x else
       let x = Option.default x (prune_comp_arith c x (l, u)) in
       let x = Option.default x (prune_comp_minmax c x (l, u)) in
       if invalid x then None else Some x
