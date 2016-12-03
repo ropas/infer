@@ -45,8 +45,8 @@ struct
 
   (* heuristic *)
   let get_malloc_info = function
-    | Exp.BinOp (Binop.Mult, Exp.Sizeof (typ, _, _), ((Exp.Const _) as size))
-    | Exp.BinOp (Binop.Mult, ((Exp.Const _) as size), Exp.Sizeof (typ, _, _)) -> (typ, size)
+    | Exp.BinOp (Binop.Mult, Exp.Sizeof (typ, _, _), size)
+    | Exp.BinOp (Binop.Mult, size, Exp.Sizeof (typ, _, _)) -> (typ, size)
     | Exp.Sizeof (typ, _, _) -> (typ, Exp.one)
     | x -> (Typ.Tint Typ.IChar, x)
 
