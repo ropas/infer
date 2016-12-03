@@ -93,41 +93,66 @@ struct
         declare_array pdesc node loc typ len inst_num (dimension + 1) mem
     | _ -> mem
 
-  let declare_symbolic_array pdesc tenv node loc typ inst_num dimension mem =
-    let (offset, size) = (Itv.get_new_sym (), Itv.get_new_sym ()) in
+  let declare_symbolic_array pdesc tenv node loc typ ~inst_num ~sym_num ~dimension mem =
+    let pname = Procdesc.get_proc_name pdesc in
+    let offset = Itv.make_sym pname sym_num in
+    let size = Itv.make_sym pname (sym_num + 2) in
     let arr = Semantics.eval_array_alloc pdesc node typ offset size inst_num dimension in
+    let elem_val = Domain.Val.make_sym pname (sym_num + 4) in
     let mem = 
       Domain.Mem.add_heap loc arr mem 
       |> Domain.Mem.strong_update_heap 
           (arr |> Domain.Val.get_array_blk |> ArrayBlk.get_pow_loc) 
-          (Domain.Val.get_new_sym ())
+          elem_val
     in
     match typ with 
       Typ.Tstruct typename ->
       begin
         match Tenv.lookup tenv typename with
           Some str -> 
-            IList.fold_left (fun mem (fn, typ, _) ->
+            IList.fold_left (fun (mem, sym_num) (fn, typ, _) ->
               let loc = Domain.Mem.find_heap loc mem 
                 |> Domain.Val.get_all_locs 
                 |> PowLoc.choose 
               in
               let field = Loc.append_field loc fn in
-              let (offset, size) = (Itv.get_new_sym (), Itv.get_new_sym ()) in
               match typ with 
                 Typ.Tint _ | Typ.Tfloat _ -> 
-                  Domain.Mem.add_heap field (Domain.Val.get_new_sym ()) mem
+                  (Domain.Mem.add_heap field (Domain.Val.make_sym pname sym_num) mem, sym_num + 2)
               | Typ.Tptr (typ, _) -> 
-                  Domain.Mem.add_heap field 
+                  let (offset, size) = (Itv.make_sym pname sym_num, 
+                                        Itv.make_sym pname (sym_num + 2)) 
+                  in
+                  (Domain.Mem.add_heap field 
                     (Semantics.eval_array_alloc pdesc node typ offset size 
-                      inst_num dimension) mem
+                      inst_num dimension) mem,
+                   sym_num + 4)
                   (*declare_symbolic_array pdesc tenv node field typ (inst_num+1) dimension mem*)
-              | _ -> mem
-            ) mem str.StructTyp.fields
-        | _ -> mem
+              | _ -> (mem, sym_num)
+            ) (mem, sym_num+6) str.StructTyp.fields
+        | _ -> (mem, sym_num+6)
       end
-    | _ -> mem
-       
+    | _ -> (mem, sym_num+6)
+
+  let declare_symbolic_parameter pdesc tenv node mem = 
+    let pname = Procdesc.get_proc_name pdesc in
+    (* formal parameters *)
+    IList.fold_left (fun (mem, inst_num, sym_num) (pvar, typ) ->
+      match typ with
+        Typ.Tint _ -> 
+          (Domain.Mem.add_heap (Loc.of_pvar pvar) 
+              (Domain.Val.make_sym pname sym_num) mem, 
+           inst_num + 1,
+           sym_num + 2)
+      | Typ.Tptr (typ, _) ->
+          let (mem, sym_num) = declare_symbolic_array pdesc tenv node 
+              (Loc.of_pvar pvar) typ ~inst_num ~sym_num ~dimension:1 mem
+          in
+          (mem, inst_num+1, sym_num)
+      | _ -> (mem, inst_num, sym_num) (* add other cases if necessary *)) 
+    (mem, 0, 0) (Semantics.get_formals pdesc)
+    |> fst3
+      
   let instantiate_ret tenv callee_pdesc callee_pname params caller_mem summary loc =
     let (callee_entry_mem, callee_exit_mem) = 
       (Domain.Summary.get_input summary, Domain.Summary.get_output summary) in
@@ -184,21 +209,14 @@ struct
                 | _ -> mem)
            | None -> handle_unknown_call pdesc ret callee_pname params node mem)
       | Declare_locals (locals, _) ->
-          (* static array allocation *)
+          (* array allocation in stack e.g., int arr[10] *)
           let mem = IList.fold_left (fun (mem, c) (pvar, typ) ->
               match typ with
                 Typ.Tarray (typ, Some len) ->
                   (declare_array pdesc node (Loc.of_var (Var.of_pvar pvar)) typ len c 1 mem, c+1)
               | _ -> (mem, c)) (mem, 1) locals |> fst
           in
-          (* formal parameters *)
-          IList.fold_left (fun (mem, c) (pvar, typ) ->
-              match typ with
-                Typ.Tint _ -> (Domain.Mem.add_heap (Loc.of_pvar pvar) (Domain.Val.get_new_sym ()) mem, c+1)
-              | Typ.Tptr (typ, _) ->
-                  (declare_symbolic_array pdesc tenv node (Loc.of_pvar pvar) typ c 1 mem, c+1)
-              | _ -> (mem, c) (* TODO *)) (mem, 0) (Semantics.get_formals pdesc)
-          |> fst
+          declare_symbolic_parameter pdesc tenv node mem
       | Call (_, _, _, _, _) | Remove_temps _ | Abstract _ | Nullify _ -> mem
     in
     print_debug_info instr mem output_mem;

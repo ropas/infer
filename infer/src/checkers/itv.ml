@@ -21,22 +21,29 @@ let sym_size = ref 0
 
 module Symbol =
 struct
-  type t = int
+  type t = Procname.t * int
 
   let compare : t -> t -> int
-  = fun x y -> x - y
+  = fun x y -> 
+    let c = Procname.compare (fst x) (fst y) in
+    if c <> 0 then c
+    else (snd x) - (snd y)
 
   let eq : t -> t -> bool
   = fun x y -> compare x y = 0
 
-  let get_new : unit -> t
-  = fun () ->
-    let x = !sym_size in
+  let get_new : Procname.t -> t
+  = fun pname ->
+    let i = !sym_size in
     sym_size := !sym_size + 1;
-    x
+    (pname, i)
+
+  let make : Procname.t -> int -> t 
+  = fun pname i -> (pname, i)
 
   let pp : F.formatter -> t -> unit
-  = fun fmt x -> F.fprintf fmt "s$%d" x
+  = fun fmt x -> F.fprintf fmt "%s-s$%d" 
+    (fst x |> Procname.to_string) (snd x)
 end
 
 module SubstMap = Map.Make (Symbol)
@@ -53,13 +60,13 @@ struct
   let empty : t
   = M.empty
 
-  let add : int -> int -> t -> t
+  let add : Symbol.t -> int -> t -> t
   = M.add
 
   let cardinal : t -> int
   = M.cardinal
 
-  let choose : t -> (int * int)
+  let choose : t -> (Symbol.t * int)
   = M.choose
 
   let fold : (Symbol.t -> int -> 'b -> 'b) -> t -> 'b -> 'b
@@ -79,8 +86,11 @@ struct
   let le : t -> t -> bool
   = fun x y -> M.for_all (fun s v -> v <= find s y) x
 
-  let get_new : unit -> t
-  = fun () -> M.add (Symbol.get_new ()) 1 empty
+  let get_new : Procname.t -> t
+  = fun pname -> M.add (Symbol.get_new pname) 1 empty
+
+  let make : Procname.t -> int -> t
+  = fun pname i -> M.add (Symbol.make pname i) 1 empty
 
   let eq : t -> t -> bool
   = fun x y -> le x y && le y x
@@ -565,10 +575,16 @@ struct
   let of_int : int -> t
   = fun n -> (Bound.of_int n, Bound.of_int n)
 
-  let get_new_sym : unit -> t
-  = fun () ->
-    let lower = Bound.of_sym (SymLinear.get_new ()) in
-    let upper = Bound.of_sym (SymLinear.get_new ()) in
+  let get_new_sym : Procname.t -> t
+  = fun pname ->
+    let lower = Bound.of_sym (SymLinear.get_new pname) in
+    let upper = Bound.of_sym (SymLinear.get_new pname) in
+    (lower, upper)
+  
+  let make_sym : Procname.t -> int -> t
+  = fun pname i -> 
+    let lower = Bound.of_sym (SymLinear.make pname i) in
+    let upper = Bound.of_sym (SymLinear.make pname (i+1)) in
     (lower, upper)
 
   let top : t
@@ -936,8 +952,11 @@ let plus : t -> t -> t
 let minus : t -> t -> t
 = lift2 ItvPure.minus
 
-let get_new_sym : unit -> t
-= fun () -> NonBottom (ItvPure.get_new_sym ())
+let get_new_sym : Procname.t -> t
+= fun pname -> NonBottom (ItvPure.get_new_sym pname)
+
+let make_sym : Procname.t -> int -> t
+= fun pname i -> NonBottom (ItvPure.make_sym pname i)
 
 let neg : t -> t
 = lift1 ItvPure.neg

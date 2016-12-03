@@ -335,7 +335,7 @@ struct
     : Val.t -> ('a -> Val.t -> 'b -> 'b) -> 'a list -> Val.t list -> 'b -> 'b
   = fun default f xs ys acc ->
     match xs, ys with
-    | [x], _ -> f x (IList.fold_left Val.join Val.bot ys) acc
+(*    | [x], _ -> f x (IList.fold_left Val.join Val.bot ys) acc*)
     | [], _ -> acc
     | x :: xs', [] -> list_fold2_def default f xs' ys (f x default acc)
     | x :: xs', y :: ys' -> list_fold2_def default f xs' ys' (f x y acc)

@@ -192,8 +192,11 @@ struct
   let zero : t
   = of_int 0
 
-  let get_new_sym : unit -> t
-  = fun () -> (Itv.get_new_sym (), PowLoc.bot, ArrayBlk.bot)
+  let get_new_sym : Procname.t -> t
+  = fun pname -> (Itv.get_new_sym pname, PowLoc.bot, ArrayBlk.bot)
+
+  let make_sym : Procname.t -> int -> t
+  = fun pname i -> (Itv.make_sym pname i, PowLoc.bot, ArrayBlk.bot)
 
   let unknown_bit : t -> t
   = fun (_, x, a) -> (Itv.top, x, a)
