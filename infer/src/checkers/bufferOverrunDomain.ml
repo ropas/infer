@@ -177,8 +177,11 @@ struct
   let top_itv : t
   = (Itv.top, PowLoc.bot, ArrayBlk.bot)
 
- let pos_itv : t
+  let pos_itv : t
   = (Itv.pos, PowLoc.bot, ArrayBlk.bot)
+
+  let nat_itv : t
+  = (Itv.nat, PowLoc.bot, ArrayBlk.bot)
 
   let of_int : int -> t
   = fun n -> (Itv.of_int n, PowLoc.bot, ArrayBlk.bot)
