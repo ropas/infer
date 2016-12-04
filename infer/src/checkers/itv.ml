@@ -766,7 +766,7 @@ struct
       let x' = (Bound.prune_l l1 y, Bound.prune_u u1 y) in
       if invalid x' then None else Some x'
 
-  let prune_comp_arith : Binop.t -> t -> t -> t option
+  let prune_comp_linear : Binop.t -> t -> t -> t option
   = fun c x (l, u) ->
     let y_opt =
       match c with
@@ -816,7 +816,7 @@ struct
   let prune_comp : Binop.t -> t -> t -> t option
   = fun c x (l, u) ->
     if invalid (l, u) then Some x else
-      let x = Option.default x (prune_comp_arith c x (l, u)) in
+      let x = Option.default x (prune_comp_linear c x (l, u)) in
       let x = Option.default x (prune_comp_minmax c x (l, u)) in
       if invalid x then None else Some x
 
