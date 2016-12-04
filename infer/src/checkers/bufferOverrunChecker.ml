@@ -63,21 +63,29 @@ struct
       Some (_, _) -> model_malloc pdesc ret (IList.tl params) node mem
     | _ -> mem
 
-  let model_positive_itv ret mem =
+  let model_natual_itv ret mem =
     match ret with 
-      Some (id, _) -> Domain.Mem.add_stack (Loc.of_id id) Domain.Val.pos_itv mem
+      Some (id, _) -> Domain.Mem.add_stack (Loc.of_id id) Domain.Val.nat_itv mem
     | _ -> mem 
 
   let model_unknown_itv ret mem = 
     match ret with
       Some (id, _) -> Domain.Mem.add_stack (Loc.of_id id) Domain.Val.top_itv mem
     | None -> mem
-     
-  let handle_unknown_call pdesc ret callee_pname params node mem =
+    
+  let model_infer_print params mem loc =
+    match params with 
+      (e, _)::_ -> 
+        F.fprintf F.err_formatter "=== Infer Print === at %a@." Location.pp loc;
+        Domain.Val.pp F.err_formatter (Semantics.eval e mem loc); mem
+    | _ -> mem 
+    
+  let handle_unknown_call pdesc ret callee_pname params node mem loc =
     match Procname.get_method callee_pname with
     | "malloc" | "__new_array" -> model_malloc pdesc ret params node mem
     | "realloc" -> model_realloc pdesc ret params node mem
-    | "strlen" | "fgetc" -> model_positive_itv ret mem
+    | "strlen" | "fgetc" -> model_natual_itv ret mem
+    | "infer_print" -> model_infer_print params mem loc
     | _ -> model_unknown_itv ret mem
 
   let rec declare_array pdesc node loc typ len ~inst_num ~dimension mem = 
@@ -207,7 +215,7 @@ struct
                 | Some (id,_) ->
                     Domain.Mem.add_stack (Loc.of_var (Var.of_id id)) ret_val mem
                 | _ -> mem)
-           | None -> handle_unknown_call pdesc ret callee_pname params node mem)
+           | None -> handle_unknown_call pdesc ret callee_pname params node mem loc)
       | Declare_locals (locals, _) ->
           (* array allocation in stack e.g., int arr[10] *)
           let (mem, inst_num) = IList.fold_left (fun (mem, inst_num) (pvar, typ) ->
