@@ -392,7 +392,7 @@ struct
           Some (entry_mem, exit_mem, cond_set)
       | _ -> None 
     in
-    (* below, copied from abstractInterer.ml *)
+    (* below, copied from abstractIntepreter.ml *)
     let analyze_ondemand source pdesc =
       ignore (analyze_ondemand_ source pdesc) in
     let callbacks =
