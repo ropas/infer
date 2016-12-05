@@ -188,19 +188,22 @@ let get_symbols : astate -> Itv.Symbol.t list
 let rm_bnd_bot : astate -> astate
 = fun a -> map ArrInfo.rm_bnd_bot a
 
-let prune_offset arr_info_prune _ i1_opt i2_opt =
-  match i1_opt, i2_opt with
-  | Some i1, Some i2 -> Some (arr_info_prune i1 i2)
-  | _, _ -> i1_opt
+let do_prune
+  : (ArrInfo.t -> ArrInfo.t -> ArrInfo.t) -> astate -> astate -> astate
+= fun arr_info_prune a1 a2 ->
+  if cardinal a2 = 1 then
+    let (k, v2) = choose a2 in
+    if mem k a1 then add k (arr_info_prune (find k a1) v2) a1 else a1
+  else a1
 
 let prune : astate -> astate -> astate
-= fun a1 a2 -> merge (prune_offset ArrInfo.prune) a1 a2
+= fun a1 a2 -> do_prune ArrInfo.prune a1 a2
 
 let prune_comp : Binop.t -> astate -> astate -> astate
-= fun c a1 a2 -> merge (prune_offset (ArrInfo.prune_comp c)) a1 a2
+= fun c a1 a2 -> do_prune (ArrInfo.prune_comp c) a1 a2
 
 let prune_eq : astate -> astate -> astate
-= fun a1 a2 -> merge (prune_offset ArrInfo.prune_eq) a1 a2
+= fun a1 a2 -> do_prune ArrInfo.prune_eq a1 a2
 
 let prune_ne : astate -> astate -> astate
-= fun a1 a2 -> merge (prune_offset ArrInfo.prune_ne) a1 a2
+= fun a1 a2 -> do_prune ArrInfo.prune_ne a1 a2
