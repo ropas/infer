@@ -243,27 +243,31 @@ struct
   module TransferFunctions = TransferFunctions(CFG)
   type extras = Procname.t -> Procdesc.t option
 
-  let add_condition : Procdesc.t -> CFG.node -> Exp.t -> Location.t -> Domain.Mem.astate 
-    -> Domain.ConditionSet.t -> Domain.ConditionSet.t
+  let add_condition : Procdesc.t -> CFG.node -> Exp.t -> Location.t
+    -> Domain.Mem.astate -> Domain.ConditionSet.t -> Domain.ConditionSet.t
   = fun pdesc node exp loc mem cond_set ->
     let array_access = 
       match exp with 
       | Exp.Var _ -> 
-        Some (Semantics.eval exp mem loc |> Domain.Val.get_array_blk, 
-              Itv.zero)
+          let arr = Semantics.eval exp mem loc |> Domain.Val.get_array_blk in
+          Some (arr, Itv.zero, true)
       | Exp.Lindex (e1, e2)
-      | Exp.BinOp (Binop.PlusA, e1, e2) 
-      | Exp.BinOp (Binop.MinusA, e1, e2) -> 
-          Some (Semantics.eval e1 mem loc |> Domain.Val.get_array_blk, 
-           Semantics.eval e2 mem loc |> Domain.Val.get_itv)
+      | Exp.BinOp (Binop.PlusA, e1, e2) ->
+          let arr = Semantics.eval e1 mem loc |> Domain.Val.get_array_blk in
+          let idx = Semantics.eval e2 mem loc |> Domain.Val.get_itv in
+          Some (arr, idx, true)
+      | Exp.BinOp (Binop.MinusA, e1, e2) ->
+          let arr = Semantics.eval e1 mem loc |> Domain.Val.get_array_blk in
+          let idx = Semantics.eval e2 mem loc |> Domain.Val.get_itv in
+          Some (arr, idx, false)
       | _ -> None
     in
     match array_access with
-      Some (arr, idx) -> 
+      Some (arr, idx, is_plus) ->
         let site = Semantics.get_allocsite pdesc node 0 0 in
         let size = ArrayBlk.sizeof arr in
         let offset = ArrayBlk.offsetof arr in
-        let idx = Itv.plus offset idx in
+        let idx = (if is_plus then Itv.plus else Itv.minus) offset idx in
           (if Config.ropas_debug >= 2 then
              (F.fprintf F.err_formatter "@[<v 2>Add condition :@,";
               F.fprintf F.err_formatter "array: %a@," ArrayBlk.pp arr;
