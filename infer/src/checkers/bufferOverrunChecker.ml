@@ -76,7 +76,7 @@ struct
   let model_infer_print params mem loc =
     match params with 
       (e, _)::_ -> 
-        F.fprintf F.err_formatter "=== Infer Print === at %a@." Location.pp loc;
+        F.fprintf F.err_formatter "<v>=== Infer Print === at %a@," Location.pp loc;
         Domain.Val.pp F.err_formatter (Semantics.eval e mem loc); mem
     | _ -> mem 
     
@@ -383,6 +383,9 @@ struct
       in
       let cond_set = Report.collect (ProcData.make pdesc tenv extras) inv_map in
       match entry_mem, exit_mem with
+      | Some _, Some _ 
+          when (Procdesc.get_proc_name pdesc |> Procname.get_method) = "infer_print" -> 
+          None
       | Some entry_mem, Some exit_mem -> 
           Summary.write_summary (Procdesc.get_proc_name pdesc) 
             (entry_mem, exit_mem, cond_set);
