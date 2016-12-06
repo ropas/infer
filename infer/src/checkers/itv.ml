@@ -417,6 +417,9 @@ struct
   let one : t
   = Linear (1, SymLinear.zero)
 
+  let mone : t
+  = Linear (-1, SymLinear.zero)
+
   let is_zero : t -> bool
   = fun x ->
     assert (x <> Bot);
@@ -431,25 +434,6 @@ struct
     | Linear (c, y) when SymLinear.is_zero y -> Some c
     | _ -> None
 
-  let plus : t -> t -> t option
-  = fun x y ->
-    assert (x <> Bot && y <> Bot);
-    match x, y with
-    | MInf, PInf
-    | PInf, MInf -> failwith "Cannot calculate +oo + -oo."
-    | PInf, _
-    | _, PInf -> Some PInf
-    | MInf, _
-    | _, MInf -> Some MInf
-    | _, _ when is_zero x -> Some y
-    | _, _ when is_zero y -> Some x
-(*    | MinMax (Max, c1, _), Linear (c2, x2) 
-    | Linear (c2, x2), MinMax (Max, c1, _) when SymLinear.is_zero x2 -> 
-        Some (Linear (c1+c2, x2))*)
-    | Linear (c1, x1), Linear (c2, x2) ->
-        Some (Linear (c1 + c2, SymLinear.plus x1 x2))
-    | _, _ -> None
-
   let plus_l : t -> t -> t
   = fun x y ->
     assert (x <> Bot && y <> Bot);
@@ -458,7 +442,9 @@ struct
     | _, _ when is_zero y -> x
     | Linear (c1, x1), Linear (c2, x2) -> Linear (c1 + c2, SymLinear.plus x1 x2)
     | MinMax (Max, c1, _), Linear (c2, x2) 
-    | Linear (c2, x2), MinMax (Max, c1, _) when SymLinear.is_zero x2 -> Linear (c1+c2, x2)
+    | Linear (c2, x2), MinMax (Max, c1, _)
+      when SymLinear.is_zero x2 ->
+        Linear (c1 + c2, x2)
     | _, _ -> MInf
 
   let plus_u : t -> t -> t
@@ -469,21 +455,10 @@ struct
     | _, _ when is_zero y -> x
     | Linear (c1, x1), Linear (c2, x2) -> Linear (c1 + c2, SymLinear.plus x1 x2)
     | MinMax (Min, c1, _), Linear (c2, x2) 
-    | Linear (c2, x2), MinMax (Min, c1, _) when SymLinear.is_zero x2 -> Linear (c1+c2, x2)
+    | Linear (c2, x2), MinMax (Min, c1, _)
+      when SymLinear.is_zero x2 ->
+        Linear (c1 + c2, x2)
     | _, _ -> PInf
-
-  let minus : t -> t -> t option
-  = fun x y ->
-    assert (x <> Bot && y <> Bot);
-    match x, y with
-    | PInf, PInf -> failwith "Cannot calculate +oo - +oo."
-    | MInf, MInf -> failwith "Cannot calculate -oo - -oo."
-    | PInf, _ -> Some PInf
-    | MInf, _ -> Some MInf
-    | _, _ when is_zero y -> Some x
-    | Linear (c1, x1), Linear (c2, x2) ->
-        Some (Linear (c1 - c2, SymLinear.minus x1 x2))
-    | _, _ -> None
 
   let mult_const : t -> int -> t option
   = fun x n ->
@@ -515,20 +490,6 @@ struct
     | Linear (c, x) -> Some (Linear (-c, SymLinear.neg x))
     | MinMax _ -> None
     | Bot -> assert false
-
-  let prune_l : t -> (t * t) -> t
-  = fun x (l, u) ->
-    assert (x <> Bot && l <> Bot && u <> Bot);
-    match plus u one with
-    | Some u' when le l x && le x u -> u'
-    | _ -> x
-
-  let prune_u : t -> (t * t) -> t
-  = fun x (l, u) ->
-    assert (x <> Bot && l <> Bot && u <> Bot);
-    match minus l one with
-    | Some l' when le l x && le x u -> l'
-    | _ -> x
 
   let make_min_max : min_max_t -> t -> t -> t option
   = fun m x y ->
@@ -667,16 +628,10 @@ struct
       unknown_bool
 
   let plus : t -> t -> t
-  = fun (l1, u1) (l2, u2) ->
-    let l' = Option.default Bound.MInf (Bound.plus l1 l2) in
-    let u' = Option.default Bound.PInf (Bound.plus u1 u2) in
-    (l', u')
+  = fun (l1, u1) (l2, u2) -> (Bound.plus_l l1 l2, Bound.plus_u u1 u2)
 
   let minus : t -> t -> t
-  = fun (l1, u1) (l2, u2) ->
-    let l' = Option.default Bound.MInf (Bound.minus l1 u2) in
-    let u' = Option.default Bound.PInf (Bound.minus u1 l2) in
-    (l', u')
+  = fun i1 i2 -> plus i1 (neg i2)
 
   let mult_const : t -> int -> t
   = fun (l, u) n ->
@@ -786,64 +741,86 @@ struct
     l = Bound.Bot || u = Bound.Bot
     || Bound.eq l Bound.PInf || Bound.eq u Bound.MInf || Bound.lt u l
 
-  let prune : t -> t -> t option
-  = fun (l1, u1) y ->
-    if invalid y then Some (l1, u1) else
-      let x' = (Bound.prune_l l1 y, Bound.prune_u u1 y) in
-      if invalid x' then None else Some x'
+  let prune_le : t -> t -> t
+  = fun x y ->
+    match x, y with
+    | (l1, u1), (_, u2) when u1 = Bound.PInf -> (l1, u2)
+    | (l1, Bound.Linear (c1, s1)), (_, Bound.Linear (c2, s2))
+      when SymLinear.eq s1 s2 ->
+        (l1, Bound.Linear (min c1 c2, s1))
+    | (l1, Bound.Linear (c, se)), (_, u)
+      when SymLinear.is_zero se && Bound.is_one_symbol u ->
+        (match Bound.one_symbol u with
+         | Some s -> (l1, Bound.MinMax (Bound.Min, c, s))
+         | None -> assert false)
+    | (l1, u), (_, Bound.Linear (c, se))
+      when SymLinear.is_zero se && Bound.is_one_symbol u ->
+        (match Bound.one_symbol u with
+         | Some s -> (l1, Bound.MinMax (Bound.Min, c, s))
+         | None -> assert false)
+    | (l1, Bound.Linear (c1, se)), (_, Bound.MinMax (Bound.Min, c2, se'))
+    | (l1, Bound.MinMax (Bound.Min, c1, se')), (_, Bound.Linear (c2, se))
+      when SymLinear.is_zero se ->
+        (l1, Bound.MinMax (Bound.Min, min c1 c2, se'))
+    | (l1, Bound.MinMax (Bound.Min, c1, se1)),
+      (_, Bound.MinMax (Bound.Min, c2, se2))
+      when Symbol.eq se1 se2 ->
+        (l1, Bound.MinMax (Bound.Min, min c1 c2, se1))
+    | _ -> x
 
-  let prune_comp_linear : Binop.t -> t -> t -> t option
-  = fun c x (l, u) ->
-    let y_opt =
-      match c with
-      | Binop.Lt -> Some (u, Bound.PInf)
-      | Binop.Gt -> Some (Bound.MInf, l)
-      | Binop.Le ->
-          (match Bound.plus u Bound.one with
-           | Some u' -> Some (u', Bound.PInf)
-           | None -> None)
-      | Binop.Ge ->
-          (match Bound.minus l Bound.one with
-           | Some l' -> Some (Bound.MInf, l')
-           | None -> None)
-      | _ -> assert false
-    in
-    match y_opt with
-    | Some y' -> prune x y'
-    | None -> Some x
+  let prune_ge : t -> t -> t
+  = fun x y ->
+    match x, y with
+    | (l1, u1), (l2, _) when l1 = Bound.MInf -> (l2, u1)
+    | (Bound.Linear (c1, s1), u1), (Bound.Linear (c2, s2), _)
+      when SymLinear.eq s1 s2 ->
+        (Bound.Linear (max c1 c2, s1), u1)
+    | (Bound.Linear (c, se), u1), (l, _)
+      when SymLinear.is_zero se && Bound.is_one_symbol l ->
+        (match Bound.one_symbol l with
+          | Some s -> (Bound.MinMax (Bound.Max, c, s), u1)
+          | None -> assert false)
+    | (l, u1), (Bound.Linear (c, se), _)
+      when SymLinear.is_zero se && Bound.is_one_symbol l ->
+        (match Bound.one_symbol l with
+         | Some s -> (Bound.MinMax (Bound.Max, c, s), u1)
+         | None -> assert false)
+    | (Bound.Linear (c1, se), u1), (Bound.MinMax (Bound.Max, c2, se'), _)
+    | (Bound.MinMax (Bound.Max, c1, se'), u1), (Bound.Linear (c2, se), _)
+      when SymLinear.is_zero se ->
+        (Bound.MinMax (Bound.Max, max c1 c2, se'), u1)
+    | (Bound.MinMax (Bound.Max, c1, se1), u1),
+      (Bound.MinMax (Bound.Max, c2, se2), _)
+      when Symbol.eq se1 se2 ->
+        (Bound.MinMax (Bound.Max, max c1 c2, se1), u1)
+    | _ -> x
 
-  let prune_comp_minmax : Binop.t -> t -> t -> t option
-  = fun c (lx, ux) (l, u) ->
-    match c with
-    | Binop.Lt ->
-        (match Bound.minus u Bound.one with
-         | Some u' ->
-             (match Bound.make_min ux u' with
-              | Some ux' -> Some (lx, ux')
-              | None -> None)
-         | None -> None)
-    | Binop.Gt ->
-        (match Bound.plus l Bound.one with
-         | Some l' ->
-             (match Bound.make_max lx l' with
-              | Some lx' -> Some (lx', ux)
-              | None -> None)
-         | None -> None)
-    | Binop.Le ->
-        (match Bound.make_min ux u with
-         | Some u' -> Some (lx, u')
-         | None -> None)
-    | Binop.Ge ->
-        (match Bound.make_max lx l with
-         | Some l' -> Some (l', ux)
-         | None -> None)
-    | _ -> assert false
+  let prune_lt : t -> t -> t
+  = fun x y -> prune_le x (minus y one)
+
+  let prune_gt : t -> t -> t
+  = fun x y -> prune_ge x (plus y one)
+
+  let diff : t -> Bound.t -> t
+  = fun (l, u) b ->
+    if Bound.eq l b then (Bound.plus_l l Bound.one, u) else
+    if Bound.eq u b then (l, Bound.plus_u u Bound.mone) else
+      (l, u)
+
+  let prune_zero : t -> t
+  = fun x -> diff x Bound.zero
 
   let prune_comp : Binop.t -> t -> t -> t option
-  = fun c x (l, u) ->
-    if invalid (l, u) then Some x else
-      let x = Option.default x (prune_comp_linear c x (l, u)) in
-      let x = Option.default x (prune_comp_minmax c x (l, u)) in
+  = fun c x y ->
+    if invalid y then Some x else
+      let x =
+        match c with
+        | Binop.Le -> prune_le x y
+        | Binop.Ge -> prune_ge x y
+        | Binop.Lt -> prune_lt x y
+        | Binop.Gt -> prune_gt x y
+        | _ -> assert false
+      in
       if invalid x then None else Some x
 
   let prune_eq : t -> t -> t option
@@ -852,13 +829,11 @@ struct
     | None -> None
     | Some x' -> prune_comp Binop.Ge x' y
 
-  let prune_ne : t -> t -> astate option
+  let prune_ne : t -> t -> t option
   = fun x (l, u) ->
-    if not (Bound.eq l Bound.PInf)
-    && not (Bound.eq u Bound.MInf)
-    && Bound.eq l u
-    then prune x (l, u)
-    else Some x
+    if invalid (l, u) then Some x else
+      let x = if Bound.eq l u then diff x l else x in
+      if invalid x then None else Some x
 
   let get_symbols : t -> Symbol.t list
   = fun (l, u) ->
@@ -1031,8 +1006,8 @@ let land_sem : t -> t -> t
 let lor_sem : t -> t -> t
 = lift2 ItvPure.lor_sem
 
-let prune : t -> t -> t
-= lift2_opt ItvPure.prune
+let prune_zero : t -> t
+= lift1 ItvPure.prune_zero
 
 let prune_comp : Binop.t -> t -> t -> t
 = fun comp -> lift2_opt (ItvPure.prune_comp comp)

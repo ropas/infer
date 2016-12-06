@@ -155,7 +155,7 @@ struct
          | Some x' ->
              let lv = Loc.of_pvar x' in
              let v = Mem.find_heap lv mem in
-             let v' = Val.prune v Val.zero in
+             let v' = Val.prune_zero v in
              Mem.update_mem (PowLoc.singleton lv) v' mem
          | None -> mem)
     | Exp.UnOp (Unop.LNot, Exp.Var x, _) ->

@@ -116,9 +116,6 @@ struct
       size = Itv.normalize arr.size;
       stride = Itv.normalize arr.stride }
 
-  let prune : t -> t -> t
-  = fun arr1 arr2 -> { arr1 with offset = Itv.prune arr1.offset arr2.offset }
-
   let prune_comp : Binop.t -> t -> t -> t
   = fun c arr1 arr2 ->
     { arr1 with offset = Itv.prune_comp c arr1.offset arr2.offset }
@@ -195,9 +192,6 @@ let do_prune
     let (k, v2) = choose a2 in
     if mem k a1 then add k (arr_info_prune (find k a1) v2) a1 else a1
   else a1
-
-let prune : astate -> astate -> astate
-= fun a1 a2 -> do_prune ArrInfo.prune a1 a2
 
 let prune_comp : Binop.t -> astate -> astate -> astate
 = fun c a1 a2 -> do_prune (ArrInfo.prune_comp c) a1 a2

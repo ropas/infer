@@ -262,22 +262,25 @@ struct
   let lor_sem : t -> t -> t
   = lift_itv_func Itv.lor_sem
 
-  let lift_prune
+  let lift_prune1 : (Itv.t -> Itv.t) -> t -> t
+  = fun f (n, x, a) -> (f n, x, a)
+
+  let lift_prune2
     : (Itv.t -> Itv.t -> Itv.t)
       -> (ArrayBlk.astate -> ArrayBlk.astate -> ArrayBlk.astate) -> t -> t -> t
   = fun f g (n1, x1, a1) (n2, _, a2) -> (f n1 n2, x1, g a1 a2)
 
-  let prune : t -> t -> t
-  = lift_prune Itv.prune ArrayBlk.prune
+  let prune_zero : t -> t
+  = lift_prune1 Itv.prune_zero
 
   let prune_comp : Binop.t -> t -> t -> t
-  = fun c -> lift_prune (Itv.prune_comp c) (ArrayBlk.prune_comp c)
+  = fun c -> lift_prune2 (Itv.prune_comp c) (ArrayBlk.prune_comp c)
 
   let prune_eq : t -> t -> t
-  = lift_prune Itv.prune_eq ArrayBlk.prune_eq
+  = lift_prune2 Itv.prune_eq ArrayBlk.prune_eq
 
   let prune_ne : t -> t -> t
-  = lift_prune Itv.prune_ne ArrayBlk.prune_eq
+  = lift_prune2 Itv.prune_ne ArrayBlk.prune_eq
 
   let plus_pi : t -> t -> t
   = fun (_, _, a1) (n2, _, _) ->
