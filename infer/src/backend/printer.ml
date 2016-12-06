@@ -62,11 +62,7 @@ struct
         else None
 
   let from_file_linenum hash fname linenum =
-    let fname_in_resdir =
-      DB.source_file_in_resdir fname in
-    let sourcefile_in_resdir =
-      DB.abs_source_file_from_path (DB.filename_to_string fname_in_resdir) in
-    from_file_linenum_original hash sourcefile_in_resdir linenum
+    from_file_linenum_original hash fname linenum
 
   let from_loc hash loc =
     from_file_linenum hash loc.Location.file loc.Location.line
@@ -482,11 +478,11 @@ let write_html_proc source proof_cover table_nodes_at_linenum global_err_log pro
   let proc_loc = Procdesc.get_loc proc_desc in
   let process_proc =
     Procdesc.is_defined proc_desc &&
-    DB.source_file_equal proc_loc.Location.file source &&
+    DB.equal_source_file proc_loc.Location.file source &&
     match AttributesTable.find_file_capturing_procedure proc_name with
     | None -> true
     | Some (source_captured, _) ->
-        DB.source_file_equal source_captured (Procdesc.get_loc proc_desc).file in
+        DB.equal_source_file source_captured (Procdesc.get_loc proc_desc).file in
   if process_proc then
     begin
       IList.iter process_node (Procdesc.get_nodes proc_desc);
@@ -509,12 +505,8 @@ let write_html_file linereader filename procs =
       (DB.Results_dir.Abs_source_dir filename)
       [".."; fname_encoding] in
   let pp_prelude () =
-    let s =
-      "<center><h1>File " ^
-      (DB.source_file_to_string filename) ^
-      "</h1></center>\n" ^
-      "<table class=\"code\">\n" in
-    F.fprintf fmt "%s" s in
+    F.fprintf fmt "<center><h1>File %a </h1></center>\n<table class=\"code\">\n"
+      DB.source_file_pp filename in
   let print_one_line proof_cover table_nodes_at_linenum table_err_per_line line_number =
     let line_html =
       match LineReader.from_file_linenum linereader filename line_number with

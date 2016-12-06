@@ -15,22 +15,9 @@ module CLOpt = CommandLineOption
 
 (** Module to create a makefile with dependencies between clusters *)
 
-(* this relies on the assumption that a source_file
-   can be converted to a string, then pname, then back *)
-let source_file_from_pname pname =
-  DB.source_file_from_string (Procname.to_string pname)
-
-let source_file_to_pname fname =
-  Procname.from_string_c_fun (DB.source_file_to_string fname)
-
 let cluster_should_be_analyzed cluster =
   let fname = DB.source_dir_to_string cluster in
-  let in_ondemand_config =
-    match Lazy.force Ondemand.dirs_to_analyze with
-    | None ->
-        None
-    | Some set ->
-        Some (StringSet.mem fname set) in
+  let in_ondemand_config = Option.map (StringSet.mem fname) Ondemand.dirs_to_analyze in
   let check_modified () =
     let modified =
       DB.file_was_updated_after_start (DB.filename_from_string fname) in
@@ -50,11 +37,15 @@ let cluster_should_be_analyzed cluster =
 
 
 let pp_prolog fmt clusters =
-  F.fprintf fmt "INFERANALYZE= %s -results_dir '%s'\n@."
+  let compilation_dbs_cmd =
+    IList.map (F.sprintf "--clang-compilation-db-files %s") !Config.clang_compilation_db_files
+    |> String.concat " " in
+  F.fprintf fmt "INFERANALYZE= %s -results_dir '%s' %s \n@."
     (Config.bin_dir // (CLOpt.exe_name Analyze))
     (Escape.escape_map
        (fun c -> if c = '#' then Some "\\#" else None)
-       Config.results_dir);
+       Config.results_dir)
+    compilation_dbs_cmd;
   F.fprintf fmt "CLUSTERS=";
 
   IList.iteri

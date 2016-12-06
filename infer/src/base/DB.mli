@@ -15,14 +15,13 @@ open! Utils
 (** {2 Filename} *)
 
 (** generic file name *)
-type filename
+type filename [@@deriving compare]
 
 module FilenameSet : Set.S with type elt = filename
 module FilenameMap : Map.S with type key = filename
 
 val filename_from_string : string -> filename
 val filename_to_string : filename -> string
-val filename_compare : filename -> filename -> int
 val chop_extension : filename -> filename
 val filename_concat : filename -> string -> filename
 val filename_add_suffix : filename -> string -> filename
@@ -39,7 +38,10 @@ val mark_file_updated : string -> unit
 (** Return whether filename was updated after analysis started. File doesn't have to exist *)
 val file_was_updated_after_start : filename -> bool
 
-type source_file
+type source_file [@@deriving compare]
+
+(** equality of source files *)
+val equal_source_file : source_file -> source_file -> bool
 
 (** {2 Results Directory} *)
 
@@ -86,48 +88,53 @@ module SourceFileMap : Map.S with type key = source_file
 (** Set of source files *)
 module SourceFileSet : Set.S with type elt = source_file
 
-(** comparison of source files *)
-val source_file_compare : source_file -> source_file -> int
-
-(** equality of source files *)
-val source_file_equal : source_file -> source_file -> bool
-
-(** equality of the files on disk *)
-val inode_equal : source_file -> source_file -> bool
+(** compute line count of a source file *)
+val source_file_line_count : source_file -> int
 
 (** empty source file *)
 val source_file_empty : source_file
 
-(** convert a path to a source file, turning it into an absolute path if necessary *)
-val abs_source_file_from_path : string -> source_file
-
-(** convert a project root directory and an absolute path to a source file *)
-val rel_source_file_from_abs_path : string -> string -> source_file
+(** create source file from absolute path *)
+val source_file_from_abs_path : string -> source_file
 
 (** string encoding of a source file (including path) as a single filename *)
 val source_file_encoding : source_file -> string
 
-(** convert a source file to a string *)
+(** convert a source file to a string
+    WARNING: result may not be valid file path, do not use this function to perform operations
+             on filenames *)
 val source_file_to_string : source_file -> string
 
-(** convert a string obtained by source_file_to_string to a source file *)
-val source_file_from_string : string -> source_file
+(** pretty print source_file *)
+val source_file_pp : Format.formatter -> source_file -> unit
 
-(** get the full path of a source file, raise No_project_root exception when used with a relative source file and no project root specified *)
+(** get the full path of a source file *)
 val source_file_to_abs_path : source_file -> string
 
 (** get the relative path of a source file *)
 val source_file_to_rel_path : source_file -> string
 
+val source_file_is_infer_model : source_file -> bool
+
+(** Returns true if the file is a C++ model *)
+val source_file_is_cpp_model : source_file -> bool
+
+(** Returns true if the file is in project root *)
+val source_file_is_under_project_root : source_file -> bool
+
+(** Return approximate source file corresponding to the parameter if it's header file and
+    file exists. returns None otherwise *)
+val source_file_of_header : source_file -> source_file option
+
+(** Set of files read from --changed-files-index file, None if option not specified
+    NOTE: it may include extra source_files if --changed-files-index contains paths to
+          header files *)
+val changed_source_files_set : SourceFileSet.t option
+
 (** {2 Source Dirs} *)
 
 (** source directory: the directory inside the results dir corresponding to a source file *)
-type source_dir
-
-val source_dir_compare : source_dir -> source_dir -> int
-
-(** get the absolute path to the sources dir *)
-val sources_dir : string
+type source_dir [@@deriving compare]
 
 (** expose the source dir as a string *)
 val source_dir_to_string : source_dir -> string
@@ -137,9 +144,6 @@ val source_dir_get_internal_file : source_dir -> string -> filename
 
 (** get the source directory corresponding to a source file *)
 val source_dir_from_source_file : source_file -> source_dir
-
-(** get the path to the copy of the source file to be stored in the results directory *)
-val source_file_in_resdir : source_file -> filename
 
 (** directory where the results of the capture phase are stored *)
 val captured_dir : filename
@@ -165,14 +169,9 @@ val global_tenv_fname : filename
 (** Check if a path is a Java, C, C++ or Objectve C source file according to the file extention *)
 val is_source_file: string -> bool
 
-(** Returns true if the file is a C++ model *)
-val file_is_in_cpp_model : string -> bool
-
 (** Fold over all file paths recursively under [dir] which match [p]. *)
 val fold_paths_matching :
   dir:filename -> p:(filename -> bool) -> init:'a -> f:(filename -> 'a -> 'a) -> 'a
 
 (** Return all file paths recursively under the given directory which match the given predicate *)
 val paths_matching : string -> (string -> bool) -> string list
-
-val read_changed_files_index : string list option

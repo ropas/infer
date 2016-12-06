@@ -25,17 +25,17 @@ let can_rename id =
 
 (** {2 Utility functions for sigma} *)
 
-let sigma_equal sigma1 sigma2 =
+let equal_sigma sigma1 sigma2 =
   let rec f sigma1_rest sigma2_rest =
     match (sigma1_rest, sigma2_rest) with
     | [], [] -> ()
     | [], _:: _ | _:: _, [] ->
         (L.d_strln "failure reason 1"; raise IList.Fail)
     | hpred1:: sigma1_rest', hpred2:: sigma2_rest' ->
-        if Sil.hpred_equal hpred1 hpred2 then f sigma1_rest' sigma2_rest'
+        if Sil.equal_hpred hpred1 hpred2 then f sigma1_rest' sigma2_rest'
         else (L.d_strln "failure reason 2"; raise IList.Fail) in
-  let sigma1_sorted = IList.sort Sil.hpred_compare sigma1 in
-  let sigma2_sorted = IList.sort Sil.hpred_compare sigma2 in
+  let sigma1_sorted = IList.sort Sil.compare_hpred sigma1 in
+  let sigma2_sorted = IList.sort Sil.compare_hpred sigma2 in
   f sigma1_sorted sigma2_sorted
 
 let sigma_get_start_lexps_sort sigma =
@@ -67,11 +67,7 @@ let do_side side f e1 e2 =
 
 module EPset = Set.Make
     (struct
-      type t = Exp.t * Exp.t
-      let compare (e1, e1') (e2, e2') =
-        match (Exp.compare e1 e2) with
-        | i when i <> 0 -> i
-        | _ -> Exp.compare e1' e2'
+      type t = Exp.t * Exp.t [@@deriving compare]
     end)
 
 (** {2 Module for maintaining information about noninjectivity during join} *)
@@ -961,7 +957,7 @@ let rec exp_partial_join (e1: Exp.t) (e2: Exp.t) : Exp.t =
       if not (Pvar.equal pvar1 pvar2) then (L.d_strln "failure reason 25"; raise IList.Fail)
       else e1
   | Exp.Lfield(e1, f1, t1), Exp.Lfield(e2, f2, _) ->
-      if not (Ident.fieldname_equal f1 f2) then (L.d_strln "failure reason 26"; raise IList.Fail)
+      if not (Ident.equal_fieldname f1 f2) then (L.d_strln "failure reason 26"; raise IList.Fail)
       else Exp.Lfield(exp_partial_join e1 e2, f1, t1) (* should be t1 = t2 *)
   | Exp.Lindex(e1, e1'), Exp.Lindex(e2, e2') ->
       let e1'' = exp_partial_join e1 e2 in
@@ -992,7 +988,7 @@ and dynamic_length_partial_join l1 l2 =
   option_partial_join (fun len1 len2 -> Some (length_partial_join len1 len2)) l1 l2
 
 and typ_partial_join t1 t2 = match t1, t2 with
-  | Typ.Tptr (t1, pk1), Typ.Tptr (t2, pk2) when Typ.ptr_kind_compare pk1 pk2 = 0 ->
+  | Typ.Tptr (t1, pk1), Typ.Tptr (t2, pk2) when Typ.compare_ptr_kind pk1 pk2 = 0 ->
       Typ.Tptr (typ_partial_join t1 t2, pk1)
   | Typ.Tarray (typ1, len1), Typ.Tarray (typ2, len2) ->
       let t = typ_partial_join typ1 typ2 in
@@ -1044,7 +1040,7 @@ let rec exp_partial_meet (e1: Exp.t) (e2: Exp.t) : Exp.t =
       if not (Pvar.equal pvar1 pvar2) then (L.d_strln "failure reason 35"; raise IList.Fail)
       else e1
   | Exp.Lfield(e1, f1, t1), Exp.Lfield(e2, f2, _) ->
-      if not (Ident.fieldname_equal f1 f2) then (L.d_strln "failure reason 36"; raise IList.Fail)
+      if not (Ident.equal_fieldname f1 f2) then (L.d_strln "failure reason 36"; raise IList.Fail)
       else Exp.Lfield(exp_partial_meet e1 e2, f1, t1) (* should be t1 = t2 *)
   | Exp.Lindex(e1, e1'), Exp.Lindex(e2, e2') ->
       let e1'' = exp_partial_meet e1 e2 in
@@ -1071,7 +1067,7 @@ let rec strexp_partial_join mode (strexp1: Sil.strexp) (strexp2: Sil.strexp) : S
           | JoinState.Post -> Sil.Estruct (IList.rev acc, inst)
         end
     | (fld1, se1):: fld_se_list1', (fld2, se2):: fld_se_list2' ->
-        let comparison = Ident.fieldname_compare fld1 fld2 in
+        let comparison = Ident.compare_fieldname fld1 fld2 in
         if comparison = 0 then
           let strexp' = strexp_partial_join mode se1 se2 in
           let fld_se_list_new = (fld1, strexp') :: acc in
@@ -1135,7 +1131,7 @@ let rec strexp_partial_meet (strexp1: Sil.strexp) (strexp2: Sil.strexp) : Sil.st
     | _, [] ->
         Sil.Estruct (construct Lhs acc fld_se_list1, inst)
     | (fld1, se1):: fld_se_list1', (fld2, se2):: fld_se_list2' ->
-        let comparison = Ident.fieldname_compare fld1 fld2 in
+        let comparison = Ident.compare_fieldname fld1 fld2 in
         if comparison < 0 then
           let se' = strexp_construct_fresh Lhs se1 in
           let acc_new = (fld1, se'):: acc in
@@ -1314,7 +1310,7 @@ let sigma_renaming_check (lhs: side) (sigma: Prop.sigma) (sigma_new: Prop.sigma)
   let fav_sigma = Prop.sigma_fav sigma_new in
   let sub = Rename.to_subst_proj lhs fav_sigma in
   let sigma' = Prop.sigma_sub sub sigma_new in
-  sigma_equal sigma sigma'
+  equal_sigma sigma sigma'
 
 let sigma_renaming_check_lhs = sigma_renaming_check Lhs
 let sigma_renaming_check_rhs = sigma_renaming_check Rhs
@@ -1436,7 +1432,7 @@ let rec sigma_partial_join' tenv mode (sigma_acc: Prop.sigma)
 
     | Some (Sil.Hlseg (k, _, _, _, _) as lseg), None
     | Some (Sil.Hdllseg (k, _, _, _, _, _, _) as lseg), None ->
-        if (not Config.nelseg) || (Sil.lseg_kind_equal k Sil.Lseg_PE) then
+        if (not Config.nelseg) || (Sil.equal_lseg_kind k Sil.Lseg_PE) then
           let sigma_acc' = join_list_and_non Lhs e lseg e1 e2 :: sigma_acc in
           sigma_partial_join' tenv mode sigma_acc' sigma1 sigma2
         else
@@ -1444,7 +1440,7 @@ let rec sigma_partial_join' tenv mode (sigma_acc: Prop.sigma)
 
     | None, Some (Sil.Hlseg (k, _, _, _, _) as lseg)
     | None, Some (Sil.Hdllseg (k, _, _, _, _, _, _) as lseg) ->
-        if (not Config.nelseg) || (Sil.lseg_kind_equal k Sil.Lseg_PE) then
+        if (not Config.nelseg) || (Sil.equal_lseg_kind k Sil.Lseg_PE) then
           let sigma_acc' = join_list_and_non Rhs e lseg e2 e1 :: sigma_acc in
           sigma_partial_join' tenv mode sigma_acc' sigma1 sigma2
         else
@@ -1675,7 +1671,7 @@ let pi_partial_join tenv mode
       IList.fold_left (handle_atom_with_widening Rhs p1 pi1) [] pi2 in
     if Config.trace_join then
       (L.d_str "atom_list2: "; Prop.d_pi atom_list2; L.d_ln ());
-    let atom_list_combined = IList.inter Sil.atom_compare atom_list1 atom_list2 in
+    let atom_list_combined = IList.inter Sil.compare_atom atom_list1 atom_list2 in
     if Config.trace_join then
       (L.d_str "atom_list_combined: "; Prop.d_pi atom_list_combined; L.d_ln ());
     atom_list_combined
@@ -1722,7 +1718,7 @@ let eprop_partial_meet tenv (ep1: 'a Prop.t) (ep2: 'b Prop.t) : 'c Prop.t =
     let sub2 = ep2.Prop.sub in
     let range1 = Sil.sub_range sub1 in
     let f e = Sil.fav_for_all (Sil.exp_fav e) Ident.is_normal in
-    Sil.sub_equal sub1 sub2 && IList.for_all f range1 in
+    Sil.equal_subst sub1 sub2 && IList.for_all f range1 in
 
   if not (sub_check ()) then
     (L.d_strln "sub_check() failed"; raise IList.Fail)

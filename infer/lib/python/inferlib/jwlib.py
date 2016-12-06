@@ -26,10 +26,8 @@ parser = argparse.ArgumentParser()
 current_directory = utils.decode(os.getcwd())
 
 parser.add_argument('-version', action='store_true')
-parser.add_argument('-deprecation', action='store_true')
 parser.add_argument('-cp', '-classpath', type=utils.decode,
                     dest='classpath', default=os.getcwd())
-parser.add_argument('-bootclasspath', type=utils.decode)
 parser.add_argument('-d', dest='classes_out', default=current_directory)
 parser.add_argument('-processorpath', type=utils.decode, dest='processorpath')
 parser.add_argument('-processor', type=utils.decode, dest='processor')
@@ -104,9 +102,6 @@ class CompilerCall(object):
             return subprocess.call(self.javac_cmd + self.original_arguments)
         else:
             javac_args = ['-verbose', '-g']
-
-            if self.args.bootclasspath is not None:
-                javac_args += ['-bootclasspath', self.args.bootclasspath]
 
             if not os.path.isfile(config.ANNOT_PROCESSOR_JAR):
                 raise AnnotationProcessorNotFound(config.ANNOT_PROCESSOR_JAR)
@@ -218,19 +213,26 @@ class CompilerCall(object):
                 try:
                     subprocess.check_call(command, stderr=file_out)
                 except subprocess.CalledProcessError:
-                    error_msg = 'ERROR: failure during compilation command.' \
-                                + '\nYou can run the failing compilation ' \
-                                + 'command again by copy-pasting the\nlines ' \
-                                + 'below in your terminal:\n\n"""\n' \
-                                + 'python <<EOF\n' \
-                                + 'import subprocess\n' \
-                                + 'cmd = {}\n' \
-                                + 'subprocess.check_call(cmd)\n' \
-                                + 'EOF\n"""\n'
-                    failing_cmd = filter(lambda arg: arg != '-verbose',
-                                         command)
-                    utils.stderr(error_msg.format(failing_cmd))
-                    subprocess.check_call(failing_cmd)
+                    try:
+                        fallback_command = ['javac'] + cli_args + \
+                                           ['@' + str(self.command_line_file)]
+                        subprocess.check_call(
+                            fallback_command, stderr=file_out)
+                    except subprocess.CalledProcessError:
+                        error_msg = 'ERROR: failure during compilation ' \
+                                    + 'command.\nYou can run the failing ' \
+                                    + 'compilation command again by ' \
+                                    + 'copy-pasting the\nlines below in ' \
+                                    + 'your terminal:\n\n"""\n' \
+                                    + 'python <<EOF\n' \
+                                    + 'import subprocess\n' \
+                                    + 'cmd = {}\n' \
+                                    + 'subprocess.check_call(cmd)\n' \
+                                    + 'EOF\n"""\n'
+                        failing_cmd = filter(lambda arg: arg != '-verbose',
+                                             command)
+                        utils.stderr(error_msg.format(failing_cmd))
+                        subprocess.check_call(failing_cmd)
 
         return os.EX_OK
 

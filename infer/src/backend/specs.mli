@@ -24,14 +24,14 @@ module Jprop : sig
   (** Comparison for joined_prop *)
   val compare : 'a t -> 'a t -> int
 
+  (** Return true if the two join_prop's are equal *)
+  val equal : 'a t -> 'a t -> bool
+
   (** Dump the toplevel prop *)
   val d_shallow : Prop.normal t -> unit
 
   (** dump a joined prop list, the boolean indicates whether to print toplevel props only *)
   val d_list : bool -> Prop.normal t list -> unit
-
-  (** Return true if the two join_prop's are equal *)
-  val equal : 'a t -> 'a t -> bool
 
   (** Add fav to a jprop *)
   val fav_add : Sil.fav -> 'a t -> unit
@@ -75,6 +75,8 @@ type 'a spec = { pre: 'a Jprop.t; posts: ('a Prop.t * Paths.Path.t) list; visite
 (** encapsulate type for normalized specs *)
 module NormSpec : sig
   type t
+
+  val erase_join_info_pre : Tenv.t -> t -> t (** Erase join info from pre of spec *)
 end
 
 (** module for tracing stats of function calls *)
@@ -276,7 +278,7 @@ val spec_normalize : Tenv.t -> Prop.normal spec -> NormSpec.t
 val res_dir_specs_filename : Procname.t -> DB.filename
 
 (** Save summary for the procedure into the spec database *)
-val store_summary : Tenv.t -> Procname.t -> summary -> unit
+val store_summary : Procname.t -> summary -> unit
 
 (** Return a compact representation of the summary *)
 val summary_compact : Sil.sharing_env -> summary -> summary

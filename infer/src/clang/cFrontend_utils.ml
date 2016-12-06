@@ -108,45 +108,14 @@ struct
         }
     | _ -> make_name_decl property_name.Clang_ast_t.ni_name
 
-  let property_attribute_compare att1 att2 =
-    match att1, att2 with
-      `Readonly, `Readonly -> 0
-    | `Readonly, _ -> -1
-    | _, `Readonly -> 1
-    | `Assign, `Assign -> 0
-    | `Assign, _ -> -1
-    | _, `Assign -> 1
-    | `Readwrite, `Readwrite -> 0
-    | `Readwrite, _ -> -1
-    | _, `Readwrite -> 1
-    | `Retain, `Retain -> 0
-    | `Retain, _ -> -1
-    | _, `Retain -> 1
-    | `Copy, `Copy -> 0
-    | `Copy, _ -> -1
-    | _, `Copy -> 1
-    | `Nonatomic, `Nonatomic -> 0
-    | `Nonatomic, _ -> -1
-    | _, `Nonatomic -> 1
-    | `Atomic, `Atomic -> 0
-    | `Atomic, _ -> 1
-    | _, `Atomic -> 1
-    | `Weak, `Weak -> 0
-    | `Weak, _ -> -1
-    | _, `Weak -> 1
-    | `Strong, `Strong -> 0
-    | `Strong, _ -> -1
-    | _, `Strong -> 1
-    | `Unsafe_unretained, `Unsafe_unretained -> 0
-    | `Unsafe_unretained, _ -> -1
-    | _, `Unsafe_unretained -> 1
-    | `ExplicitGetter, `ExplicitGetter -> 0
-    | `ExplicitGetter, _ -> -1
-    | _, `ExplicitGetter -> 1
-    | `ExplicitSetter, `ExplicitSetter -> 0
+  let compare_property_attribute =
+    [%compare: [
+      `Readonly | `Assign | `Readwrite | `Retain | `Copy | `Nonatomic | `Atomic
+      | `Weak | `Strong | `Unsafe_unretained | `ExplicitGetter | `ExplicitSetter
+    ]]
 
-  let property_attribute_eq att1 att2 =
-    property_attribute_compare att1 att2 = 0
+  let equal_property_attribute att1 att2 =
+    compare_property_attribute att1 att2 = 0
 
   let get_memory_management_attributes () =
     [`Assign; `Retain; `Copy; `Weak; `Strong; `Unsafe_unretained]
@@ -449,7 +418,8 @@ struct
     else
       match if_decl with
       | Some Clang_ast_t.ObjCInterfaceDecl (_, ndi, _, _, _) ->
-          let in_list some_list = IList.mem string_equal ndi.Clang_ast_t.ni_name some_list in
+          let in_list some_list =
+            IList.mem Core.Std.String.equal ndi.Clang_ast_t.ni_name some_list in
           not (in_list blacklist)
           && (in_list ancestors
               || is_objc_if_descendant ~blacklist:blacklist (get_super_if if_decl) ancestors)
@@ -581,7 +551,7 @@ struct
       match field_tuple, l with
       | (field, typ, annot), ((old_field, old_typ, old_annot) as old_field_tuple :: rest) ->
           let ret_list, ret_found = replace_field field_tuple rest found in
-          if Ident.fieldname_equal field old_field && Typ.equal typ old_typ then
+          if Ident.equal_fieldname field old_field && Typ.equal typ old_typ then
             let annotations = append_no_duplicates_annotations annot old_annot in
             (field, typ, annotations) :: ret_list, true
           else old_field_tuple :: ret_list, ret_found
@@ -599,7 +569,7 @@ struct
 
   let sort_fields fields =
     let compare (name1, _, _) (name2, _, _) =
-      Ident.fieldname_compare name1 name2 in
+      Ident.compare_fieldname name1 name2 in
     IList.sort compare fields
 
 
@@ -655,12 +625,6 @@ struct
     let class_name = Ast_utils.get_class_name_from_member field_qual_name in
     Ident.create_fieldname (Mangled.mangled field_name class_name) 0
 
-  let get_rel_file_path file_opt =
-    match file_opt with
-    | Some file ->
-        DB.source_file_to_rel_path (DB.rel_source_file_from_abs_path Config.project_root file)
-    | None -> ""
-
   let is_cpp_translation translation_unit_context =
     let lang = translation_unit_context.CFrontend_config.lang in
     lang = CFrontend_config.CPP || lang = CFrontend_config.ObjCPP
@@ -690,6 +654,11 @@ struct
          | _ -> assert false)
 
   let mk_procname_from_function translation_unit_context name function_decl_info_opt =
+    let get_rel_file_path file_opt =
+      match file_opt with
+      | Some file ->
+          DB.source_file_to_string (DB.source_file_from_abs_path file)
+      | None -> "" in
     let file =
       match function_decl_info_opt with
       | Some (decl_info, function_decl_info) ->
@@ -792,7 +761,9 @@ struct
           | Clang_ast_t.ClassTemplateSpecializationDecl(_, _, _, _, _, _, _, {xrdi_is_pod}, _) ->
               xrdi_is_pod
           | _ -> true) true in
-    Pvar.mk_global ~is_constexpr ~is_pod (mk_name name_string simple_name) translation_unit
+    Pvar.mk_global ~is_constexpr ~is_pod
+      ~is_static_local:(var_decl_info.Clang_ast_t.vdi_is_static_local)
+      (mk_name name_string simple_name) translation_unit
 
   let mk_sil_var trans_unit_ctx named_decl_info decl_info_type_ptr_opt procname outer_procname =
     match decl_info_type_ptr_opt with

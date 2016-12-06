@@ -26,7 +26,7 @@ type taint_spec = {
 
 let type_is_object typ =
   match typ with
-  | Typ.Tptr (Tstruct name, _) -> Typename.equal name Typename.Java.java_lang_Object
+  | Typ.Tptr (Tstruct name, _) -> Typename.equal name Typename.Java.java_lang_object
   | _ -> false
 
 let java_proc_name_with_class_method pn_java class_with_path method_name =
@@ -123,7 +123,7 @@ let get_field_type_name tenv
   | Tstruct name | Tptr (Tstruct name, _) -> (
       match Tenv.lookup tenv name with
       | Some { fields } -> (
-          match IList.find (function | (fn, _, _) -> Ident.fieldname_equal fn fieldname) fields with
+          match IList.find (function | (fn, _, _) -> Ident.equal_fieldname fn fieldname) fields with
           | _, ft, _ -> Some (get_type_name ft)
           | exception Not_found -> None
         )
@@ -273,7 +273,7 @@ let method_is_initializer
         match proc_attributes.ProcAttributes.proc_name with
         | Procname.Java pname_java ->
             let mname = Procname.java_get_method pname_java in
-            IList.exists (string_equal mname) initializer_methods
+            IList.exists (Core.Std.String.equal mname) initializer_methods
         | _ ->
             false
       else

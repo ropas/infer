@@ -13,4 +13,8 @@ int fun(int a) { return a; }
 
 // function shouldn't be translated if it's not used in source file
 int unused(int a) { return a; }
+
+// function should be translated because it's used in header corresponding
+// to source file
+int used_in_main_header(int a) { return a; }
 }

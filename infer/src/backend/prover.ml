@@ -25,10 +25,6 @@ let compute_max_from_nonempty_int_list l =
 let compute_min_from_nonempty_int_list l =
   IList.hd (IList.sort IntLit.compare_value l)
 
-let exp_pair_compare (e1, e2) (f1, f2) =
-  let c1 = Exp.compare e1 f1 in
-  if c1 <> 0 then c1 else Exp.compare e2 f2
-
 let rec list_rev_acc acc = function
   | [] -> acc
   | x:: l -> list_rev_acc (x:: acc) l
@@ -76,11 +72,8 @@ module DiffConstr : sig
 
 end = struct
 
-  type t = Exp.t * Exp.t * IntLit.t
+  type t = Exp.t * Exp.t * IntLit.t [@@deriving compare]
 
-  let compare (e1, e2, n) (f1, f2, m) =
-    let c1 = exp_pair_compare (e1, e2) (f1, f2) in
-    if c1 <> 0 then c1 else IntLit.compare_value n m
   let equal entry1 entry2 = compare entry1 entry2 = 0
 
   let to_leq (e1, e2, n) =
@@ -131,7 +124,7 @@ end = struct
 
   let sort_then_remove_redundancy constraints =
     let constraints_sorted = IList.sort compare constraints in
-    let have_same_key (e1, e2, _) (f1, f2, _) = exp_pair_compare (e1, e2) (f1, f2) = 0 in
+    let have_same_key (e1, e2, _) (f1, f2, _) = [%compare: Exp.t * Exp.t] (e1, e2) (f1, f2) = 0 in
     remove_redundancy have_same_key [] constraints_sorted
 
   let remove_redundancy constraints =
@@ -146,7 +139,7 @@ end = struct
     | constr:: rest, constr':: rest' ->
         let e1, e2, n = constr in
         let f1, f2, m = constr' in
-        let c1 = exp_pair_compare (e1, e2) (f1, f2) in
+        let c1 = [%compare: Exp.t * Exp.t] (e1, e2) (f1, f2) in
         if c1 = 0 && IntLit.lt n m then
           combine acc_todos acc_seen constraints_new rest'
         else if c1 = 0 then
@@ -565,7 +558,7 @@ let check_equal tenv prop e1 e2 =
     let eq = Sil.Aeq(n_e1, n_e2) in
     let n_eq = Prop.atom_normalize_prop tenv prop eq in
     let pi = prop.Prop.pi in
-    IList.exists (Sil.atom_equal n_eq) pi in
+    IList.exists (Sil.equal_atom n_eq) pi in
   check_equal () || check_equal_const () || check_equal_pi ()
 
 (** Check [ |- e=0]. Result [false] means "don't know". *)
@@ -632,6 +625,11 @@ let check_disequal tenv prop e1 e2 =
         if IntLit.iszero d then not (Const.equal c1 c2) else Const.equal c1 c2
     | Exp.Lindex(Exp.Const c1, Exp.Const d1), Exp.Lindex (Exp.Const c2, Exp.Const d2) ->
         Const.equal c1 c2 && not (Const.equal d1 d2)
+    | Exp.Const (Const.Cint n), Exp.BinOp (Binop.Mult, Exp.Sizeof _, e21)
+    | Exp.Const (Const.Cint n), Exp.BinOp (Binop.Mult, e21, Sizeof _)
+    | Exp.BinOp (Binop.Mult, Exp.Sizeof _, e21), Exp.Const (Const.Cint n)
+    | Exp.BinOp (Binop.Mult, e21, Exp.Sizeof _), Exp.Const (Const.Cint n) ->
+        IntLit.iszero n && not (Exp.is_zero e21)
     | _, _ -> false in
   let ineq = lazy (Inequalities.from_prop tenv prop) in
   let check_pi_implies_disequal e1 e2 =
@@ -769,7 +767,7 @@ let check_atom tenv prop a0 =
     when IntLit.isone i -> check_lt_normalized tenv prop e1 e2
   | Sil.Aeq (e1, e2) -> check_equal tenv prop e1 e2
   | Sil.Aneq (e1, e2) -> check_disequal tenv prop e1 e2
-  | Sil.Apred _ | Anpred _ -> IList.exists (Sil.atom_equal a) prop.Prop.pi
+  | Sil.Apred _ | Anpred _ -> IList.exists (Sil.equal_atom a) prop.Prop.pi
 
 (** Check [prop |- e1<=e2]. Result [false] means "don't know". *)
 let check_le tenv prop e1 e2 =
@@ -1210,6 +1208,14 @@ let exp_imply tenv calc_missing subs e1_in e2_in : subst2 =
         do_imply subs (Exp.Var v1) (Exp.BinOp (Binop.MinusA, e2, e1))
     | Exp.BinOp (Binop.PlusPI, Exp.Lvar pv1, e1), e2 ->
         do_imply subs (Exp.Lvar pv1) (Exp.BinOp (Binop.MinusA, e2, e1))
+    | Exp.Sizeof (t1, None, st1), Exp.Sizeof (t2, None, st2)
+      when Typ.equal t1 t2 && Subtype.equal_modulo_flag st1 st2 -> subs
+    | Exp.Sizeof (t1, Some d1, st1), Exp.Sizeof (t2, Some d2, st2)
+      when Typ.equal t1 t2 && Exp.equal d1 d2 && Subtype.equal_modulo_flag st1 st2 -> subs
+    | e', Exp.Const (Const.Cint n)
+    | Exp.Const (Const.Cint n), e'
+      when IntLit.iszero n && check_disequal tenv Prop.prop_emp e' Exp.zero ->
+        raise (IMPL_EXC ("expressions not equal", subs, (EXC_FALSE_EXPS (e1, e2))))
     | e1, Exp.Const _ ->
         raise (IMPL_EXC ("lhs not constant", subs, (EXC_FALSE_EXPS (e1, e2))))
     | Exp.Lfield(e1, fd1, _), Exp.Lfield(e2, fd2, _) when fd1 == fd2 ->
@@ -1335,7 +1341,7 @@ and struct_imply tenv source calc_missing subs fsel1 fsel2 typ2 : subst2 * ((Ide
   | _, [] -> subs, fsel1, []
   | (f1, se1) :: fsel1', (f2, se2) :: fsel2' ->
       begin
-        match Ident.fieldname_compare f1 f2 with
+        match Ident.compare_fieldname f1 f2 with
         | 0 ->
             let typ' = StructTyp.fld_typ ~lookup ~default:Typ.Tvoid f2 typ2 in
             let subs', se_frame, se_missing =
@@ -1432,12 +1438,12 @@ let filter_ne_lhs sub e0 = function
 
 let filter_hpred sub hpred2 hpred1 = match (Sil.hpred_sub sub hpred1), hpred2 with
   | Sil.Hlseg(Sil.Lseg_NE, hpara1, e1, f1, el1), Sil.Hlseg(Sil.Lseg_PE, _, _, _, _) ->
-      if Sil.hpred_equal (Sil.Hlseg(Sil.Lseg_PE, hpara1, e1, f1, el1)) hpred2 then Some false else None
+      if Sil.equal_hpred (Sil.Hlseg(Sil.Lseg_PE, hpara1, e1, f1, el1)) hpred2 then Some false else None
   | Sil.Hlseg(Sil.Lseg_PE, hpara1, e1, f1, el1), Sil.Hlseg(Sil.Lseg_NE, _, _, _, _) ->
-      if Sil.hpred_equal (Sil.Hlseg(Sil.Lseg_NE, hpara1, e1, f1, el1)) hpred2 then Some true else None (* return missing disequality *)
+      if Sil.equal_hpred (Sil.Hlseg(Sil.Lseg_NE, hpara1, e1, f1, el1)) hpred2 then Some true else None (* return missing disequality *)
   | Sil.Hpointsto(e1, _, _), Sil.Hlseg(_, _, e2, _, _) ->
       if Exp.equal e1 e2 then Some false else None
-  | hpred1, hpred2 -> if Sil.hpred_equal hpred1 hpred2 then Some false else None
+  | hpred1, hpred2 -> if Sil.equal_hpred hpred1 hpred2 then Some false else None
 
 let hpred_has_primed_lhs sub hpred =
   let rec find_primed e = match e with
@@ -1525,39 +1531,6 @@ let expand_hpred_pointer =
 module Subtyping_check =
 struct
 
-  let object_type = Typename.Java.java_lang_Object
-
-  let serializable_type = Typename.Java.from_string "java.io.Serializable"
-
-  let cloneable_type = Typename.Java.from_string "java.lang.Cloneable"
-
-  let is_interface tenv (class_name: Typename.t) =
-    match class_name, Tenv.lookup tenv class_name with
-    | TN_csu (Class Java, _), Some { fields = []; methods = []; } -> true
-    | _ -> false
-
-  let is_root_class class_name =
-    match class_name with
-    | Typename.TN_csu (Csu.Class Csu.Java, _) ->
-        Typename.equal class_name object_type
-    | Typename.TN_csu (Csu.Class Csu.CPP, _) ->
-        false
-    | _ -> false
-
-  (** check if c1 is a subclass of c2 *)
-  let check_subclass_tenv tenv c1 c2 =
-    let rec check (cn: Typename.t) =
-      Typename.equal cn c2 || is_root_class c2 ||
-      match cn, Tenv.lookup tenv cn with
-      | TN_csu (Class _, _), Some { supers } ->
-          IList.exists check supers
-      | _ -> false in
-    check c1
-
-  let check_subclass tenv c1 c2 =
-    let f = check_subclass_tenv tenv in
-    Subtype.check_subtype f c1 c2
-
   (** check that t1 and t2 are the same primitive type *)
   let check_subtype_basic_type t1 t2 =
     match t2 with
@@ -1571,15 +1544,15 @@ struct
   let rec check_subtype_java tenv (t1: Typ.t) (t2: Typ.t) =
     match t1, t2 with
     | Tstruct (TN_csu (Class Java, _) as cn1), Tstruct (TN_csu (Class Java, _) as cn2) ->
-        check_subclass tenv cn1 cn2
+        Subtype.check_subtype tenv cn1 cn2
     | Tarray (dom_type1, _), Tarray (dom_type2, _) ->
         check_subtype_java tenv dom_type1 dom_type2
     | Tptr (dom_type1, _), Tptr (dom_type2, _) ->
         check_subtype_java tenv dom_type1 dom_type2
     | Tarray _, Tstruct (TN_csu (Class Java, _) as cn2) ->
-        Typename.equal cn2 serializable_type
-        || Typename.equal cn2 cloneable_type
-        || Typename.equal cn2 object_type
+        Typename.equal cn2 Typename.Java.java_io_serializable
+        || Typename.equal cn2 Typename.Java.java_lang_cloneable
+        || Typename.equal cn2 Typename.Java.java_lang_object
     | _ -> check_subtype_basic_type t1 t2
 
   (** check if t1 is a subtype of t2 *)
@@ -1589,18 +1562,17 @@ struct
       check_subtype_java tenv t1 t2
     else
       match Typ.name t1, Typ.name t2 with
-      | Some cn1, Some cn2 -> check_subclass tenv cn1 cn2
+      | Some cn1, Some cn2 -> Subtype.check_subtype tenv cn1 cn2
       | _ -> false
 
   let rec case_analysis_type tenv ((t1: Typ.t), st1) ((t2: Typ.t), st2) =
     match t1, t2 with
     | Tstruct (TN_csu (Class Java, _) as cn1), Tstruct (TN_csu (Class Java, _) as cn2) ->
-        Subtype.case_analysis
-          (cn1, st1) (cn2, st2) (check_subclass tenv) (is_interface tenv)
+        Subtype.case_analysis tenv (cn1, st1) (cn2, st2)
     | Tstruct (TN_csu (Class Java, _) as cn1), Tarray _
-      when (Typename.equal cn1 serializable_type
-            || Typename.equal cn1 cloneable_type
-            || Typename.equal cn1 object_type) &&
+      when (Typename.equal cn1 Typename.Java.java_io_serializable
+            || Typename.equal cn1 Typename.Java.java_lang_cloneable
+            || Typename.equal cn1 Typename.Java.java_lang_object) &&
            st1 <> Subtype.exact ->
         Some st1, None
     | Tstruct cn1, Tstruct cn2
@@ -1608,9 +1580,8 @@ struct
       (* that get through the type system, but not in C++ because of multiple inheritance, *)
       (* and not in ObjC because of being weakly typed, *)
       (* and the algorithm will only work correctly if this is the case *)
-      when check_subclass tenv cn1 cn2 || check_subclass tenv cn2 cn1 ->
-        Subtype.case_analysis
-          (cn1, st1) (cn2, st2) (check_subclass tenv) (is_interface tenv)
+      when Subtype.check_subtype tenv cn1 cn2 || Subtype.check_subtype tenv cn2 cn1 ->
+        Subtype.case_analysis tenv (cn1, st1) (cn2, st2)
     | Tarray (dom_type1, _), Tarray (dom_type2, _) ->
         case_analysis_type tenv (dom_type1, st1) (dom_type2, st2)
     | Tptr (dom_type1, _), Tptr (dom_type2, _) ->
@@ -1681,8 +1652,7 @@ let get_overrides_of tenv supertype pname =
 (** Check the equality of two types ignoring flags in the subtyping components *)
 let texp_equal_modulo_subtype_flag texp1 texp2 = match texp1, texp2 with
   | Exp.Sizeof (t1, len1, st1), Exp.Sizeof (t2, len2, st2) ->
-      Typ.equal t1 t2
-      && (opt_equal Exp.equal len1 len2)
+      [%compare.equal: Typ.t * Exp.t option] (t1, len1) (t2, len2)
       && Subtype.equal_modulo_flag st1 st2
   | _ -> Exp.equal texp1 texp2
 
@@ -1709,7 +1679,7 @@ let texp_imply tenv subs texp1 texp2 e1 calc_missing =
         | Some texp1' ->
             not (texp_equal_modulo_subtype_flag texp1' texp1)
         | None -> false in
-      if (calc_missing) then (* footprint *)
+      if calc_missing then (* footprint *)
         begin
           match pos_type_opt with
           | None -> cast_exception tenv texp1 texp2 e1 subs
@@ -2262,7 +2232,7 @@ exception NO_COVER
 (** Find miminum set of pi's in [cases] whose disjunction covers true *)
 let find_minimum_pure_cover tenv cases =
   let cases =
-    let compare (pi1, _) (pi2, _) = int_compare (IList.length pi1) (IList.length pi2)
+    let compare (pi1, _) (pi2, _) = Core.Std.Int.compare (IList.length pi1) (IList.length pi2)
     in IList.sort compare cases in
   let rec grow seen todo = match todo with
     | [] -> raise NO_COVER

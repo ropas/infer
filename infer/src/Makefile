@@ -33,8 +33,9 @@ OCAMLBUILD_OPTIONS = \
   -cflags -principal \
   -cflags -strict-formats \
   -cflags -strict-sequence \
-  -cflags -w,$(OCAML_FATAL_WARNINGS)-4-9-40-41-42-45-48 \
+  -cflags -w,$(OCAML_FATAL_WARNINGS)-4-9-32-40-41-42-45-48 \
   -tag-line "<*{clang/clang_ast_*,backend/jsonbug_*,checkers/stacktree_*}>: warn(-27-32-35-39)" \
+  -tag-line "<*/{,*/}*.{ml,re}{,i}>: package(ppx_compare)" \
   -tag thread \
   -pkgs atdgen,core,ctypes.foreign,extlib,oUnit,str,unix,yojson,zip
 
@@ -172,6 +173,8 @@ INFER_CONFIG_TARGETS += $(INFERCLANG_MAIN).native
 DEPENDENCIES += clang
 endif
 
+export OCAMLFIND_IGNORE_DUPS_IN=$(shell ocamlc -where)/compiler-libs
+
 .PHONY: all
 all: infer
 
@@ -257,6 +260,10 @@ mod_dep.dot: $(ml_src_files) $(re_src_files)
 
 mod_dep.pdf: mod_dep.dot
 	dot -Tpdf -o mod_dep.pdf mod_dep.dot
+
+.PHONY: dsort
+dsort:
+	@ocamldep.opt -sort $(inc_flags) -ml-synonym .re -mli-synonym .rei $(ml_src_files) -pp refmt $(re_src_files)
 
 roots_grep_regex:=$(foreach root,$(roots),-e $(root)$$)
 dirs_find_regex:=$(foreach dir, $(DEPENDENCIES) stubs/ml,-path "./$(dir)/*" -o)

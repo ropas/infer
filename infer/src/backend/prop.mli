@@ -31,7 +31,7 @@ type 'a t = private
     pi: pi;  (** pure part *)
     sigma_fp : sigma;  (** abduced spatial part *)
     pi_fp: pi;  (** abduced pure part *)
-  }
+  } [@@deriving compare]
 
 (** type to describe different strategies for initializing fields of a structure. [No_init] does not
     initialize any fields of the struct. [Fld_init] initializes the fields of the struct with fresh
@@ -44,13 +44,13 @@ type struct_init_mode =
 (** {2 Basic Functions for propositions} *)
 
 (** Compare propositions *)
-val prop_compare : 'a t -> 'a t -> int
+val compare_prop : 'a t -> 'a t -> int
 
 (** Check the equality of two sigma's *)
-val sigma_equal : sigma -> sigma -> bool
+val equal_sigma : sigma -> sigma -> bool
 
 (** Check the equality of two propositions *)
-val prop_equal : 'a t -> 'a t -> bool
+val equal_prop : 'a t -> 'a t -> bool
 
 (** Pretty print a substitution. *)
 val pp_sub : printenv -> Format.formatter -> subst -> unit

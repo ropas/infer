@@ -14,23 +14,16 @@ open! Utils
 module L = Logging
 module F = Format
 
-(** Read the directories to analyze from the ondemand file. *)
-let read_dirs_to_analyze () =
-  match DB.read_changed_files_index with
-  | None ->
-      None
-  | Some lines ->
-      let res = ref StringSet.empty in
-      let do_line line =
-        let rel_file = DB.source_file_to_rel_path (DB.source_file_from_string line) in
-        let source_dir = DB.source_dir_from_source_file (DB.source_file_from_string rel_file) in
-        res := StringSet.add (DB.source_dir_to_string source_dir) !res in
-      IList.iter do_line lines;
-      Some !res
-
 (** Directories to analyze from the ondemand file. *)
 let dirs_to_analyze =
-  lazy (read_dirs_to_analyze ())
+  let process_changed_files changed_files =
+    DB.SourceFileSet.fold
+      (fun source_file source_dir_set ->
+         let source_dir = DB.source_dir_from_source_file source_file in
+         StringSet.add (DB.source_dir_to_string source_dir) source_dir_set
+      )
+      changed_files StringSet.empty in
+  Option.map process_changed_files DB.changed_source_files_set
 
 type analyze_ondemand = DB.source_file -> Procdesc.t -> unit
 
@@ -109,7 +102,7 @@ let restore_global_state st =
   Timeout.resume_previous_timeout ()
 
 
-let run_proc_analysis tenv ~propagate_exceptions analyze_proc curr_pdesc callee_pdesc =
+let run_proc_analysis ~propagate_exceptions analyze_proc curr_pdesc callee_pdesc =
   let curr_pname = Procdesc.get_proc_name curr_pdesc in
   let callee_pname = Procdesc.get_proc_name callee_pdesc in
 
@@ -153,7 +146,7 @@ let run_proc_analysis tenv ~propagate_exceptions analyze_proc curr_pdesc callee_
         Specs.status = Specs.INACTIVE;
         timestamp = summary.Specs.timestamp + 1 } in
     Specs.add_summary callee_pname summary';
-    Checkers.ST.store_summary tenv callee_pname;
+    Checkers.ST.store_summary callee_pname;
     Printer.write_proc_html source false callee_pdesc in
 
   let log_error_and_continue exn kind =
@@ -194,14 +187,13 @@ let run_proc_analysis tenv ~propagate_exceptions analyze_proc curr_pdesc callee_
           log_error_and_continue exn (FKcrash (Printexc.to_string exn))
 
 
-let analyze_proc_desc tenv ~propagate_exceptions curr_pdesc callee_pdesc =
+let analyze_proc_desc ~propagate_exceptions curr_pdesc callee_pdesc =
   let callee_pname = Procdesc.get_proc_name callee_pdesc in
   let proc_attributes = Procdesc.get_attributes callee_pdesc in
   match !callbacks_ref with
   | Some callbacks
     when should_be_analyzed proc_attributes callee_pname ->
-      run_proc_analysis tenv
-        ~propagate_exceptions callbacks.analyze_ondemand curr_pdesc callee_pdesc
+      run_proc_analysis ~propagate_exceptions callbacks.analyze_ondemand curr_pdesc callee_pdesc
   | _ -> ()
 
 
@@ -209,17 +201,15 @@ let analyze_proc_desc tenv ~propagate_exceptions curr_pdesc callee_pdesc =
 (** analyze_proc_name curr_pdesc proc_name
     performs an on-demand analysis of proc_name
     triggered during the analysis of curr_pname. *)
-let analyze_proc_name tenv ~propagate_exceptions curr_pdesc callee_pname =
+let analyze_proc_name ~propagate_exceptions curr_pdesc callee_pname =
 
   match !callbacks_ref with
   | Some callbacks
     when procedure_should_be_analyzed callee_pname ->
       begin
         match callbacks.get_proc_desc callee_pname with
-        | Some callee_pdesc ->
-            analyze_proc_desc tenv ~propagate_exceptions curr_pdesc callee_pdesc
-        | None ->
-            ()
+        | Some callee_pdesc -> analyze_proc_desc ~propagate_exceptions curr_pdesc callee_pdesc
+        | None -> ()
       end
   | _ ->
       () (* skipping *)

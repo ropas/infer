@@ -22,7 +22,7 @@ type analyzer = Capture | Compile | Infer | Eradicate | Checkers | Tracing
 val string_to_analyzer : (string * analyzer) list
 
 
-type language = Clang | Java
+type language = Clang | Java [@@deriving compare]
 
 val string_of_language : language -> string
 
@@ -61,8 +61,9 @@ val buck_infer_deps_file_name : string
 val captured_dir_name : string
 val checks_disabled_by_default : string list
 val clang_initializer_prefix : string
+val classpath : string option
 val cpp_extra_include_dir : string
-val cpp_models_dir : string
+val relative_cpp_models_dir : string
 val csl_analysis : bool
 val current_exe : CommandLineOption.exe
 val default_failure_name : string
@@ -93,6 +94,7 @@ val max_recursion : int
 val meet_level : int
 val models_dir : string
 val models_jar : string
+val models_src_dir : string
 val multicore_dir_name : string
 val ncpu : int
 val nsnotification_center_checker_backend : bool
@@ -112,7 +114,8 @@ val save_compact_summaries : bool
 val save_time_in_summaries : bool
 val smt_output : bool
 val source_file_extentions : string list
-val sources_dir_name : string
+val sources : string list
+val sourcepath : string option
 val specs_dir_name : string
 val specs_files_suffix : string
 val start_filename : string
@@ -143,6 +146,7 @@ val angelic_execution : bool
 val array_level : int
 val ast_file : string option
 val blacklist : string option
+val bootclasspath : string option
 val buck : bool
 val buck_build_args : string list
 val buck_out : string option
@@ -163,6 +167,7 @@ val clang_frontend_do_capture : bool
 val clang_frontend_do_lint : bool
 val clang_include_to_override : string option
 val cluster_cmdline : string option
+val compute_analytics : bool
 val continue_capture : bool
 val copy_propagation : bool
 val crashcontext : bool
@@ -198,7 +203,9 @@ val from_json_report : string option
 val frontend_debug : bool
 val frontend_tests : bool
 val frontend_stats : bool
+val generated_classes : string option
 val headers : bool
+val icfg_dotty_outfile : string option
 val infer_cache : string option
 val is_originator : bool
 val iterations : int
@@ -311,6 +318,8 @@ val reset_abs_val : unit -> unit
 val run_with_abs_val_equal_zero : ('a -> 'b) -> 'a -> 'b
 
 val allow_leak : bool ref
+
+val clang_compilation_db_files : string list ref
 
 (** Command Line Interface Documentation *)
 

@@ -25,7 +25,7 @@ module PP = struct
       match Printer.LineReader.from_loc linereader { loc with Location.line = n } with
       | Some s -> F.fprintf fmt "%s%s@\n" (if n = loc.Location.line then "-->" else "   ") s
       | _ -> () in
-    F.fprintf fmt "%s:%d@\n" (DB.source_file_to_string loc.Location.file) loc.Location.line;
+    F.fprintf fmt "%a:%d@\n" DB.source_file_pp loc.Location.file loc.Location.line;
     for n = loc.Location.line - nbefore to loc.Location.line + nafter do printline n done
 end (* PP *)
 
@@ -55,13 +55,13 @@ module ST = struct
           end
     end
 
-  let store_summary tenv proc_name =
+  let store_summary proc_name =
     Option.may
       (fun summary ->
          let summary' =
            { summary with
              Specs.timestamp = summary.Specs.timestamp + 1 } in
-         try Specs.store_summary tenv proc_name summary' with Sys_error s -> L.err "%s@." s)
+         try Specs.store_summary proc_name summary' with Sys_error s -> L.err "%s@." s)
       (Specs.get_summary proc_name)
 
   let report_error tenv
@@ -95,10 +95,10 @@ module ST = struct
         let drop_prefix str =
           Str.replace_first (Str.regexp "^[A-Za-z]+_") "" str in
         let normalized_equal s1 s2 =
-          string_equal (normalize s1) (normalize s2) in
+          Core.Std.String.equal (normalize s1) (normalize s2) in
 
         let is_parameter_suppressed =
-          IList.mem string_equal a.class_name [Annotations.suppressLint] &&
+          IList.mem Core.Std.String.equal a.class_name [Annotations.suppressLint] &&
           IList.mem normalized_equal kind a.parameters in
         let is_annotation_suppressed =
           string_is_suffix (normalize (drop_prefix kind)) (normalize a.class_name) in
@@ -142,10 +142,9 @@ module ST = struct
       begin
         if !verbose then
           begin
-            let file = DB.source_file_to_string loc.Location.file in
-            L.stdout "%s: %s: %s@."
+            L.stdout "%s: %a: %s@."
               kind
-              file
+              DB.source_file_pp loc.Location.file
               (Procname.to_string proc_name);
             L.stdout "%s@." description
           end;
@@ -371,7 +370,7 @@ let callback_monitor_nullcheck { Callbacks.proc_desc; idenv; proc_name } =
         let missing = IList.filter was_not_found formal_names in
         let loc = Procdesc.get_loc proc_desc in
         let pp_file_loc fmt () =
-          F.fprintf fmt "%s:%d" (DB.source_file_to_string loc.Location.file) loc.Location.line in
+          F.fprintf fmt "%a:%d" DB.source_file_pp loc.Location.file loc.Location.line in
         L.stdout "Null Checks of Formal Parameters: ";
         L.stdout "%d out of %d parameters checked (missing checks on: %a)[%a]@."
           nchecks nformals (pp_seq Mangled.pp) missing pp_file_loc ();

@@ -9,18 +9,6 @@
 
 package codetoanalyze.java.checkers;
 
-import java.lang.annotation.Documented;
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
-
-@Documented
-@Target(ElementType.TYPE)
-@Retention(RetentionPolicy.CLASS)
-@interface ThreadSafe {
-}
-
 @ThreadSafe
 public class ThreadSafeExample{
 
@@ -41,6 +29,64 @@ public class ThreadSafeExample{
 
   public void tsBad() {
     f = 24;
+  }
+
+  public void recursiveBad() {
+    f = 44;
+    recursiveBad();
+  }
+
+  private void evenOk() {
+    f = 44;
+    oddBad();
+  }
+
+  public void oddBad() {
+    evenOk(); // should report here
+  }
+
+  // shouldn't report here because it's a private method
+  private void assignInPrivateMethodOk() {
+    f = 24;
+  }
+
+  // but should report here, because now it's called
+  public void callPublicMethodBad() {
+    assignInPrivateMethodOk();
+  }
+
+  private void callAssignInPrivateMethod() {
+    assignInPrivateMethodOk();
+  }
+
+  // should report a deeperTraceBade -> callAssignInPrivateMethod -> assignInPrivateMethodOk trace
+  public void deeperTraceBad() {
+    callAssignInPrivateMethod();
+  }
+
+  public synchronized void callFromSynchronizedPublicMethodOk() {
+    assignInPrivateMethodOk();
+  }
+
+  private synchronized void synchronizedCallerOk() {
+    assignInPrivateMethodOk();
+  }
+
+  public void callFromUnsynchronizedPublicMethodOk() {
+    synchronizedCallerOk();
+  }
+
+  // although the constructor touches f, we shouldn't complain here
+  public void callConstructorOk() {
+    new ThreadSafeExample();
+  }
+
+  private Object returnConstructorOk() {
+    return new ThreadSafeExample();
+  }
+
+  public void transitivelyCallConstructorOk() {
+    returnConstructorOk();
   }
 
 }

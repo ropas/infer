@@ -1,8 +1,12 @@
 # TODO: this file exists only to support buck integration in infer/tests/build_systems/build_integration_tests.py
 
+import os
+
+sources = glob(['**/*.java'])
+
 java_library(
     name = 'compile',
-    srcs = glob(['**/*.java']),
+    srcs = sources,
     deps = [
         '//dependencies/java/guava:guava',
         '//dependencies/java/jsr-305:jsr-305',
@@ -14,4 +18,22 @@ java_library(
      visibility = [
         'PUBLIC'
     ]
+)
+
+genrule(
+    name = 'run_infer',
+    srcs = sources,
+    out = 'infer-out',
+    bash = ' '.join([
+        os.getenv('INFER_BIN', 'infer'),
+        '--sourcepath',
+        '$SRCDIR',
+        '--classpath',
+        '$(classpath :compile)',
+        '--generated-classes',
+        '$(location :compile)',
+        '--out',
+        '$OUT',
+        '--',
+        'genrule']),
 )

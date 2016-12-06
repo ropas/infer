@@ -45,10 +45,25 @@ let create_proc_desc cfg (proc_attributes: ProcAttributes.t) => {
 
 
 /** Iterate over all the nodes in the cfg */
-let iter_all_nodes f cfg => {
+let iter_all_nodes sorted::sorted=false f cfg => {
   let do_proc_desc _ (pdesc: Procdesc.t) =>
     IList.iter (fun node => f pdesc node) (Procdesc.get_nodes pdesc);
-  iter_proc_desc cfg do_proc_desc
+  if (not sorted) {
+    iter_proc_desc cfg do_proc_desc
+  } else {
+    Procname.Hash.fold
+      (
+        fun _ pdesc desc_nodes =>
+          IList.fold_left
+            (fun desc_nodes node => [(pdesc, node), ...desc_nodes])
+            desc_nodes
+            (Procdesc.get_nodes pdesc)
+      )
+      cfg.proc_desc_table
+      [] |>
+    IList.sort [%compare : (Procdesc.t, Procdesc.Node.t)] |>
+    IList.iter (fun (d, n) => f d n)
+  }
 };
 
 
@@ -113,33 +128,6 @@ let cfg_serializer: Serialization.serializer cfg = Serialization.create_serializ
 /** Load a cfg from a file */
 let load_cfg_from_file (filename: DB.filename) :option cfg =>
   Serialization.from_file cfg_serializer filename;
-
-
-/** save a copy in the results dir of the source files of procedures defined in the cfg,
-    unless an updated copy already exists */
-let save_source_files cfg => {
-  let process_proc _ pdesc => {
-    let loc = Procdesc.get_loc pdesc;
-    let source_file = loc.Location.file;
-    let source_file_str = DB.source_file_to_abs_path source_file;
-    let dest_file = DB.source_file_in_resdir source_file;
-    let dest_file_str = DB.filename_to_string dest_file;
-    let needs_copy =
-      Procdesc.is_defined pdesc &&
-      Sys.file_exists source_file_str && (
-        not (Sys.file_exists dest_file_str) ||
-        DB.file_modified_time (DB.filename_from_string source_file_str) >
-        DB.file_modified_time dest_file
-      );
-    if needs_copy {
-      switch (copy_file source_file_str dest_file_str) {
-      | Some _ => ()
-      | None => L.err "Error cannot create copy of source file %s@." source_file_str
-      }
-    }
-  };
-  iter_proc_desc cfg process_proc
-};
 
 
 /** Save the .attr files for the procedures in the cfg. */
@@ -277,7 +265,7 @@ let mark_unchanged_pdescs cfg_new cfg_old => {
       /* nodes are the same if they have the same id, instructions, and succs/preds up to renaming
          with [exp_map] and [id_map] */
       let node_eq (n1: Procdesc.Node.t) (n2: Procdesc.Node.t) => {
-        let id_compare (n1: Procdesc.Node.t) (n2: Procdesc.Node.t) =>
+        let compare_id (n1: Procdesc.Node.t) (n2: Procdesc.Node.t) =>
           try {
             let n1_mapping = Procdesc.NodeMap.find n1 !node_map;
             Procdesc.Node.compare n1_mapping n2
@@ -291,14 +279,14 @@ let mark_unchanged_pdescs cfg_new cfg_old => {
           IList.equal
             (
               fun i1 i2 => {
-                let (n, exp_map') = Sil.instr_compare_structural i1 i2 !exp_map;
+                let (n, exp_map') = Sil.compare_structural_instr i1 i2 !exp_map;
                 exp_map := exp_map';
                 n
               }
             )
             instrs1
             instrs2;
-        id_compare n1 n2 == 0 &&
+        compare_id n1 n2 == 0 &&
         IList.equal Procdesc.Node.compare (Procdesc.Node.get_succs n1) (Procdesc.Node.get_succs n2) &&
         IList.equal Procdesc.Node.compare (Procdesc.Node.get_preds n1) (Procdesc.Node.get_preds n2) &&
         instrs_eq (Procdesc.Node.get_instrs n1) (Procdesc.Node.get_instrs n2)
@@ -332,15 +320,8 @@ let mark_unchanged_pdescs cfg_new cfg_old => {
 
 
 /** Save a cfg into a file */
-let store_cfg_to_file
-    save_sources::save_sources=true
-    source_file::source_file
-    (filename: DB.filename)
-    (cfg: cfg) => {
+let store_cfg_to_file source_file::source_file (filename: DB.filename) (cfg: cfg) => {
   inline_java_synthetic_methods cfg;
-  if save_sources {
-    save_source_files cfg
-  };
   if Config.incremental_procs {
     switch (load_cfg_from_file filename) {
     | Some old_cfg => mark_unchanged_pdescs cfg old_cfg

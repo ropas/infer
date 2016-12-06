@@ -32,7 +32,7 @@ let clang_frontend_action_symbols = [
   ("lint_and_capture", `Lint_and_capture);
 ]
 
-type language = Clang | Java
+type language = Clang | Java [@@deriving compare]
 
 let string_of_language = function
   | Java -> "Java"
@@ -186,8 +186,6 @@ let smt_output = false
 
 let source_file_extentions = [".java"; ".m"; ".mm"; ".c"; ".cc"; ".cpp"; ".h"]
 
-let sources_dir_name = "sources"
-
 let specs_dir_name = "specs"
 
 let specs_files_suffix = ".specs"
@@ -242,7 +240,7 @@ let real_exe_name =
 
 let current_exe =
   if !Sys.interactive then CLOpt.Interactive
-  else try IList.assoc string_equal (Filename.basename real_exe_name) CLOpt.exes
+  else try IList.assoc Core.Std.String.equal (Filename.basename real_exe_name) CLOpt.exes
     with Not_found -> CLOpt.Toplevel
 
 let bin_dir =
@@ -261,12 +259,16 @@ let models_dir =
 let models_jar =
   lib_dir // "java" // "models.jar"
 
-let cpp_extra_include_dir =
-  let dir = bin_dir // Filename.parent_dir_name // "models" // "cpp" // "include" in
+let models_src_dir =
+  let dir = bin_dir // Filename.parent_dir_name // "models" in
   Utils.filename_to_absolute dir (* Normalize the path *)
 
-let cpp_models_dir =
-  cpp_extra_include_dir // "infer_model"
+let relative_cpp_extra_include_dir = "cpp" // "include"
+
+let cpp_extra_include_dir = models_src_dir // relative_cpp_extra_include_dir
+
+let relative_cpp_models_dir =
+  relative_cpp_extra_include_dir // "infer_model"
 
 let wrappers_dir =
   lib_dir // "wrappers"
@@ -317,8 +319,8 @@ let patterns_of_json_with_key json_key json =
   let detect_pattern assoc =
     match detect_language assoc with
     | Ok language ->
-        let is_method_pattern key = IList.exists (string_equal key) ["class"; "method"]
-        and is_source_contains key = IList.exists (string_equal key) ["source_contains"] in
+        let is_method_pattern key = IList.exists (Core.Std.String.equal key) ["class"; "method"]
+        and is_source_contains key = IList.exists (Core.Std.String.equal key) ["source_contains"] in
         let rec loop = function
           | [] ->
               Error ("Unknown pattern for " ^ json_key ^ " in " ^ inferconfig_file)
@@ -593,6 +595,11 @@ and blacklist =
     ~meta:"regex" "Skip analysis of files matched by the specified regular expression (Buck \
                    flavors only)"
 
+and bootclasspath =
+  CLOpt.mk_string_opt ~long:"bootclasspath"
+    ~exes:CLOpt.[Toplevel; Java]
+    "Specify the Java bootclasspath"
+
 (** Automatically set when running from within Buck *)
 and buck =
   CLOpt.mk_bool ~long:"buck"
@@ -643,7 +650,8 @@ and calls_csv =
 
 and changed_files_index =
   CLOpt.mk_path_opt ~long:"changed-files-index" ~exes:CLOpt.[Toplevel] ~meta:"file"
-    "Specify the file containing the list of files from which reactive analysis should start"
+    "Specify the file containing the list of source files from which reactive analysis should \
+     start. Source files should be specified relative to project root or be absolute"
 
 and check_duplicate_symbols =
   CLOpt.mk_bool ~long:"check-duplicate-symbols"
@@ -685,6 +693,10 @@ and clang_biniou_file =
   CLOpt.mk_path_opt ~long:"clang-biniou-file" ~exes:CLOpt.[Clang] ~meta:"file"
     "Specify a file containing the AST of the program, in biniou format"
 
+and clang_compilation_db_files =
+  CLOpt.mk_path_list ~long:"clang-compilation-db-files"
+    "Files that contain compilation commands"
+
 and clang_frontend_action =
   CLOpt.mk_symbol_opt ~long:"clang-frontend-action"
     ~exes:CLOpt.[Clang]
@@ -697,9 +709,21 @@ and clang_include_to_override =
      location of internal compiler headers. This option should specify the path to those headers \
      so that infer can use its own clang internal headers instead."
 
+and classpath =
+  CLOpt.mk_string_opt ~long:"classpath"
+    ~exes:CLOpt.[Java]
+    "Specify the Java classpath"
+
 and cluster =
   CLOpt.mk_path_opt ~deprecated:["cluster"] ~long:"cluster"
     ~meta:"file" "Specify a .cluster file to be analyzed"
+
+and compute_analytics =
+  CLOpt.mk_bool ~long:"compute-analytics"
+    ~default:false
+    ~exes:CLOpt.[Toplevel;Clang]
+    "Emit analytics as info-level issues, like component kit line count and \
+     component kit file cyclomatic complexity"
 
 (** Continue the capture for reactive mode:
     If a procedure was changed beforehand, keep the changed marking. *)
@@ -918,10 +942,20 @@ and frontend_tests =
     ~exes:CLOpt.frontend_exes
     "Save filename.ext.test.dot with the cfg in dotty format for frontend tests"
 
+and generated_classes =
+  CLOpt.mk_path_opt ~long:"generated-classes"
+    ~exes:CLOpt.[Toplevel; Java]
+    "Specify where to load the generated class files"
+
 and headers =
   CLOpt.mk_bool ~deprecated:["headers"] ~deprecated_no:["no_headers"] ~long:"headers" ~short:"hd"
     ~exes:CLOpt.[Clang]
     "Analyze code in header files"
+
+and icfg_dotty_outfile =
+  CLOpt.mk_path_opt ~long:"icfg-dotty-outfile" ~meta:"path"
+    "If set, specifies path where .dot file should be written, it overrides the path for all \
+     other options that would generate icfg file otherwise"
 
 and infer_cache =
   CLOpt.mk_path_opt ~deprecated:["infer_cache"; "-infer_cache"] ~long:"infer-cache"
@@ -1137,6 +1171,16 @@ and skip_translation_headers =
   CLOpt.mk_string_list ~deprecated:["skip_translation_headers"] ~long:"skip-translation-headers"
     ~exes:CLOpt.[Clang]
     ~meta:"path prefix" "Ignore headers whose path matches the given prefix"
+
+and sources =
+  CLOpt.mk_string_list ~long:"sources"
+    ~exes:CLOpt.[Java]
+    "Specify the list of source files"
+
+and sourcepath =
+  CLOpt.mk_string_opt ~long:"sourcepath"
+    ~exes:CLOpt.[Java]
+    "Specify the sourcepath"
 
 and spec_abs_level =
   CLOpt.mk_int ~deprecated:["spec_abs_level"] ~long:"spec-abs-level" ~default:1
@@ -1407,12 +1451,14 @@ and angelic_execution = !angelic_execution
 and array_level = !array_level
 and ast_file = !ast_file
 and blacklist = !blacklist
+and bootclasspath = !bootclasspath
 and buck = !buck
 and buck_build_args = !buck_build_args
 and buck_out = !buck_out
 and bugs_csv = !bugs_csv
 and bugs_json = !bugs_json
 and frontend_tests = !frontend_tests
+and generated_classes = !generated_classes
 and bugs_tests = !bugs_tests
 and bugs_txt = !bugs_txt
 and bugs_xml = !bugs_xml
@@ -1423,7 +1469,9 @@ and checkers = !checkers
 and checkers_repeated_calls = !checkers_repeated_calls
 and clang_biniou_file = !clang_biniou_file
 and clang_include_to_override = !clang_include_to_override
+and classpath = !classpath
 and cluster_cmdline = !cluster
+and compute_analytics = !compute_analytics
 and continue_capture = !continue
 and copy_propagation = !copy_propagation
 and crashcontext = !crashcontext
@@ -1458,6 +1506,7 @@ and from_json_report = !from_json_report
 and frontend_debug = !frontend_debug
 and frontend_stats = !frontend_stats
 and headers = !headers
+and icfg_dotty_outfile = !icfg_dotty_outfile
 and infer_cache = !infer_cache
 and iterations = !iterations
 and java_jar_compiler = !java_jar_compiler
@@ -1512,6 +1561,8 @@ and show_progress_bar = !progress_bar
 and skip_analysis_in_path = !skip_analysis_in_path
 and skip_clang_analysis_in_path = !skip_clang_analysis_in_path
 and skip_translation_headers = !skip_translation_headers
+and sources = !sources
+and sourcepath = !sourcepath
 and spec_abs_level = !spec_abs_level
 and stacktrace = !stacktrace
 and stacktraces_dir = !stacktraces_dir
@@ -1590,9 +1641,10 @@ let patterns_suppress_warnings =
           | `Null -> []
           | json -> patterns_of_json_with_key json_key json)
       | Error msg -> error ("Could not read or parse the supplied " ^ path ^ ":\n" ^ msg))
+  | None when CLOpt.(current_exe <> Java) -> []
+  | None when Option.is_some generated_classes -> []
   | None ->
-      if CLOpt.(current_exe <> Java) then []
-      else error ("Error: The option " ^ suppress_warnings_annotations_long ^ " was not provided")
+      error ("Error: The option " ^ suppress_warnings_annotations_long ^ " was not provided")
 
 let specs_library =
   match infer_cache with

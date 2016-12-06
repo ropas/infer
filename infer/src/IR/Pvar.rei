@@ -23,11 +23,15 @@ let module F = Format;
         3) global variables
         4) seed variables, used to store the initial value of formal parameters
     */
-type t;
+type t [@@deriving compare];
 
 
-/** Compare two pvar's */
-let compare: t => t => int;
+/** Equality for pvar's */
+let equal: t => t => bool;
+
+
+/** Compare two pvar's in alphabetical order */
+let compare_alpha: t => t => int;
 
 
 /** Dump a program variable. */
@@ -36,10 +40,6 @@ let d: t => unit;
 
 /** Dump a list of program variables. */
 let d_list: list t => unit;
-
-
-/** Equality for pvar's */
-let equal: t => t => bool;
 
 
 /** Get the name component of a program variable. */
@@ -62,11 +62,15 @@ let is_abduced: t => bool;
 let is_callee: t => bool;
 
 
-/** Check if the pvar is a global var */
+/** Check if the pvar is a global var or a static local var */
 let is_global: t => bool;
 
 
-/** Check if the pvar is a local var */
+/** Check if the pvar is a static variable declared inside a function */
+let is_static_local: t => bool;
+
+
+/** Check if the pvar is a (non-static) local var */
 let is_local: t => bool;
 
 
@@ -104,7 +108,13 @@ let mk_callee: Mangled.t => Procname.t => t;
 
 
 /** create a global variable with the given name */
-let mk_global: is_constexpr::bool? => is_pod::bool? => Mangled.t => DB.source_file => t;
+let mk_global:
+  is_constexpr::bool? =>
+  is_pod::bool? =>
+  is_static_local::bool? =>
+  Mangled.t =>
+  DB.source_file =>
+  t;
 
 
 /** create a fresh temporary variable local to procedure [pname]. for use in the frontends only! */

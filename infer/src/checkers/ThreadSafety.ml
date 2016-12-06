@@ -23,42 +23,96 @@ module Summary = Summary.Make (struct
       payload.Specs.threadsafety
   end)
 
+let is_initializer tenv proc_name =
+  Procname.is_constructor proc_name ||
+  Procname.is_class_initializer proc_name ||
+  FbThreadSafety.is_custom_init tenv proc_name
 
 module TransferFunctions (CFG : ProcCfg.S) = struct
   module CFG = CFG
   module Domain = ThreadSafetyDomain
   type extras = ProcData.no_extras
 
-  let is_lock_procedure pn = Procname.equal pn BuiltinDecl.__set_locked_attribute
+  type lock_model =
+    | Lock
+    | Unlock
+    | None
 
-  let is_unlock_procedure pn = Procname.equal pn BuiltinDecl.__delete_locked_attribute
+  let get_lock_model = function
+    | Procname.Java java_pname ->
+        begin
+          match Procname.java_get_class_name java_pname, Procname.java_get_method java_pname with
+          | "java.util.concurrent.locks.Lock", "lock" ->
+              Lock
+          | ("java.util.concurrent.locks.ReentrantLock"
+            | "java.util.concurrent.locks.ReentrantReadWriteLock$ReadLock"
+            | "java.util.concurrent.locks.ReentrantReadWriteLock$WriteLock"),
+            ("lock" | "tryLock" | "lockInterruptibly") ->
+              Lock
+          | ("java.util.concurrent.locks.Lock"
+            |"java.util.concurrent.locks.ReentrantLock"
+            | "java.util.concurrent.locks.ReentrantReadWriteLock$ReadLock"
+            | "java.util.concurrent.locks.ReentrantReadWriteLock$WriteLock"),
+            "unlock" ->
+              Unlock
+          | _ ->
+              None
+        end
+    | pname when Procname.equal pname BuiltinDecl.__set_locked_attribute ->
+        Lock
+    | pname when Procname.equal pname BuiltinDecl.__delete_locked_attribute ->
+        Unlock
+    | _ ->
+        None
 
-  let add_path_to_state exp typ pathdomainstate =
+  let add_path_to_state exp typ loc path_state =
     IList.fold_left
-      (fun pathdomainstate_acc rawpath -> ThreadSafetyDomain.PathDomain.add 
-                                            rawpath pathdomainstate_acc)
-      pathdomainstate
+      (fun acc rawpath ->
+         ThreadSafetyDomain.PathDomain.add_sink (ThreadSafetyDomain.make_access rawpath loc) acc)
+      path_state
       (AccessPath.of_exp exp typ ~f_resolve_id:(fun _ -> None))
 
-  let exec_instr ((lockstate,(readstate,writestate)) as astate) { ProcData.pdesc; } _ =
-    let is_unprotected lockstate =
-      (not (Procdesc.is_java_synchronized pdesc)) && 
-      (ThreadSafetyDomain.LocksDomain.is_empty lockstate)
-    in
+  let exec_instr ((lockstate, (readstate,writestate)) as astate) { ProcData.pdesc; tenv; } _ =
+    let is_unprotected is_locked =
+      not is_locked && not (Procdesc.is_java_synchronized pdesc) in
     function
-    | Sil.Call (_, Const (Cfun pn), _, _, _) ->
-        if is_lock_procedure pn
-        then
-          ((ThreadSafetyDomain.LocksDomain.add "locked" lockstate), (readstate,writestate))
-        else if is_unlock_procedure pn
-        then
-          ((ThreadSafetyDomain.LocksDomain.remove "locked" lockstate) , (readstate,writestate))
-        else
-          astate
+    | Sil.Call (_, Const (Cfun pn), _, loc, _) ->
+        begin
+          (* assuming that modeled procedures do not have useful summaries *)
+          match get_lock_model pn with
+          | Lock ->
+              true, snd astate
+          | Unlock ->
+              false, snd astate
+          | None ->
+              begin
+                match Summary.read_summary pdesc pn with
+                | Some (callee_lockstate, (callee_reads, callee_writes)) ->
+                    let lockstate' = callee_lockstate || lockstate in
+                    let _, read_writestate' =
+                      (* TODO (14842325): report on constructors that aren't threadsafe
+                         (e.g., constructors that access static fields) *)
+                      if is_unprotected lockstate' && not (is_initializer tenv pn)
+                      then
+                        let call_site = CallSite.make pn loc in
+                        let callee_readstate =
+                          ThreadSafetyDomain.PathDomain.with_callsite callee_reads call_site in
+                        let callee_writestate =
+                          ThreadSafetyDomain.PathDomain.with_callsite callee_writes call_site in
+                        let callee_astate =
+                          callee_lockstate, (callee_readstate, callee_writestate) in
+                        ThreadSafetyDomain.join callee_astate astate
+                      else
+                        astate in
+                    lockstate', read_writestate'
+                | None ->
+                    astate
+              end
+        end
 
-    | Sil.Store ((Lfield ( _, _, typ) as lhsfield) , _, _, _) ->
+    | Sil.Store ((Lfield ( _, _, typ) as lhsfield) , _, _, loc) ->
         if is_unprotected lockstate then (* abstracts no lock being held*)
-          (lockstate, (readstate, add_path_to_state lhsfield typ writestate))
+          (lockstate, (readstate, add_path_to_state lhsfield typ loc writestate))
         else astate
 
     (* Note: it appears that the third arg of Store is never an Lfield in the targets of,
@@ -66,9 +120,9 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
     | Sil.Store (_, _, Lfield _, _) ->
         failwith "Unexpected store instruction with rhs field"
 
-    | Sil.Load (_, (Lfield ( _, _, typ) as rhsfield) , _, _) ->
+    | Sil.Load (_, (Lfield ( _, _, typ) as rhsfield) , _, loc) ->
         if is_unprotected lockstate then (* abstracts no lock being held*)
-          (lockstate, (add_path_to_state rhsfield typ readstate, writestate))
+          (lockstate, (add_path_to_state rhsfield typ loc readstate, writestate))
         else astate
 
     |  _  ->
@@ -108,18 +162,13 @@ module ResultsTableType = Map.Make (struct
     let compare (_, _, pn1, _) (_,_,pn2,_) =  Procname.compare pn1 pn2
   end)
 
-let should_analyze_proc (_,tenv,proc_name,proc_desc) =
-  not (FbThreadSafety.is_custom_init tenv proc_name) &&
+let should_report_on_proc (_,tenv,proc_name,proc_desc) =
+  not (is_initializer tenv proc_name) &&
   not (Procname.java_is_autogen_method proc_name) &&
-  not (Procname.is_constructor proc_name) &&
-  not (Procname.is_class_initializer proc_name) &&
   Procdesc.get_access proc_desc <> PredSymb.Private
-
 
 (* creates a map from proc_envs to postconditions *)
 let make_results_table get_proc_desc file_env =
-  let procs_to_analyze = IList.filter should_analyze_proc file_env
-  in
   (* make a Map sending each element e of list l to (f e) *)
   let map_post_computation_over_procs f l =
     IList.fold_left (fun m p -> ResultsTableType.add p (f p) m
@@ -134,7 +183,7 @@ let make_results_table get_proc_desc file_env =
       | Some post -> post
       | None -> ThreadSafetyDomain.initial
   in
-  map_post_computation_over_procs compute_post_for_procedure procs_to_analyze
+  map_post_computation_over_procs compute_post_for_procedure file_env
 
 let get_current_class_and_threadsafe_superclasses tenv pname =
   match pname with
@@ -158,35 +207,58 @@ let calculate_addendum_message tenv pname =
       else ""
   | _ -> ""
 
-let report_thread_safety_errors ( _, tenv, pname, pdesc) writestate =
-  let report_one_error access_path =
+let report_thread_safety_errors ( _, tenv, pname, pdesc) trace =
+  let open ThreadSafetyDomain in
+  let trace_of_pname callee_pname =
+    match Summary.read_summary pdesc callee_pname with
+    | Some (_, (_, callee_trace)) -> callee_trace
+    | _ -> PathDomain.initial in
+  let report_one_path ((_, sinks) as path) =
+    let pp_accesses fmt sink =
+      let _, accesses = PathDomain.Sink.kind sink in
+      AccessPath.pp_access_list fmt accesses in
+    let initial_sink, _ = IList.hd (IList.rev sinks) in
+    let final_sink, _ = IList.hd sinks in
+    let initial_sink_site = PathDomain.Sink.call_site initial_sink in
+    let final_sink_site = PathDomain.Sink.call_site final_sink in
+    let desc_of_sink sink =
+      if CallSite.equal (PathDomain.Sink.call_site sink) final_sink_site
+      then
+        Format.asprintf "access to %a" pp_accesses sink
+      else
+        Format.asprintf
+          "call to %a" Procname.pp (CallSite.pname (PathDomain.Sink.call_site sink)) in
+    let loc = CallSite.loc (PathDomain.Sink.call_site initial_sink) in
+    let ltr = PathDomain.to_sink_loc_trace ~desc_of_sink path in
+    let msg = Localise.to_string Localise.thread_safety_error in
     let description =
-      F.asprintf "Method %a writes to field %a outside of synchronization. %s"
+      Format.asprintf "Public method %a%s writes to field %a outside of synchronization.%s"
         Procname.pp pname
-        AccessPath.pp_access_list access_path
-        (calculate_addendum_message tenv pname)
-    in
-    Checkers.ST.report_error tenv
-      pname
-      pdesc
-      (Localise.to_string Localise.thread_safety_error)
-      (Procdesc.get_loc pdesc)
-      description
-  in
-  IList.iter report_one_error (IList.map snd (ThreadSafetyDomain.PathDomain.elements writestate))
+        (if CallSite.equal final_sink_site initial_sink_site then "" else " indirectly")
+        pp_accesses final_sink
+        (calculate_addendum_message tenv pname) in
+    let exn = Exceptions.Checkers (msg, Localise.verbatim_desc description) in
+    Reporting.log_error pname ~loc ~ltr exn in
 
+  IList.iter
+    report_one_path
+    (PathDomain.get_reportable_sink_paths trace ~trace_of_pname)
 
 (* For now, just checks if there is one active element amongst the posts of the analyzed methods.
    This indicates that the method races with itself. To be refined later. *)
 let process_results_table tab =
   ResultsTableType.iter   (* report errors for each method *)
-    (fun proc_env ( _,( _, writestate)) -> report_thread_safety_errors proc_env writestate)
+    (fun proc_env ( _,( _, writestate)) ->
+       if should_report_on_proc proc_env then
+         report_thread_safety_errors proc_env writestate
+       else ()
+    )
     tab
 
 (* Currently we analyze if there is an @ThreadSafe annotation on at least one of
    the classes in a file. This might be tightened in future or even broadened in future
    based on other criteria *)
-let should_analyze_file file_env =
+let should_report_on_file file_env =
   let current_class_or_super_marked_threadsafe =
     fun (_, tenv, pname, _) ->
       match get_current_class_and_threadsafe_superclasses tenv pname with
@@ -201,9 +273,10 @@ let should_analyze_file file_env =
   the results to check (approximation of) thread safety *)
 (* file_env: (Idenv.t * Tenv.t * Procname.t * Procdesc.t) list *)
 let file_analysis _ _ get_procdesc file_env =
-  if should_analyze_file file_env then
-    process_results_table
-      (make_results_table get_procdesc file_env)
+  let tab = make_results_table get_procdesc file_env in
+  if should_report_on_file file_env then
+    process_results_table tab
+  else ()
 
       (*
     Todo:

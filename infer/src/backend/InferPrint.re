@@ -345,7 +345,7 @@ let should_report (issue_kind: Exceptions.err_kind) issue_type error_desc =>
             let eq o y =>
               switch (o, y) {
               | (None, _) => false
-              | (Some x, y) => string_equal x y
+              | (Some x, y) => Core.Std.String.equal x y
               };
             IList.mem eq issue_bucket high_buckets
           };
@@ -386,13 +386,6 @@ let should_report (issue_kind: Exceptions.err_kind) issue_type error_desc =>
     }
   };
 
-let is_file source_file =>
-  switch (Unix.stat (DB.source_file_to_abs_path source_file)) {
-  | {st_kind: S_REG | S_LNK} => true
-  | _ => false
-  | exception Unix.Unix_error _ => false
-  };
-
 let module IssuesCsv = {
   let csv_issues_id = ref 0;
   let pp_header fmt () =>
@@ -427,8 +420,7 @@ let module IssuesCsv = {
         };
       if (
         in_footprint &&
-        error_filter source_file error_desc error_name &&
-        should_report ekind error_name error_desc && is_file source_file
+        error_filter source_file error_desc error_name && should_report ekind error_name error_desc
       ) {
         let err_desc_string = error_desc_to_csv_string error_desc;
         let err_advice_string = error_advice_to_csv_string error_desc;
@@ -477,30 +469,6 @@ let module IssuesJson = {
   let is_first_item = ref true;
   let pp_json_open fmt () => F.fprintf fmt "[@?";
   let pp_json_close fmt () => F.fprintf fmt "]\n@?";
-  let expand_links_under_buck_out file =>
-    if (Utils.string_is_prefix Config.buck_generated_folder file) {
-      try {
-        let file = Unix.readlink file;
-        let source_file = DB.source_file_from_string file;
-        DB.source_file_to_rel_path source_file
-      } {
-      | Unix.Unix_error _ => file
-      }
-    } else {
-      file
-    };
-  let make_cpp_models_path_relative file => {
-    let abs_file = DB.source_file_to_abs_path file;
-    if (Utils.string_is_prefix Config.cpp_models_dir abs_file) {
-      if (Config.debug_mode || Config.debug_exceptions) {
-        Some (DB.rel_source_file_from_abs_path Config.cpp_models_dir abs_file)
-      } else {
-        None
-      }
-    } else {
-      Some file
-    }
-  };
 
   /** Write bug report in JSON format */
   let pp_issues_of_error_log fmt error_filter _ proc_loc_opt procname err_log => {
@@ -522,16 +490,18 @@ let module IssuesJson = {
         | Some proc_loc => (proc_loc.Location.file, proc_loc.Location.line)
         | None => (loc.Location.file, 0)
         };
-      let file_opt = make_cpp_models_path_relative source_file;
+      let should_report_source_file =
+        not (DB.source_file_is_infer_model source_file) ||
+        Config.debug_mode || Config.debug_exceptions;
       if (
         in_footprint &&
         error_filter source_file error_desc error_name &&
-        Option.is_some file_opt && should_report ekind error_name error_desc && is_file source_file
+        should_report_source_file && should_report ekind error_name error_desc
       ) {
         let kind = Exceptions.err_kind_string ekind;
         let bug_type = Localise.to_string error_name;
         let procedure_id = Procname.to_filename procname;
-        let file = expand_links_under_buck_out (DB.source_file_to_string (Option.get file_opt));
+        let file = DB.source_file_to_string source_file;
         let json_ml_loc =
           switch ml_loc_opt {
           | Some (file, lnum, cnum, enum) when Config.reports_include_ml_loc =>
@@ -592,32 +562,12 @@ let pp_tests_of_report fmt report => {
   IList.iter pp_row report
 };
 
-let tests_jsonbug_compare bug1 bug2 => {
-  open Jsonbug_t;
-  let n = string_compare bug1.file bug2.file;
-  if (n != 0) {
-    n
-  } else {
-    let n = string_compare bug1.procedure bug2.procedure;
-    if (n != 0) {
-      n
-    } else {
-      let n =
-        int_compare
-          (bug1.line - bug1.procedure_start_line) (bug2.line - bug2.procedure_start_line);
-      if (n != 0) {
-        n
-      } else {
-        let n = string_compare bug1.bug_type bug2.bug_type;
-        if (n != 0) {
-          n
-        } else {
-          int_compare bug1.hash bug2.hash
-        }
-      }
-    }
-  }
-};
+let tests_jsonbug_compare bug1 bug2 =>
+  Jsonbug_t.(
+    [%compare : (string, string, int, string, int)]
+      (bug1.file, bug1.procedure, bug1.line - bug1.procedure_start_line, bug1.bug_type, bug1.hash)
+      (bug2.file, bug2.procedure, bug2.line - bug2.procedure_start_line, bug2.bug_type, bug2.hash)
+  );
 
 let module IssuesTxt = {
 
@@ -867,8 +817,7 @@ let module Stats = {
           let error_strs = {
             let pp1 fmt () => F.fprintf fmt "%d: %s" stats.nerrors type_str;
             let pp2 fmt () =>
-              F.fprintf
-                fmt "  %s:%d" (DB.source_file_to_string loc.Location.file) loc.Location.line;
+              F.fprintf fmt "  %a:%d" DB.source_file_pp loc.Location.file loc.Location.line;
             let pp3 fmt () => F.fprintf fmt "  (%a)" Localise.pp_error_desc error_desc;
             [pp_to_string pp1 (), pp_to_string pp2 (), pp_to_string pp3 ()]
           };
@@ -1296,13 +1245,13 @@ let module AnalysisResults = {
     apply_without_gc (IList.iter load_file) (spec_files_from_cmdline ());
     let summ_cmp (_, summ1) (_, summ2) => {
       let n =
-        DB.source_file_compare
+        DB.compare_source_file
           summ1.Specs.attributes.ProcAttributes.loc.Location.file
           summ2.Specs.attributes.ProcAttributes.loc.Location.file;
       if (n != 0) {
         n
       } else {
-        int_compare
+        Core.Std.Int.compare
           summ1.Specs.attributes.ProcAttributes.loc.Location.line
           summ2.Specs.attributes.ProcAttributes.loc.Location.line
       }
@@ -1312,7 +1261,7 @@ let module AnalysisResults = {
 
   /** Create an iterator which loads spec files one at a time */
   let iterator_of_spec_files () => {
-    let sorted_spec_files = IList.sort string_compare (spec_files_from_cmdline ());
+    let sorted_spec_files = IList.sort Core.Std.String.compare (spec_files_from_cmdline ());
     let do_spec f fname =>
       switch (Specs.load_summary (DB.filename_from_string fname)) {
       | None =>

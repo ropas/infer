@@ -34,7 +34,7 @@ let tenv_filename file_base =
 module FilenameHash = Hashtbl.Make(
   struct
     type t = DB.filename
-    let equal file1 file2 = DB.filename_compare file1 file2 = 0
+    let equal file1 file2 = DB.compare_filename file1 file2 = 0
     let hash = Hashtbl.hash
   end)
 
@@ -99,14 +99,14 @@ let add_cg (exe_env: t) (source_dir : DB.source_dir) =
             | None ->
                 ()
             | Some (source_captured, origin) ->
-                let multiply_defined = DB.source_file_compare source source_captured <> 0 in
+                let multiply_defined = DB.compare_source_file source source_captured <> 0 in
                 if multiply_defined then Cg.remove_node_defined cg pname;
                 if Config.check_duplicate_symbols &&
                    multiply_defined &&
                    origin <> `Include then
-                  L.stderr "@.DUPLICATE_SYMBOLS source: %s source_captured:%s pname:%a@."
-                    (DB.source_file_to_string source)
-                    (DB.source_file_to_string source_captured)
+                  L.stderr "@.DUPLICATE_SYMBOLS source: %a source_captured:%a pname:%a@."
+                    DB.source_file_pp source
+                    DB.source_file_pp source_captured
                     Procname.pp pname
            ))
         defined_procs;

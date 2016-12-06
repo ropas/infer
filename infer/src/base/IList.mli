@@ -7,11 +7,10 @@
  * of patent rights can be found in the PATENTS file in the same directory.
  *)
 
-(** Generic comparison of lists given a compare function for the elements of the list *)
-val compare : ('a -> 'b -> int) -> 'a list -> 'b list -> int
+type 'a t = 'a list [@@deriving compare]
 
 (** Generic equality of lists given a compare function for the elements of the list *)
-val equal : ('a -> 'b -> int) -> 'a list -> 'b list -> bool
+val equal : ('a -> 'a -> int) -> 'a list -> 'a list -> bool
 
 (** tail-recursive variant of List.append *)
 val append : 'a list -> 'a list -> 'a list
@@ -119,3 +118,8 @@ val find_map_opt : ('a -> 'b option) -> 'a list -> 'b option
 val find_mapi_opt : (int -> 'a -> 'b option) -> 'a list -> 'b option
 
 val to_string : ('a -> string) -> 'a list -> string
+
+(** Creates an list, inclusive. E.g. `range 2 4` -> [2, 3, 4].
+
+    Not tail-recursive.*)
+val range : int -> int -> int list
