@@ -80,7 +80,7 @@ struct
   = fun c ->
     if Config.ropas_debug <= 1 && (Itv.is_symbolic c.idx || Itv.is_symbolic c.size)
     then true
-    else if Config.filtering && c.size = Itv.top then true
+    else if Config.filtering && (c.idx = Itv.top || c.size = Itv.top) then true
     else
       let c = set_size_pos c in
       let not_overrun = Itv.lt_sem c.idx c.size in
