@@ -173,6 +173,7 @@ struct
         let ret_loc = Loc.of_pvar (Pvar.get_ret_pvar callee_pname) in
         let ret_val = Domain.Mem.find_heap ret_loc callee_exit_mem in
         Domain.Val.subst ret_val subst_map
+        |> Domain.Val.normalize (* normalize bottom *)
     | _ -> Domain.Val.bot
 
   let print_debug_info instr pre post = 
@@ -209,7 +210,6 @@ struct
                let callee = extras callee_pname in
                let ret_val =
                  instantiate_ret tenv callee callee_pname params mem summary loc
-                 |> Domain.Val.rm_bnd_bot
                in
                (match ret with
                 | Some (id,_) ->
@@ -315,7 +315,7 @@ struct
               | Some summary ->
                   let callee = extras callee_pname in
                   instantiate_cond tenv callee params mem summary loc
-                  |> Domain.ConditionSet.rm_bnd_bot
+                  |> Domain.ConditionSet.rm_invalid
                   |> Domain.ConditionSet.join cond_set
               | _ -> cond_set
             end

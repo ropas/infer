@@ -92,8 +92,8 @@ struct
     { c with idx = Itv.subst c.idx subst_map;
              size = Itv.subst c.size subst_map; }
 
-  let has_bnd_bot : t -> bool
-  = fun x -> Itv.has_bnd_bot x.idx || Itv.has_bnd_bot x.size
+  let invalid : t -> bool
+  = fun x -> Itv.invalid x.idx || Itv.invalid x.size
 
   let to_string : t -> string
   = fun c ->
@@ -143,8 +143,8 @@ struct
     F.fprintf fmt " }@]";
     F.fprintf fmt "@]"
 
-  let rm_bnd_bot : t -> t
-  = fun x -> filter (fun c -> not (Condition.has_bnd_bot c)) x
+  let rm_invalid : t -> t
+  = fun x -> filter (fun c -> not (Condition.invalid c)) x
 end
 
 module Val =
@@ -297,8 +297,8 @@ struct
   let get_symbols : t -> Itv.Symbol.t list
   = fun (i, _, a) -> IList.append (Itv.get_symbols i) (ArrayBlk.get_symbols a)
 
-  let rm_bnd_bot : t -> t
-  = fun (i, l, a) -> (Itv.rm_bnd_bot i, l, ArrayBlk.rm_bnd_bot a)
+  let normalize : t -> t
+  = fun (i, l, a) -> (Itv.normalize i, l, ArrayBlk.normalize a)
 end
 
 module Stack =

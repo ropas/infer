@@ -443,6 +443,9 @@ struct
     | _, MInf -> Some MInf
     | _, _ when is_zero x -> Some y
     | _, _ when is_zero y -> Some x
+(*    | MinMax (Max, c1, _), Linear (c2, x2) 
+    | Linear (c2, x2), MinMax (Max, c1, _) when SymLinear.is_zero x2 -> 
+        Some (Linear (c1+c2, x2))*)
     | Linear (c1, x1), Linear (c2, x2) ->
         Some (Linear (c1 + c2, SymLinear.plus x1 x2))
     | _, _ -> None
@@ -758,7 +761,8 @@ struct
 
   let invalid : t -> bool
   = fun (l, u) ->
-    Bound.eq l Bound.PInf || Bound.eq u Bound.MInf || Bound.lt u l
+    l = Bound.Bot || u = Bound.Bot
+    || Bound.eq l Bound.PInf || Bound.eq u Bound.MInf || Bound.lt u l
 
   let prune : t -> t -> t option
   = fun (l1, u1) y ->
@@ -838,12 +842,10 @@ struct
   = fun (l, u) ->
     IList.append (Bound.get_symbols l) (Bound.get_symbols u)
 
-  let rm_bnd_bot : t -> t option
+  let normalize : t -> t option
   = fun (l, u) ->
-    match l, u with
-    | Bound.Bot, _
-    | _, Bound.Bot -> None
-    | _, _ -> Some (l, u)
+    if invalid (l,u) then None
+    else Some (l, u)
 
   let has_bnd_bot : t -> bool
   = fun (l, u) ->
@@ -898,6 +900,11 @@ let nat : t
 
 let make : Bound.t -> Bound.t -> t
 = fun l u -> if Bound.lt u l then Bottom else NonBottom (ItvPure.make l u)
+
+let invalid : t -> bool
+= function
+  | NonBottom x -> ItvPure.invalid x
+  | Bottom -> false
 
 let is_symbolic : t -> bool
 = function
@@ -1025,8 +1032,8 @@ let get_symbols : t -> Symbol.t list
   | Bottom -> []
   | NonBottom x -> ItvPure.get_symbols x
 
-let rm_bnd_bot : t -> t
-= lift1_opt ItvPure.rm_bnd_bot
+let normalize : t -> t
+= lift1_opt ItvPure.normalize
 
 let has_bnd_bot : t -> bool
 = function

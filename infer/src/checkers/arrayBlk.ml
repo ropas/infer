@@ -110,11 +110,11 @@ struct
     let s3 = Itv.get_symbols arr.stride in
     IList.flatten [s1; s2; s3]
 
-  let rm_bnd_bot : t -> t
+  let normalize : t -> t
   = fun arr ->
-    { offset = Itv.rm_bnd_bot arr.offset;
-      size = Itv.rm_bnd_bot arr.size;
-      stride = Itv.rm_bnd_bot arr.stride }
+    { offset = Itv.normalize arr.offset;
+      size = Itv.normalize arr.size;
+      stride = Itv.normalize arr.stride }
 
   let prune : t -> t -> t
   = fun arr1 arr2 -> { arr1 with offset = Itv.prune arr1.offset arr2.offset }
@@ -185,8 +185,8 @@ let get_symbols : astate -> Itv.Symbol.t list
 = fun a ->
   IList.flatten (IList.map (fun (_, ai) -> ArrInfo.get_symbols ai) (bindings a))
 
-let rm_bnd_bot : astate -> astate
-= fun a -> map ArrInfo.rm_bnd_bot a
+let normalize : astate -> astate
+= fun a -> map ArrInfo.normalize a
 
 let do_prune
   : (ArrInfo.t -> ArrInfo.t -> ArrInfo.t) -> astate -> astate -> astate
