@@ -76,7 +76,7 @@ struct
   let model_infer_print params mem loc =
     match params with 
       (e, _)::_ -> 
-        F.fprintf F.err_formatter "=== Infer Print === at %a@." Location.pp loc;
+        F.fprintf F.err_formatter "<v>=== Infer Print === at %a@," Location.pp loc;
         Domain.Val.pp F.err_formatter (Semantics.eval e mem loc); mem
     | _ -> mem 
     
@@ -173,6 +173,7 @@ struct
         let ret_loc = Loc.of_pvar (Pvar.get_ret_pvar callee_pname) in
         let ret_val = Domain.Mem.find_heap ret_loc callee_exit_mem in
         Domain.Val.subst ret_val subst_map
+        |> Domain.Val.normalize (* normalize bottom *)
     | _ -> Domain.Val.bot
 
   let print_debug_info instr pre post = 
@@ -209,7 +210,6 @@ struct
                let callee = extras callee_pname in
                let ret_val =
                  instantiate_ret tenv callee callee_pname params mem summary loc
-                 |> Domain.Val.rm_bnd_bot
                in
                (match ret with
                 | Some (id,_) ->
@@ -315,7 +315,7 @@ struct
               | Some summary ->
                   let callee = extras callee_pname in
                   instantiate_cond tenv callee params mem summary loc
-                  |> Domain.ConditionSet.rm_bnd_bot
+                  |> Domain.ConditionSet.rm_invalid
                   |> Domain.ConditionSet.join cond_set
               | _ -> cond_set
             end
@@ -383,13 +383,16 @@ struct
       in
       let cond_set = Report.collect (ProcData.make pdesc tenv extras) inv_map in
       match entry_mem, exit_mem with
+      | Some _, Some _ 
+          when (Procdesc.get_proc_name pdesc |> Procname.get_method) = "infer_print" -> 
+          None
       | Some entry_mem, Some exit_mem -> 
           Summary.write_summary (Procdesc.get_proc_name pdesc) 
             (entry_mem, exit_mem, cond_set);
           Some (entry_mem, exit_mem, cond_set)
       | _ -> None 
     in
-    (* below, copied from abstractInterer.ml *)
+    (* below, copied from abstractIntepreter.ml *)
     let analyze_ondemand source pdesc =
       ignore (analyze_ondemand_ source pdesc) in
     let callbacks =
