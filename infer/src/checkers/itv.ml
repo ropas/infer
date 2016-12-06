@@ -450,6 +450,28 @@ struct
         Some (Linear (c1 + c2, SymLinear.plus x1 x2))
     | _, _ -> None
 
+  let plus_l : t -> t -> t
+  = fun x y ->
+    assert (x <> Bot && y <> Bot);
+    match x, y with
+    | _, _ when is_zero x -> y
+    | _, _ when is_zero y -> x
+    | Linear (c1, x1), Linear (c2, x2) -> Linear (c1 + c2, SymLinear.plus x1 x2)
+    | MinMax (Max, c1, _), Linear (c2, x2) 
+    | Linear (c2, x2), MinMax (Max, c1, _) when SymLinear.is_zero x2 -> Linear (c1+c2, x2)
+    | _, _ -> MInf
+
+  let plus_u : t -> t -> t
+  = fun x y ->
+    assert (x <> Bot && y <> Bot);
+    match x, y with
+    | _, _ when is_zero x -> y
+    | _, _ when is_zero y -> x
+    | Linear (c1, x1), Linear (c2, x2) -> Linear (c1 + c2, SymLinear.plus x1 x2)
+    | MinMax (Min, c1, _), Linear (c2, x2) 
+    | Linear (c2, x2), MinMax (Min, c1, _) when SymLinear.is_zero x2 -> Linear (c1+c2, x2)
+    | _, _ -> PInf
+
   let minus : t -> t -> t option
   = fun x y ->
     assert (x <> Bot && y <> Bot);
