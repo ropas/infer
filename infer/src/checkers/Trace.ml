@@ -44,11 +44,14 @@ module type S = sig
   (** get the passthroughs of the trace *)
   val passthroughs : t -> Passthroughs.t
 
-  (** get the reportable source-sink flows in this trace *)
-  val get_reports : t -> (Source.t * Sink.t * Passthroughs.t) list
+  (** get the reportable source-sink flows in this trace. specifying [cur_site] restricts the
+      reported paths to ones introduced by the call at [cur_site]  *)
+  val get_reports : ?cur_site:CallSite.t -> t -> (Source.t * Sink.t * Passthroughs.t) list
 
-  (** get a path for each of the reportable source -> sink flows in this trace *)
-  val get_reportable_paths : t -> trace_of_pname:(Procname.t -> t) -> path list
+  (** get a path for each of the reportable source -> sink flows in this trace. specifying
+      [cur_site] restricts the reported paths to ones introduced by the call at [cur_site] *)
+  val get_reportable_paths :
+    ?cur_site:CallSite.t -> t -> trace_of_pname:(Procname.t -> t) -> path list
 
   (** create a loc_trace from a path; [source_should_nest s] should be true when we are going one
       deeper into a call-chain, ie when lt_level should be bumper in the next loc_trace_elem, and
@@ -66,9 +69,6 @@ module type S = sig
 
   (** add a sink to the current trace. *)
   val add_sink : Sink.t -> t -> t
-
-  (** remove the given sinks from the current trace *)
-  val filter_sinks : t -> Sink.t list -> t
 
   (** append the trace for given call site to the current caller trace *)
   val append : t -> t -> CallSite.t -> t
@@ -91,28 +91,28 @@ end
 module Expander (TraceElem : TraceElem.S) = struct
 
   let expand elem0 ~elems_passthroughs_of_pname =
-    let rec expand_ elem elems_passthroughs_acc =
+    let rec expand_ elem (elems_passthroughs_acc, seen_acc) =
       let elem_site = TraceElem.call_site elem in
       let elem_kind = TraceElem.kind elem in
+      let seen_acc' = CallSite.Set.add elem_site seen_acc in
       let elems, passthroughs = elems_passthroughs_of_pname (CallSite.pname elem_site) in
-      let is_recursive elem_site callee_elem =
-        Procname.equal
-          (CallSite.pname elem_site) (CallSite.pname (TraceElem.call_site callee_elem)) in
+      let is_recursive callee_elem seen =
+        CallSite.Set.mem (TraceElem.call_site callee_elem) seen in
       (* find sinks that are the same kind as the caller, but have a different procname *)
       let matching_elems =
         IList.filter
           (fun callee_elem ->
              TraceElem.Kind.compare (TraceElem.kind callee_elem) elem_kind = 0 &&
-             not (is_recursive elem_site callee_elem))
+             not (is_recursive callee_elem seen_acc'))
           elems in
       match matching_elems with
       | callee_elem :: _ ->
           (* TODO: pick the shortest path to a sink here instead (t14242809) *)
           (* arbitrarily pick one elem and explore it further *)
-          expand_ callee_elem ((elem, passthroughs) :: elems_passthroughs_acc)
+          expand_ callee_elem ((elem, passthroughs) :: elems_passthroughs_acc, seen_acc')
       | _ ->
-          (elem, Passthrough.Set.empty) :: elems_passthroughs_acc in
-    expand_ elem0 []
+          (elem, Passthrough.Set.empty) :: elems_passthroughs_acc, seen_acc' in
+    fst (expand_ elem0 ([], CallSite.Set.empty))
 end
 
 module Make (Spec : Spec) = struct
@@ -131,25 +131,11 @@ module Make (Spec : Spec) = struct
       sinks : Sinks.t;
       (** last callees in the trace that transitively called a tainted function (if any) *)
       passthroughs : Passthrough.Set.t; (** calls that occurred between source and sink *)
-    }
+    } [@@deriving compare]
 
   type astate = t
 
   type path = Passthroughs.t * (Source.t * Passthroughs.t) list * (Sink.t * Passthroughs.t) list
-
-  let compare t1 t2 =
-    if t1 == t2
-    then
-      0
-    else
-      let n = Sources.compare t1.sources t2.sources in
-      if n <> 0
-      then n
-      else
-        let n = Sinks.compare t1.sinks t2.sinks in
-        if n <> 0
-        then n
-        else Passthroughs.compare t1.passthroughs t2.passthroughs
 
   let equal t1 t2 =
     compare t1 t2 = 0
@@ -173,15 +159,25 @@ module Make (Spec : Spec) = struct
     (* sources empty => sinks empty and passthroughs empty *)
     Sources.is_empty t.sources
 
-  let get_reports t =
+  let get_reports ?cur_site t =
     if Sinks.is_empty t.sinks || Sources.is_empty t.sources
     then
       []
     else
+      let should_report_at_site source sink = match cur_site with
+        | None ->
+            true
+        | Some call_site ->
+            (* report when: (1) [cur_site] introduces the sink, and (2) [cur_site] does not also
+               introduce the source. otherwise, we'll report paths that don't respect control
+               flow. *)
+            CallSite.equal call_site (Sink.call_site sink) &&
+            not (CallSite.equal call_site (Source.call_site source)) in
+
       (* written to avoid closure allocations in hot code. change with caution. *)
       let report_source source sinks acc0 =
         let report_one sink acc =
-          if Spec.should_report source sink
+          if Spec.should_report source sink && should_report_at_site source sink
           then (source, sink, t.passthroughs) :: acc
           else acc in
         Sinks.fold report_one sinks acc0 in
@@ -219,7 +215,7 @@ module Make (Spec : Spec) = struct
       pp_passthroughs cur_passthroughs
       pp_sinks (IList.rev sinks_passthroughs)
 
-  let get_reportable_paths t ~trace_of_pname =
+  let get_reportable_paths ?cur_site t ~trace_of_pname =
     let expand_path source sink =
       let sources_of_pname pname =
         let trace = trace_of_pname pname in
@@ -237,7 +233,7 @@ module Make (Spec : Spec) = struct
       (fun (source, sink, passthroughs) ->
          let sources_passthroughs, sinks_passthroughs = expand_path source sink in
          passthroughs, sources_passthroughs, sinks_passthroughs)
-      (get_reports t)
+      (get_reports ?cur_site t)
 
   let to_loc_trace
       ?(desc_of_source=fun source ->
@@ -308,10 +304,6 @@ module Make (Spec : Spec) = struct
 
   let add_sink sink t =
     let sinks = Sinks.add sink t.sinks in
-    { t with sinks; }
-
-  let filter_sinks t sinks_to_filter =
-    let sinks = Sinks.diff t.sinks (Sinks.of_list sinks_to_filter) in
     { t with sinks; }
 
   (** compute caller_trace + callee_trace *)

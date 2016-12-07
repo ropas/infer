@@ -13,7 +13,9 @@ open! Utils
 (** Support for localisation *)
 
 (** type of string used for localisation *)
-type t
+type t [@@deriving compare]
+
+val equal : t -> t -> bool
 
 (** pretty print a localised string *)
 val pp : Format.formatter -> t -> unit
@@ -23,11 +25,6 @@ val from_string : string -> t
 
 (** convert a localised string to an ordinary string *)
 val to_string : t -> string
-
-(** compare two localised strings *)
-val compare : t -> t -> int
-
-val equal : t -> t -> bool
 
 val analysis_stops : t
 val array_out_of_bounds_l1 : t
@@ -42,6 +39,8 @@ val condition_always_false : t
 val condition_always_true : t
 val context_leak : t
 val component_factory_function : t
+val component_file_cyclomatic_complexity : t
+val component_file_line_count : t
 val component_initializer_with_side_effects : t
 val component_with_multiple_factory_methods : t
 val component_with_unconventional_superclass : t
@@ -90,7 +89,7 @@ type error_desc = {
   advice : string option;
   tags : (string * string) list;
   dotty : string option;
-}
+} [@@deriving compare]
 
 (** empty error description *)
 val no_desc: error_desc

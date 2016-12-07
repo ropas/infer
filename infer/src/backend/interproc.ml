@@ -41,10 +41,10 @@ module NodeVisitSet =
             - 1
         | Some d1, Some d2 ->
             (* shorter distance to exit is better *)
-            int_compare d1 d2 in
+            Core.Std.Int.compare d1 d2 in
       if n <> 0 then n else compare_ids n1 n2
     let compare_number_of_visits x1 x2 =
-      let n = int_compare x1.visits x2.visits in (* visited fewer times is better *)
+      let n = Core.Std.Int.compare x1.visits x2.visits in (* visited fewer times is better *)
       if n <> 0 then n else compare_distance_to_exit x1 x2
     let compare x1 x2 =
       if !Config.footprint then
@@ -711,7 +711,7 @@ let collect_analysis_result tenv wl pdesc : Paths.PathSet.t =
 module Pmap = Map.Make
     (struct
       type t = Prop.normal Prop.t
-      let compare = Prop.prop_compare
+      let compare = Prop.compare_prop
     end)
 
 let vset_ref_add_path vset_ref path =
@@ -728,7 +728,7 @@ let compute_visited vset =
     let node_loc = Procdesc.Node.get_loc n in
     let instrs_loc = IList.map Sil.instr_get_loc (Procdesc.Node.get_instrs n) in
     let lines = IList.map (fun loc -> loc.Location.line) (node_loc :: instrs_loc) in
-    IList.remove_duplicates int_compare (IList.sort int_compare lines) in
+    IList.remove_duplicates Core.Std.Int.compare (IList.sort Core.Std.Int.compare lines) in
   let do_node n =
     res :=
       Specs.Visitedset.add (Procdesc.Node.get_id n, node_get_all_lines n) !res in
@@ -1299,10 +1299,11 @@ let update_summary tenv prev_summary specs phase proc_name elapsed res =
       symops;
       stats_failure;
     } in
-  let payload =
-    { prev_summary.Specs.payload with
-      Specs.preposts = Some new_specs;
-    } in
+  let preposts =
+    match phase with
+    | Specs.FOOTPRINT -> Some new_specs
+    | Specs.RE_EXECUTION -> Some (IList.map (Specs.NormSpec.erase_join_info_pre tenv) new_specs) in
+  let payload = { prev_summary.Specs.payload with Specs.preposts; } in
   { prev_summary with
     Specs.phase;
     stats;
@@ -1424,11 +1425,8 @@ let interprocedural_algorithm exe_env : unit =
         None in
   let process_one_proc proc_name =
     match to_analyze proc_name with
-    | Some pdesc ->
-        let tenv = Exe_env.get_tenv ~create:true exe_env proc_name in
-        Ondemand.analyze_proc_name tenv ~propagate_exceptions:false pdesc proc_name
-    | None ->
-        () in
+    | Some pdesc -> Ondemand.analyze_proc_name ~propagate_exceptions:false pdesc proc_name
+    | None -> () in
   IList.iter process_one_proc procs_to_analyze
 
 (** Perform the analysis of an exe_env *)
@@ -1577,8 +1575,8 @@ let print_stats_cfg proc_shadowed source cfg =
     (* F.fprintf fmt "VISITED: %a@\n" (pp_seq pp_node) nodes_visited;
        F.fprintf fmt "TOTAL: %a@\n" (pp_seq pp_node) nodes_total; *)
     F.fprintf fmt "@\n++++++++++++++++++++++++++++++++++++++++++++++++++@\n";
-    F.fprintf fmt "+ FILE: %s  VISITED: %d/%d SYMOPS: %d@\n"
-      (DB.source_file_to_string source)
+    F.fprintf fmt "+ FILE: %a  VISITED: %d/%d SYMOPS: %d@\n"
+      DB.source_file_pp source
       (IList.length nodes_visited)
       (IList.length nodes_total)
       !tot_symops;

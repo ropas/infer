@@ -15,7 +15,10 @@ open! Utils
 module F = Format
 
 (** type of string used for localisation *)
-type t = string
+type t = string [@@deriving compare]
+
+let equal s1 s2 =
+  compare s1 s2 = 0
 
 (** pretty print a localised string *)
 let pp fmt s = Format.fprintf fmt "%s" s
@@ -25,12 +28,6 @@ let from_string s = s
 
 (** convert a localised string to an ordinary string *)
 let to_string s = s
-
-(** compare two localised strings *)
-let compare (s1: string) (s2: string) = Pervasives.compare s1 s2
-
-let equal s1 s2 =
-  compare s1 s2 = 0
 
 let analysis_stops = "ANALYSIS_STOPS"
 let array_out_of_bounds_l1 = "ARRAY_OUT_OF_BOUNDS_L1"
@@ -42,6 +39,8 @@ let class_cast_exception = "CLASS_CAST_EXCEPTION"
 let comparing_floats_for_equality = "COMPARING_FLOAT_FOR_EQUALITY"
 let condition_is_assignment = "CONDITION_IS_ASSIGNMENT"
 let component_factory_function = "COMPONENT_FACTORY_FUNCTION"
+let component_file_cyclomatic_complexity = "COMPONENT_FILE_CYCLOMATIC_COMPLEXITY"
+let component_file_line_count = "COMPONENT_FILE_LINE_COUNT"
 let component_initializer_with_side_effects = "COMPONENT_INITIALIZER_WITH_SIDE_EFFECTS"
 let component_with_multiple_factory_methods = "COMPONENT_WITH_MULTIPLE_FACTORY_METHODS"
 let component_with_unconventional_superclass = "COMPONENT_WITH_UNCONVENTIONAL_SUPERCLASS"
@@ -93,7 +92,7 @@ type error_desc = {
   advice : string option;
   tags : (string * string) list;
   dotty : string option;
-}
+} [@@deriving compare]
 
 (** empty error description *)
 let no_desc: error_desc = {

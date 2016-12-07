@@ -26,66 +26,16 @@ type pvar_kind =
   | Abduced_retvar Procname.t Location.t /** synthetic variable to represent return value */
   | Abduced_ref_param Procname.t t Location.t
   /** synthetic variable to represent param passed by reference */
-  | Global_var (DB.source_file, bool, bool) /** global variable: translation unit + is it compile constant? + is it POD? */
+  | Global_var (DB.source_file, bool, bool, bool)
+  /** global variable: translation unit + is it compile constant? + is it POD? + is it a static
+      local? */
   | Seed_var /** variable used to store the initial value of formal parameters */
+[@@deriving compare]
 /** Names for program variables. */
-and t = {pv_name: Mangled.t, pv_kind: pvar_kind};
+and t = {pv_hash: int, pv_name: Mangled.t, pv_kind: pvar_kind} [@@deriving compare];
 
-let rec pvar_kind_compare k1 k2 =>
-  switch (k1, k2) {
-  | (Local_var n1, Local_var n2) => Procname.compare n1 n2
-  | (Local_var _, _) => (-1)
-  | (_, Local_var _) => 1
-  | (Callee_var n1, Callee_var n2) => Procname.compare n1 n2
-  | (Callee_var _, _) => (-1)
-  | (_, Callee_var _) => 1
-  | (Abduced_retvar p1 l1, Abduced_retvar p2 l2) =>
-    let n = Procname.compare p1 p2;
-    if (n != 0) {
-      n
-    } else {
-      Location.compare l1 l2
-    }
-  | (Abduced_retvar _, _) => (-1)
-  | (_, Abduced_retvar _) => 1
-  | (Abduced_ref_param p1 pv1 l1, Abduced_ref_param p2 pv2 l2) =>
-    let n = Procname.compare p1 p2;
-    if (n != 0) {
-      n
-    } else {
-      let n = compare pv1 pv2;
-      if (n != 0) {
-        n
-      } else {
-        Location.compare l1 l2
-      }
-    }
-  | (Abduced_ref_param _, _) => (-1)
-  | (_, Abduced_ref_param _) => 1
-  | (Global_var (f1, const1, pod1), Global_var (f2, const2, pod2)) =>
-    let n = DB.source_file_compare f1 f2;
-    if (n != 0) {
-      n
-    } else {
-      let n = bool_compare const1 const2;
-      if (n != 0) {
-        n
-      } else {
-        bool_compare pod1 pod2
-      }
-    }
-  | (Global_var _, _) => (-1)
-  | (_, Global_var _) => 1
-  | (Seed_var, Seed_var) => 0
-  }
-and compare pv1 pv2 => {
-  let n = Mangled.compare pv1.pv_name pv2.pv_name;
-  if (n != 0) {
-    n
-  } else {
-    pvar_kind_compare pv1.pv_kind pv2.pv_kind
-  }
-};
+let compare_alpha pv1 pv2 =>
+  [%compare : (Mangled.t, pvar_kind)] (pv1.pv_name, pv1.pv_kind) (pv2.pv_name, pv2.pv_kind);
 
 let equal pvar1 pvar2 => compare pvar1 pvar2 == 0;
 
@@ -116,11 +66,12 @@ let rec _pp f pv => {
     } else {
       F.fprintf f "%a$%a%a|abducedRefParam" Procname.pp n Location.pp l Mangled.pp name
     }
-  | Global_var (fname, is_const, is_pod) =>
+  | Global_var (fname, is_const, is_pod, _) =>
     F.fprintf
       f
-      "#GB<%s%s%s>$%a"
-      (DB.source_file_to_string fname)
+      "#GB<%a%s%s>$%a"
+      DB.source_file_pp
+      fname
       (if is_const {"|const"} else {""})
       (
         if (not is_pod) {
@@ -279,6 +230,12 @@ let is_global pv =>
   | _ => false
   };
 
+let is_static_local pv =>
+  switch pv.pv_kind {
+  | Global_var (_, _, _, true) => true
+  | _ => false
+  };
+
 
 /** Check if a pvar is the special "this" var */
 let is_this pvar => Mangled.equal (get_name pvar) (Mangled.from_string "this");
@@ -325,9 +282,12 @@ let to_callee pname pvar =>
     assert false
   };
 
+let name_hash (name: Mangled.t) => Hashtbl.hash name;
+
 
 /** [mk name proc_name] creates a program var with the given function name */
 let mk (name: Mangled.t) (proc_name: Procname.t) :t => {
+  pv_hash: name_hash name,
   pv_name: name,
   pv_kind: Local_var proc_name
 };
@@ -338,15 +298,23 @@ let get_ret_pvar pname => mk Ident.name_return pname;
 /** [mk_callee name proc_name] creates a program var
     for a callee function with the given function name */
 let mk_callee (name: Mangled.t) (proc_name: Procname.t) :t => {
+  pv_hash: name_hash name,
   pv_name: name,
   pv_kind: Callee_var proc_name
 };
 
 
 /** create a global variable with the given name */
-let mk_global is_constexpr::is_constexpr=false is_pod::is_pod=true (name: Mangled.t) fname :t => {
+let mk_global
+    is_constexpr::is_constexpr=false
+    is_pod::is_pod=true
+    is_static_local::is_static_local=false
+    (name: Mangled.t)
+    fname
+    :t => {
+  pv_hash: name_hash name,
   pv_name: name,
-  pv_kind: Global_var (fname, is_constexpr, is_pod)
+  pv_kind: Global_var (fname, is_constexpr, is_pod, is_static_local)
 };
 
 
@@ -361,29 +329,29 @@ let mk_tmp name pname => {
 /** create an abduced return variable for a call to [proc_name] at [loc] */
 let mk_abduced_ret (proc_name: Procname.t) (loc: Location.t) :t => {
   let name = Mangled.from_string ("$RET_" ^ Procname.to_unique_id proc_name);
-  {pv_name: name, pv_kind: Abduced_retvar proc_name loc}
+  {pv_hash: name_hash name, pv_name: name, pv_kind: Abduced_retvar proc_name loc}
 };
 
 let mk_abduced_ref_param (proc_name: Procname.t) (pv: t) (loc: Location.t) :t => {
   let name = Mangled.from_string ("$REF_PARAM_" ^ Procname.to_unique_id proc_name);
-  {pv_name: name, pv_kind: Abduced_ref_param proc_name pv loc}
+  {pv_hash: name_hash name, pv_name: name, pv_kind: Abduced_ref_param proc_name pv loc}
 };
 
 let get_source_file pvar =>
   switch pvar.pv_kind {
-  | Global_var (f, _, _) => Some f
+  | Global_var (f, _, _, _) => Some f
   | _ => None
   };
 
 let is_compile_constant pvar =>
   switch pvar.pv_kind {
-  | Global_var (_, b, _) => b
+  | Global_var (_, b, _, _) => b
   | _ => false
   };
 
 let is_pod pvar =>
   switch pvar.pv_kind {
-  | Global_var (_, _, b) => b
+  | Global_var (_, _, b, _) => b
   | _ => true
   };
 
@@ -396,8 +364,9 @@ let get_initializer_pname {pv_name, pv_kind} =>
   | _ => None
   };
 
-let module Set = PrettyPrintable.MakePPSet {
+let module Set = PrettyPrintable.MakePPCompareSet {
   type nonrec t = t;
   let compare = compare;
+  let compare_pp = compare_alpha;
   let pp_element = pp pe_text;
 };

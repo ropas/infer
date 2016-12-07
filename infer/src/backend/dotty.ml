@@ -173,7 +173,7 @@ and get_contents pe coo f = function
 (* true if node is the sorce node of the expression e*)
 let is_source_node_of_exp e node =
   match node with
-  | Dotpointsto (_, e', _) -> Exp.compare e e' = 0
+  | Dotpointsto (_, e', _) -> Exp.equal e e'
   | _ -> false
 
 (* given a node returns its coordinates and the expression. Return -1 in case the expressio doesn.t*)
@@ -203,7 +203,7 @@ let rec look_up_for_back_pointer e dotnodes lambda =
   match dotnodes with
   | [] -> []
   | Dotdllseg(coo, _, _, _, e4, _, _, _):: dotnodes' ->
-      if Exp.compare e e4 = 0 && lambda = coo.lambda then [coo.id + 1]
+      if Exp.equal e e4 && lambda = coo.lambda then [coo.id + 1]
       else look_up_for_back_pointer e dotnodes' lambda
   | _:: dotnodes' -> look_up_for_back_pointer e dotnodes' lambda
 
@@ -213,7 +213,7 @@ let rec select_nodes_exp_lambda dotnodes e lambda =
   | [] -> []
   | node:: l' ->
       let (coo, e') = get_coordinate_and_exp node in
-      if (Exp.compare e e' = 0) && lambda = coo.lambda
+      if (Exp.equal e e') && lambda = coo.lambda
       then node:: select_nodes_exp_lambda l' e lambda
       else select_nodes_exp_lambda l' e lambda
 
@@ -384,7 +384,7 @@ let in_cycle cycle edge =
   match cycle with
   | Some cycle' ->
       IList.mem (fun (fn, se) (_,fn',se') ->
-          Ident.fieldname_equal fn fn' && Sil.strexp_equal se se') edge cycle'
+          Ident.equal_fieldname fn fn' && Sil.equal_strexp se se') edge cycle'
   | _ -> false
 
 let node_in_cycle cycle node =
@@ -655,7 +655,7 @@ let filter_useless_spec_dollar_box (nodes: dotty_node list) (links: link list) =
         else boxes_pointing_at n ln' in
   let is_spec_variable = function
     | Exp.Var id ->
-        Ident.is_normal id && Ident.name_equal (Ident.get_name id) Ident.name_spec
+        Ident.is_normal id && Ident.equal_name (Ident.get_name id) Ident.name_spec
     | _ -> false in
   let handle_one_node node =
     match node with
@@ -1017,9 +1017,9 @@ let pp_cfgnode pdesc fmt (n: Procdesc.Node.t) =
 let print_icfg source fmt cfg =
   let print_node pdesc node =
     let loc = Procdesc.Node.get_loc node in
-    if (Config.dotty_cfg_libs || DB.source_file_equal loc.Location.file source) then
+    if (Config.dotty_cfg_libs || DB.equal_source_file loc.Location.file source) then
       F.fprintf fmt "%a\n" (pp_cfgnode pdesc) node in
-  Cfg.iter_all_nodes print_node cfg
+  Cfg.iter_all_nodes ~sorted:true print_node cfg
 
 let write_icfg_dotty_to_file source cfg fname =
   let chan = open_out fname in
@@ -1032,14 +1032,15 @@ let write_icfg_dotty_to_file source cfg fname =
 
 let print_icfg_dotty source cfg =
   let fname =
-    if Config.frontend_tests
-    then
-      (DB.source_file_to_abs_path source) ^ ".test.dot"
-    else
-      DB.filename_to_string
-        (DB.Results_dir.path_to_filename
-           (DB.Results_dir.Abs_source_dir source)
-           [Config.dotty_output]) in
+    match Config.icfg_dotty_outfile with
+    | Some file -> file
+    | None when Config.frontend_tests = true ->
+        (DB.source_file_to_abs_path source) ^ ".test.dot"
+    | None ->
+        DB.filename_to_string
+          (DB.Results_dir.path_to_filename
+             (DB.Results_dir.Abs_source_dir source)
+             [Config.dotty_output]) in
   write_icfg_dotty_to_file source cfg fname
 
 (********** END of Printing dotty files ***********)
@@ -1156,7 +1157,7 @@ let rec select_node_at_address nodes e =
   | [] -> None
   | n:: l' ->
       let e' = get_node_addr n in
-      if (Exp.compare e e' = 0) then Some n
+      if (Exp.equal e e') then Some n
       else select_node_at_address l' e
 
 (* look-up the ids in the list of nodes corresponding to expression e*)

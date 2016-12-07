@@ -24,8 +24,7 @@ let load_cfg_from_file: DB.filename => option cfg;
 
 
 /** Save a cfg into a file, and save a copy of the source files if the boolean is true */
-let store_cfg_to_file:
-  save_sources::bool? => source_file::DB.source_file => DB.filename => cfg => unit;
+let store_cfg_to_file: source_file::DB.source_file => DB.filename => cfg => unit;
 
 
 /** {2 Functions for manipulating an interprocedural CFG} */
@@ -55,7 +54,7 @@ let get_defined_procs: cfg => list Procdesc.t;
 
 
 /** Iterate over all the nodes in the cfg */
-let iter_all_nodes: (Procdesc.t => Procdesc.Node.t => unit) => cfg => unit;
+let iter_all_nodes: sorted::bool? => (Procdesc.t => Procdesc.Node.t => unit) => cfg => unit;
 
 
 /** checks whether a cfg is connected or not */

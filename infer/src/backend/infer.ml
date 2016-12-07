@@ -39,7 +39,7 @@ let rec rmtree name =
 
 type build_mode =
   | Analyze | Ant | Buck | ClangCompilationDatabase | Gradle | Java | Javac | Make | Mvn | Ndk
-  | Xcode
+  | Xcode | Genrule
 
 let build_mode_of_string path =
   match Filename.basename path with
@@ -47,6 +47,7 @@ let build_mode_of_string path =
   | "ant" -> Ant
   | "buck" -> Buck
   | "clang-compilation-database" -> ClangCompilationDatabase
+  | "genrule" -> Genrule
   | "gradle" | "gradlew" -> Gradle
   | "java" -> Java
   | "javac" -> Javac
@@ -61,6 +62,7 @@ let string_of_build_mode = function
   | Ant -> "ant"
   | Buck -> "buck"
   | ClangCompilationDatabase -> "clang-compilation-database"
+  | Genrule -> "genrule"
   | Gradle -> "gradle"
   | Java -> "java"
   | Javac -> "javac"
@@ -69,12 +71,12 @@ let string_of_build_mode = function
   | Ndk -> "ndk-build"
   | Xcode -> "xcodebuild"
 
+
 let remove_results_dir () =
   rmtree Config.results_dir
 
 let create_results_dir () =
   create_path (Config.results_dir // Config.captured_dir_name) ;
-  create_path (Config.results_dir // Config.sources_dir_name) ;
   create_path (Config.results_dir // Config.specs_dir_name)
 
 let clean_results_dir () =
@@ -86,7 +88,7 @@ let clean_results_dir () =
         let rec cleandir dir =
           match Unix.readdir dir with
           | entry ->
-              if (IList.exists (string_equal entry) dirs) then (
+              if (IList.exists (Core.Std.String.equal entry) dirs) then (
                 rmtree (name // entry)
               ) else if not (entry = Filename.current_dir_name
                              || entry = Filename.parent_dir_name) then (
@@ -147,6 +149,10 @@ let check_xcpretty () =
          --no-xcpretty.@.@.";
       Unix.exit_immediately 1
 
+let capture_with_compilation_database db_files =
+  Config.clang_compilation_db_files := IList.map filename_to_absolute db_files;
+  let compilation_database = CompilationDatabase.from_json_files db_files in
+  CaptureCompilationDatabase.capture_files_in_database compilation_database
 
 let capture build_cmd = function
   | Analyze ->
@@ -154,11 +160,12 @@ let capture build_cmd = function
   | Buck when Config.use_compilation_database <> None ->
       L.stdout "Capturing using Buck's compilation database...@\n";
       let json_cdb = CaptureCompilationDatabase.get_compilation_database_files_buck () in
-      CaptureCompilationDatabase.capture_files_in_database json_cdb
+      capture_with_compilation_database json_cdb
   | ClangCompilationDatabase -> (
       L.stdout "Capturing using a compilation database file...@\n";
       match Config.rest with
-      | arg :: _ -> CaptureCompilationDatabase.capture_files_in_database [arg]
+      | arg :: _ ->
+          capture_with_compilation_database [arg]
       | _ ->
           failwith
             "Error parsing arguments. Please, pass the compilation database json file as in \
@@ -169,7 +176,11 @@ let capture build_cmd = function
       L.stdout "Capturing using xcpretty...@\n";
       check_xcpretty ();
       let json_cdb = CaptureCompilationDatabase.get_compilation_database_files_xcodebuild () in
-      CaptureCompilationDatabase.capture_files_in_database json_cdb
+      capture_with_compilation_database json_cdb
+  | Genrule ->
+      L.stdout "Capturing for Buck genrule compatibility...@\n";
+      let infer_java = Config.bin_dir // "InferJava" in
+      run_command [infer_java] (function _ -> ())
   | build_mode ->
       L.stdout "Capturing in %s mode...@." (string_of_build_mode build_mode);
       let in_buck_mode = build_mode = Buck in
@@ -275,7 +286,7 @@ let analyze = function
   | Java | Javac ->
       (* In Java and Javac modes, analysis is invoked from capture. *)
       ()
-  | Analyze | Ant | Buck | ClangCompilationDatabase | Gradle | Make | Mvn | Ndk | Xcode ->
+  | Analyze | Ant | Buck | ClangCompilationDatabase | Genrule | Gradle | Make | Mvn | Ndk | Xcode ->
       if not (Sys.file_exists Config.(results_dir // captured_dir_name)) then (
         L.stderr "There was nothing to analyze, exiting" ;
         Config.print_usage_exit ()

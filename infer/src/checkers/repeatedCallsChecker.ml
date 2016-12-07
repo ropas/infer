@@ -24,10 +24,9 @@ struct
       let compare i1 i2 = match i1, i2 with
         | Sil.Call (_, e1, etl1, _, cf1), Sil.Call (_, e2, etl2, _, cf2) ->
             (* ignore return ids and call flags *)
-            let n = Exp.compare e1 e2 in
-            if n <> 0 then n else let n = IList.compare Sil.exp_typ_compare etl1 etl2 in
-              if n <> 0 then n else CallFlags.compare cf1 cf2
-        | _ -> Sil.instr_compare i1 i2
+            [%compare: Exp.t * (Exp.t * Typ.t) list * CallFlags.t]
+              (e1, etl1, cf1) (e2, etl2, cf2)
+        | _ -> Sil.compare_instr i1 i2
     end)
 
   type extension = InstrSet.t
@@ -77,8 +76,8 @@ struct
       !found in
 
     let module DFAllocCheck = Dataflow.MakeDF(struct
-        type t = Location.t option
-        let equal = opt_equal Location.equal
+        type t = Location.t option [@@deriving compare]
+        let equal x y = compare x y = 0
         let _join _paths l1o l2o = (* join with left priority *)
           match l1o, l2o with
           | None, None ->
@@ -130,10 +129,10 @@ struct
                 match proc_performs_allocation tenv proc_desc AllPaths with
                 | Some alloc_loc ->
                     let description =
-                      Printf.sprintf "call to %s seen before on line %d (may allocate at %s:%n)"
+                      Format.asprintf "call to %s seen before on line %d (may allocate at %a:%d)"
                         (Procname.to_simplified_string callee_pname)
                         loc_old.Location.line
-                        (DB.source_file_to_string alloc_loc.Location.file)
+                        DB.source_file_pp alloc_loc.Location.file
                         alloc_loc.Location.line in
                     Checkers.ST.report_error tenv
                       curr_pname curr_pdesc checkers_repeated_calls_name loc description

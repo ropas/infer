@@ -69,9 +69,8 @@ end
 
 (** Environment for boolean variables. *)
 module Env = struct
-  type t = bool StringMap.t
+  type t = bool StringMap.t [@@deriving compare]
   let empty = StringMap.empty
-  let compare = StringMap.compare bool_compare
   let add = StringMap.add
   let remove = StringMap.remove
   let get map name =
@@ -85,10 +84,7 @@ end
 
 (** Element for the set domain: an integer (for pending traces), and an environment. *)
 module Elem = struct
-  type t = int * Env.t
-  let compare (i1, env1) (i2, env2) =
-    let n = int_compare i1 i2 in
-    if n <> 0 then n else Env.compare env1 env2
+  type t = int * Env.t [@@deriving compare]
   let pp fmt (i, env) = F.fprintf fmt "(%d %a)" i Env.pp env
   let zero = (0, Env.empty)
   let is_consistent (i, _) = i >= 0
@@ -156,7 +152,7 @@ module State = struct
           let elem' = Elem.set_env elem env' in
           [elem']
       | Some b' ->
-          if bool_equal b b' then [elem]
+          if Core.Std.Bool.equal b b' then [elem]
           else [] in
     map2 f s
 
@@ -234,7 +230,7 @@ module BooleanVars = struct
   let exp_boolean_var exp = match exp with
     | Exp.Lvar pvar when Pvar.is_local pvar ->
         let name = Mangled.to_string (Pvar.get_name pvar) in
-        if IList.mem string_equal name boolean_variables
+        if IList.mem Core.Std.String.equal name boolean_variables
         then Some name
         else None
     | _ -> None

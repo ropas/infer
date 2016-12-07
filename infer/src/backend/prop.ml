@@ -30,8 +30,14 @@ type normal (** kind for normal props, i.e. normalized *)
 
 type exposed (** kind for exposed props *)
 
-type pi = Sil.atom list
-type sigma = Sil.hpred list
+type pi = Sil.atom list [@@deriving compare]
+type sigma = Sil.hpred list [@@deriving compare]
+
+let equal_pi pi1 pi2 =
+  compare_pi pi1 pi2 = 0
+
+let equal_sigma sigma1 sigma2 =
+  compare_sigma sigma1 sigma2 = 0
 
 
 module Core : sig
@@ -44,7 +50,7 @@ module Core : sig
       pi: pi;  (** pure part *)
       sigma_fp : sigma;  (** abduced spatial part *)
       pi_fp: pi;  (** abduced pure part *)
-    }
+    } [@@deriving compare]
 
   (** Proposition [true /\ emp]. *)
   val prop_emp : normal t
@@ -72,7 +78,7 @@ end = struct
       pi: pi;  (** pure part *)
       sigma_fp : sigma;  (** abduced spatial part *)
       pi_fp: pi;  (** abduced pure part *)
-    }
+    } [@@deriving compare]
 
   (** Proposition [true /\ emp]. *)
   let prop_emp : normal t =
@@ -104,47 +110,13 @@ include Core
 
 (** {1 Functions for Comparison} *)
 
-(** Comparison between lists of equalities and disequalities. Lexicographical order. *)
-let rec pi_compare pi1 pi2 =
-  if pi1 == pi2 then 0
-  else match (pi1, pi2) with
-    | ([],[]) -> 0
-    | ([], _:: _) -> - 1
-    | (_:: _,[]) -> 1
-    | (a1:: pi1', a2:: pi2') ->
-        let n = Sil.atom_compare a1 a2 in
-        if n <> 0 then n
-        else pi_compare pi1' pi2'
-
-let pi_equal pi1 pi2 =
-  pi_compare pi1 pi2 = 0
-
-(** Comparsion between lists of heap predicates. Lexicographical order. *)
-let rec sigma_compare sigma1 sigma2 =
-  if sigma1 == sigma2 then 0
-  else match (sigma1, sigma2) with
-    | ([],[]) -> 0
-    | ([], _:: _) -> - 1
-    | (_:: _,[]) -> 1
-    | (h1:: sigma1', h2:: sigma2') ->
-        let n = Sil.hpred_compare h1 h2 in
-        if n <> 0 then n
-        else sigma_compare sigma1' sigma2'
-
-let sigma_equal sigma1 sigma2 =
-  sigma_compare sigma1 sigma2 = 0
-
 (** Comparison between propositions. Lexicographical order. *)
-let prop_compare p1 p2 =
-  sigma_compare p1.sigma p2.sigma
-  |> next Sil.sub_compare p1.sub p2.sub
-  |> next pi_compare p1.pi p2.pi
-  |> next sigma_compare p1.sigma_fp p2.sigma_fp
-  |> next pi_compare p1.pi_fp p2.pi_fp
+let compare_prop p1 p2 =
+  compare (fun _ _ -> 0) p1 p2
 
 (** Check the equality of two propositions *)
-let prop_equal p1 p2 =
-  prop_compare p1 p2 = 0
+let equal_prop p1 p2 =
+  compare_prop p1 p2 = 0
 
 (** {1 Functions for Pretty Printing} *)
 
@@ -230,7 +202,7 @@ let sigma_get_stack_nonstack only_local_vars sigma =
 let pp_sigma_simple pe env fmt sigma =
   let sigma_stack, sigma_nonstack = sigma_get_stack_nonstack false sigma in
   let pp_stack fmt _sg =
-    let sg = IList.sort Sil.hpred_compare _sg in
+    let sg = IList.sort Sil.compare_hpred _sg in
     if sg != [] then Format.fprintf fmt "%a" (pp_semicolon_seq pe (pp_hpred_stackvar pe)) sg in
   let pp_nl fmt doit = if doit then
       (match pe.pe_kind with
@@ -549,7 +521,7 @@ let rec pi_sorted_remove_redundant (pi : pi) = match pi with
       (* first inequality redundant *)
       pi_sorted_remove_redundant (a2 :: rest)
   | a1:: a2:: rest ->
-      if Sil.atom_equal a1 a2 then pi_sorted_remove_redundant (a2 :: rest)
+      if Sil.equal_atom a1 a2 then pi_sorted_remove_redundant (a2 :: rest)
       else a1 :: pi_sorted_remove_redundant (a2 :: rest)
   | [a] -> [a]
   | [] -> []
@@ -1270,7 +1242,7 @@ module Normalize = struct
           (* n1-e1 == n2 -> e1==n1-n2 *)
           (e1, Exp.int (n1 -- n2))
       | Lfield (e1', fld1, _), Lfield (e2', fld2, _) ->
-          if Ident.fieldname_equal fld1 fld2
+          if Ident.equal_fieldname fld1 fld2
           then normalize_eq (e1', e2')
           else eq
       | Lindex (e1', idx1), Lindex (e2', idx2) ->
@@ -1314,13 +1286,13 @@ module Normalize = struct
       when IntLit.isone i ->
         let lower = Exp.int (n -- IntLit.one) in
         let a_lower : Sil.atom = Aeq (BinOp (Lt, lower, Var id), Exp.one) in
-        if not (IList.mem Sil.atom_equal a_lower p.pi) then a'
+        if not (IList.mem Sil.equal_atom a_lower p.pi) then a'
         else Aeq (Var id, Exp.int n)
     | Aeq (BinOp (Lt, Const (Cint n), Var id), Const (Cint i))
       when IntLit.isone i ->
         let upper = Exp.int (n ++ IntLit.one) in
         let a_upper : Sil.atom = Aeq (BinOp (Le, Var id, upper), Exp.one) in
-        if not (IList.mem Sil.atom_equal a_upper p.pi) then a'
+        if not (IList.mem Sil.equal_atom a_upper p.pi) then a'
         else Aeq (Var id, upper)
     | Aeq (BinOp (Ne, e1, e2), Const (Cint i)) when IntLit.isone i ->
         Aneq (e1, e2)
@@ -1338,7 +1310,7 @@ module Normalize = struct
               let fld_cnts' =
                 IList.map (fun (fld, cnt) ->
                     fld, strexp_normalize tenv sub cnt) fld_cnts in
-              let fld_cnts'' = IList.sort Sil.fld_strexp_compare fld_cnts' in
+              let fld_cnts'' = IList.sort [%compare: Ident.fieldname * Sil.strexp] fld_cnts' in
               Estruct (fld_cnts'', inst)
         end
     | Earray (len, idx_cnts, inst) ->
@@ -1353,7 +1325,7 @@ module Normalize = struct
                     let idx' = exp_normalize tenv sub idx in
                     idx', strexp_normalize tenv sub cnt) idx_cnts in
               let idx_cnts'' =
-                IList.sort Sil.exp_strexp_compare idx_cnts' in
+                IList.sort [%compare: Exp.t * Sil.strexp] idx_cnts' in
               Earray (len', idx_cnts'', inst)
         end
 
@@ -1433,19 +1405,19 @@ module Normalize = struct
 
   and hpara_normalize tenv (para : Sil.hpara) =
     let normalized_body = IList.map (hpred_normalize tenv Sil.sub_empty) (para.body) in
-    let sorted_body = IList.sort Sil.hpred_compare normalized_body in
+    let sorted_body = IList.sort Sil.compare_hpred normalized_body in
     { para with body = sorted_body }
 
   and hpara_dll_normalize tenv (para : Sil.hpara_dll) =
     let normalized_body = IList.map (hpred_normalize tenv Sil.sub_empty) (para.body_dll) in
-    let sorted_body = IList.sort Sil.hpred_compare normalized_body in
+    let sorted_body = IList.sort Sil.compare_hpred normalized_body in
     { para with body_dll = sorted_body }
 
 
   let sigma_normalize tenv sub sigma =
     let sigma' =
-      IList.stable_sort Sil.hpred_compare (IList.map (hpred_normalize tenv sub) sigma) in
-    if sigma_equal sigma sigma' then sigma else sigma'
+      IList.stable_sort Sil.compare_hpred (IList.map (hpred_normalize tenv sub) sigma) in
+    if equal_sigma sigma sigma' then sigma else sigma'
 
   let pi_tighten_ineq tenv pi =
     let ineq_list, nonineq_list = IList.partition atom_is_inequality pi in
@@ -1540,10 +1512,10 @@ module Normalize = struct
       | _ -> true in
     let pi' =
       IList.stable_sort
-        Sil.atom_compare
+        Sil.compare_atom
         ((IList.filter filter_useful_atom nonineq_list) @ ineq_list) in
     let pi'' = pi_sorted_remove_redundant pi' in
-    if pi_equal pi0 pi'' then pi0 else pi''
+    if equal_pi pi0 pi'' then pi0 else pi''
 
   (** normalize the footprint part, and rename any primed vars
       in the footprint with fresh footprint vars *)
@@ -1580,12 +1552,12 @@ module Normalize = struct
   let sub_normalize sub =
     let f (id, e) = (not (Ident.is_primed id)) && (not (Sil.ident_in_exp id e)) in
     let sub' = Sil.sub_filter_pair f sub in
-    if Sil.sub_equal sub sub' then sub else sub'
+    if Sil.equal_subst sub sub' then sub else sub'
 
   (** Conjoin a pure atomic predicate by normal conjunction. *)
   let rec prop_atom_and tenv ?(footprint=false) (p : normal t) a : normal t =
     let a' = normalize_and_strengthen_atom tenv p a in
-    if IList.mem Sil.atom_equal a' p.pi then p
+    if IList.mem Sil.equal_atom a' p.pi then p
     else begin
       let p' =
         match a' with
@@ -2152,7 +2124,7 @@ let exist_quantify tenv fav (prop : normal t) : normal t =
       (* throw away x=E if x becomes _x *)
       let mem_idlist i = IList.exists (fun id -> Ident.equal i id) in
       let sub = Sil.sub_filter (fun i -> not (mem_idlist i ids)) prop.sub in
-      if Sil.sub_equal sub prop.sub then prop
+      if Sil.equal_subst sub prop.sub then prop
       else unsafe_cast_to_normal (set prop ~sub) in
     (*
     L.out "@[<2>.... Existential Quantification ....\n";
@@ -2457,7 +2429,7 @@ let rec strexp_gc_fields (fav: Sil.fav) (se : Sil.strexp) =
       let fsel' =
         let fselo' = IList.filter (function | (_, Some _) -> true | _ -> false) fselo in
         IList.map (function (f, seo) -> (f, unSome seo)) fselo' in
-      if Sil.fld_strexp_list_compare fsel fsel' = 0 then Some se
+      if [%compare.equal: (Ident.fieldname * Sil.strexp) list] fsel fsel' then Some se
       else Some (Sil.Estruct (fsel', inst))
   | Earray _ ->
       Some se
@@ -2469,7 +2441,7 @@ let hpred_gc_fields (fav: Sil.fav) (hpred : Sil.hpred) : Sil.hpred = match hpred
       (match strexp_gc_fields fav se with
        | None -> hpred
        | Some se' ->
-           if Sil.strexp_compare se se' = 0 then hpred
+           if Sil.compare_strexp se se' = 0 then hpred
            else Hpointsto (e, se', te))
   | Hlseg _ | Hdllseg _ ->
       hpred

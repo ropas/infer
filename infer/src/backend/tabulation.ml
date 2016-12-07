@@ -403,7 +403,7 @@ let hpred_lhs_compare hpred1 hpred2 = match hpred1, hpred2 with
   | Sil.Hpointsto(e1, _, _), Sil.Hpointsto(e2, _, _) -> Exp.compare e1 e2
   | Sil.Hpointsto _, _ -> - 1
   | _, Sil.Hpointsto _ -> 1
-  | hpred1, hpred2 -> Sil.hpred_compare hpred1 hpred2
+  | hpred1, hpred2 -> Sil.compare_hpred hpred1 hpred2
 
 (** set the inst everywhere in a sexp *)
 let rec sexp_set_inst inst = function
@@ -418,7 +418,7 @@ let rec fsel_star_fld fsel1 fsel2 = match fsel1, fsel2 with
   | [], fsel2 -> fsel2
   | fsel1,[] -> fsel1
   | (f1, se1):: fsel1', (f2, se2):: fsel2' ->
-      (match Ident.fieldname_compare f1 f2 with
+      (match Ident.compare_fieldname f1 f2 with
        | 0 -> (f1, sexp_star_fld se1 se2) :: fsel_star_fld fsel1' fsel2'
        | n when n < 0 -> (f1, se1) :: fsel_star_fld fsel1' fsel2
        | _ -> (f2, se2) :: fsel_star_fld fsel1 fsel2')
@@ -461,7 +461,7 @@ let texp_star tenv texp1 texp2 =
     | [], _ -> true
     | _, [] -> false
     | (f1, _, _):: ftal1', (f2, _, _):: ftal2' ->
-        begin match Ident.fieldname_compare f1 f2 with
+        begin match Ident.compare_fieldname f1 f2 with
           | n when n < 0 -> false
           | 0 -> ftal_sub ftal1' ftal2'
           | _ -> ftal_sub ftal1 ftal2' end in
@@ -590,7 +590,7 @@ let prop_footprint_add_pi_sigma_starfld_sigma tenv
 let check_attr_dealloc_mismatch att_old att_new = match att_old, att_new with
   | PredSymb.Aresource ({ ra_kind = Racquire; ra_res = Rmemory mk_old } as ra_old),
     PredSymb.Aresource ({ ra_kind = Rrelease; ra_res = Rmemory mk_new } as ra_new)
-    when PredSymb.mem_kind_compare mk_old mk_new <> 0 ->
+    when PredSymb.compare_mem_kind mk_old mk_new <> 0 ->
       let desc = Errdesc.explain_allocation_mismatch ra_old ra_new in
       raise (Exceptions.Deallocation_mismatch (desc, __POS__))
   | _ -> ()
@@ -974,7 +974,7 @@ let do_taint_check tenv caller_pname callee_pname calling_prop missing_pi sub ac
       (Exp.Map.exists
          (fun _ (_, untaint_atoms) ->
             IList.exists
-              (fun a -> Sil.atom_equal atom a)
+              (fun a -> Sil.equal_atom atom a)
               untaint_atoms)
          taint_untaint_exp_map) in
   check_taint_on_variadic_function tenv callee_pname caller_pname actual_params calling_prop;
@@ -986,9 +986,8 @@ let class_cast_exn tenv pname_opt texp1 texp2 exp ml_loc =
       pname_opt texp1 texp2 exp (State.get_node ()) (State.get_loc ()) in
   Exceptions.Class_cast_exception (desc, ml_loc)
 
-let raise_cast_exception tenv ml_loc pname_opt texp1 texp2 exp =
-  let exn = class_cast_exn tenv pname_opt texp1 texp2 exp ml_loc in
-  raise exn
+let create_cast_exception tenv ml_loc pname_opt texp1 texp2 exp =
+  class_cast_exn tenv pname_opt texp1 texp2 exp ml_loc
 
 let get_check_exn tenv check callee_pname loc ml_loc = match check with
   | Prover.Bounds_check ->

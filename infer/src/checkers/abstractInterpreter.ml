@@ -160,7 +160,7 @@ module MakeNoCFG
           post_opt
         end
       else
-        Summ.read_summary tenv proc_desc proc_name
+        Summ.read_summary proc_desc proc_name
   end
 end
 

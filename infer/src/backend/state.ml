@@ -164,10 +164,7 @@ let instrs_normalize instrs =
 let mk_find_duplicate_nodes proc_desc : (Procdesc.Node.t -> Procdesc.NodeSet.t) =
   let module M = (* map from (loc,kind) *)
     Map.Make(struct
-      type t = Location.t * Procdesc.Node.nodekind
-      let compare (loc1, k1) (loc2, k2) =
-        let n = Location.compare loc1 loc2 in
-        if n <> 0 then n else Procdesc.Node.kind_compare k1 k2
+      type t = Location.t * Procdesc.Node.nodekind [@@deriving compare]
     end) in
 
   let module S = (* set of nodes with normalized insructions *)
@@ -217,7 +214,7 @@ let mk_find_duplicate_nodes proc_desc : (Procdesc.Node.t -> Procdesc.NodeSet.t) 
         | _ -> raise Not_found in
       let duplicates =
         let equal_normalized_instrs (_, normalized_instrs') =
-          IList.compare Sil.instr_compare node_normalized_instrs normalized_instrs' = 0 in
+          IList.compare Sil.compare_instr node_normalized_instrs normalized_instrs' = 0 in
         IList.filter equal_normalized_instrs elements in
       IList.fold_left
         (fun nset (node', _) -> Procdesc.NodeSet.add node' nset)
@@ -319,7 +316,7 @@ let process_execution_failures (log_issue : log_issue) pname =
   let do_failure _ fs =
     (* L.err "Node:%a node_ok:%d node_fail:%d@." Procdesc.Node.pp node fs.node_ok fs.node_fail; *)
     match fs.node_ok, fs.first_failure with
-    | 0, Some (loc, key, _, loc_trace, exn) ->
+    | 0, Some (loc, key, _, loc_trace, exn) when not Config.debug_exceptions ->
         let ex_name, _, ml_loc_opt, _, _, _, _ = Exceptions.recognize_exception exn in
         let desc' = Localise.verbatim_desc ("exception: " ^ Localise.to_string ex_name) in
         let exn' = Exceptions.Analysis_stops (desc', ml_loc_opt) in

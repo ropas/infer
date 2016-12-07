@@ -98,7 +98,7 @@ module Debug = struct
                              (Utils.pp_comma_seq Format.pp_print_string) arglist
                              pp_formula phi
     | ET (arglist, trans, phi)
-    | ETX (arglist, trans, phi)  -> Format.fprintf fmt "ET[%a][%a](%a)"
+    | ETX (arglist, trans, phi)  -> Format.fprintf fmt "ETX[%a][%a](%a)"
                                       (Utils.pp_comma_seq Format.pp_print_string) arglist
                                       pp_transition trans
                                       pp_formula phi
@@ -252,7 +252,7 @@ let save_dotty_when_in_debug_mode source_file =
   | Some tracker ->
       let dotty_dir = Config.results_dir // Config.lint_dotty_dir_name in
       create_dir dotty_dir;
-      let source_file_basename = Filename.basename (DB.source_file_to_string source_file) in
+      let source_file_basename = Filename.basename (DB.source_file_to_abs_path source_file) in
       let file = dotty_dir // (source_file_basename ^ ".dot") in
       let dotty = Debug.EvaluationTracker.DottyPrinter.dotty_of_ctl_evaluation !tracker in
       with_file file ~f:(fun oc -> output_string oc dotty)
@@ -288,7 +288,7 @@ let node_to_unique_string_id an =
 (* true iff an ast node is a node of type among the list tl *)
 let node_has_type tl an =
   let an_str = node_to_string an in
-  IList.mem (string_equal) an_str tl
+  IList.mem Core.Std.String.equal an_str tl
 
 (* given a decl returns a stmt such that decl--->stmt via label trs *)
 let transition_decl_to_stmt d trs =
@@ -347,15 +347,14 @@ let next_state_via_transition an trans =
 
 (* evaluate an atomic formula (i.e. a predicate) on a ast node an and a
    linter context lcxt. That is:  an, lcxt |= pred_name(params) *)
-let eval_Atomic pred_name params an lcxt =
-  match pred_name, params, an with
-  | "call_method", [p1], Stmt st -> Predicates.call_method p1 st
-  | "property_name_contains_word", [p1] , Decl d -> Predicates.property_name_contains_word d p1
+let eval_Atomic pred_name args an lcxt =
+  match pred_name, args, an with
+  | "call_method", [m], Stmt st -> Predicates.call_method m st
+  | "property_name_contains_word", [word], Decl d -> Predicates.property_name_contains_word word d
   | "is_objc_extension", [], _ -> Predicates.is_objc_extension lcxt
   | "is_global_var", [], Decl d -> Predicates.is_syntactically_global_var d
   | "is_const_var", [], Decl d ->  Predicates.is_const_expr_var d
-  | "call_function_named", _, Stmt st -> Predicates.call_function_named st params
-  | "is_declaration_kind", [p1], Decl d -> Predicates.is_declaration_kind d p1
+  | "call_function_named", args, Stmt st -> Predicates.call_function_named args st
   | "is_strong_property", [], Decl d -> Predicates.is_strong_property d
   | "is_assign_property", [], Decl d -> Predicates.is_assign_property d
   | "is_property_pointer_type", [], Decl d -> Predicates.is_property_pointer_type d
@@ -366,11 +365,12 @@ let eval_Atomic pred_name params an lcxt =
   | "is_objc_constructor", [], _ -> Predicates.is_objc_constructor lcxt
   | "is_objc_dealloc", [], _ -> Predicates.is_objc_dealloc lcxt
   | "captures_cxx_references", [], Decl d -> Predicates.captures_cxx_references d
-  | "is_binop_with_kind", [kind], Stmt st -> Predicates.is_binop_with_kind st kind
-  | "is_unop_with_kind", [kind], Stmt st -> Predicates.is_unop_with_kind st kind
-  | "is_stmt", [stmt_name], Stmt st -> Predicates.is_stmt st stmt_name
-  | "isa", [classname], Stmt st -> Predicates.isa st classname
-  | _ -> failwith ("ERROR: Undefined Predicate: "^pred_name)
+  | "is_binop_with_kind", [str_kind], Stmt st -> Predicates.is_binop_with_kind str_kind st
+  | "is_unop_with_kind", [str_kind], Stmt st -> Predicates.is_unop_with_kind str_kind st
+  | "in_node", [nodename], Stmt st -> Predicates.is_stmt nodename st
+  | "in_node", [nodename], Decl d -> Predicates.is_decl nodename d
+  | "isa", [classname], Stmt st -> Predicates.isa classname st
+  | _ -> failwith ("ERROR: Undefined Predicate or wrong set of arguments: " ^ pred_name)
 
 (* st, lcxt |= EF phi  <=>
    st, lcxt |= phi or exists st' in Successors(st): st', lcxt |= EF phi
@@ -467,7 +467,7 @@ and in_node node_type_list phi an lctx =
   let holds_for_one_node n =
     match lctx.CLintersContext.et_evaluation_node with
     | Some id ->
-        (string_equal id (node_to_unique_string_id an)) && (eval_formula phi an lctx)
+        (Core.Std.String.equal id (node_to_unique_string_id an)) && (eval_formula phi an lctx)
     | None ->
         (node_has_type [n] an) && (eval_formula phi an lctx) in
   IList.exists holds_for_one_node node_type_list

@@ -44,11 +44,11 @@ let do_source_file translation_unit_context ast =
   CType_decl.add_predefined_types tenv;
   init_global_state_capture ();
   let source_file = translation_unit_context.CFrontend_config.source_file in
-  Logging.out_debug "@\n Start building call/cfg graph for '%s'....@\n"
-    (DB.source_file_to_string source_file);
+  Logging.out_debug "@\n Start building call/cfg graph for '%a'....@\n"
+    DB.source_file_pp source_file;
   let call_graph, cfg = compute_icfg translation_unit_context tenv ast in
-  Logging.out_debug "@\n End building call/cfg graph for '%s'.@\n"
-    (DB.source_file_to_string source_file);
+  Logging.out_debug "@\n End building call/cfg graph for '%a'.@\n"
+    DB.source_file_pp source_file;
   (* This part below is a boilerplate in every frontends. *)
   (* This could be moved in the cfg_infer module *)
   let source_dir = DB.source_dir_from_source_file source_file in
@@ -66,7 +66,8 @@ let do_source_file translation_unit_context ast =
   if Config.stats_mode
   || Config.debug_mode
   || Config.testing_mode
-  || Config.frontend_tests then
+  || Config.frontend_tests
+  || Option.is_some Config.icfg_dotty_outfile then
     (Dotty.print_icfg_dotty source_file cfg;
      Cg.save_call_graph_dotty source_file Specs.get_specs call_graph);
   (* NOTE: nothing should be written to source_dir after this *)

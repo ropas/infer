@@ -18,10 +18,10 @@ module P = Printf
 (** Describe the origin of values propagated by the checker. *)
 module type InstrRefT =
 sig
-  type t
+  type t [@@deriving compare]
+  val equal : t -> t -> bool
   type generator
   val create_generator : Procdesc.Node.t -> generator
-  val equal : t -> t -> bool
   val gen : generator -> t
   val get_node : t -> Procdesc.Node.t
   val hash : t -> int
@@ -32,10 +32,9 @@ end (* InstrRefT *)
 (** Per-node instruction reference. *)
 module InstrRef : InstrRefT =
 struct
-  type t = Procdesc.Node.t * int
+  type t = Procdesc.Node.t * int [@@deriving compare]
+  let equal x y = 0 = compare x y
   type generator = Procdesc.Node.t * int ref
-  let equal (n1, i1) (n2, i2) =
-    Procdesc.Node.equal n1 n2 && i1 = i2
   let hash (n, i) = Hashtbl.hash (Procdesc.Node.hash n, i)
   let get_node (n, _) = n
   let replace_node (_, i) n' = (n', i)
@@ -52,6 +51,9 @@ type origin_descr =
   Location.t option *
   Annotations.annotated_signature option  (* callee signature *)
 
+(* ignore origin descr *)
+let compare_origin_descr _ _ = 0
+
 type parameter_not_nullable =
   Annotations.annotation *
   string * (* description *)
@@ -59,6 +61,7 @@ type parameter_not_nullable =
   Procname.t *
   Location.t * (* callee location *)
   origin_descr
+[@@deriving compare]
 
 (** Instance of an error *)
 type err_instance =
@@ -75,83 +78,12 @@ type err_instance =
   | Parameter_annotation_inconsistent of parameter_not_nullable
   | Return_annotation_inconsistent of Annotations.annotation * Procname.t * origin_descr
   | Return_over_annotated of Procname.t
+[@@deriving compare]
 
 module H = Hashtbl.Make(struct
-    type t = err_instance * InstrRef.t option
-    let err_instance_equal x y = match x, y with
-      | Condition_redundant (b1, so1, nn1), Condition_redundant (b2, so2, nn2) ->
-          bool_equal b1 b2 &&
-          (opt_equal string_equal) so1 so2 &&
-          bool_equal nn1 nn2
-      | Condition_redundant _, _
-      | _, Condition_redundant _ -> false
-      | Field_not_initialized (fn1, pn1), Field_not_initialized (fn2, pn2) ->
-          Ident.fieldname_equal fn1 fn2 &&
-          Procname.equal pn1 pn2
-      | Field_not_initialized (_, _), _
-      | _, Field_not_initialized (_, _) -> false
-      | Field_not_mutable (fn1, _), Field_not_mutable (fn2, _) ->
-          Ident.fieldname_equal fn1 fn2
-      | Field_not_mutable _, _
-      | _, Field_not_mutable _ -> false
-      | Field_annotation_inconsistent (ann1, fn1, _),
-        Field_annotation_inconsistent (ann2, fn2, _) ->
-          ann1 = ann2 &&
-          Ident.fieldname_equal fn1 fn2
-      | Field_annotation_inconsistent _, _
-      | _, Field_annotation_inconsistent _ -> false
-      | Field_over_annotated (fn1, pn1), Field_over_annotated (fn2, pn2) ->
-          Ident.fieldname_equal fn1 fn2 &&
-          Procname.equal pn1 pn2
-      | Field_over_annotated (_, _), _
-      | _, Field_over_annotated (_, _) -> false
-      | Null_field_access (so1, fn1, _, ii1), Null_field_access (so2, fn2, _, ii2) ->
-          (opt_equal string_equal) so1 so2 &&
-          Ident.fieldname_equal fn1 fn2 &&
-          bool_equal ii1 ii2
-      | Null_field_access _, _
-      | _, Null_field_access _ -> false
-      | Call_receiver_annotation_inconsistent (ann1, so1, pn1, _),
-        Call_receiver_annotation_inconsistent (ann2, so2, pn2, _) ->
-          ann1 = ann2 &&
-          (opt_equal string_equal) so1 so2 &&
-          Procname.equal pn1 pn2
-      | Call_receiver_annotation_inconsistent _, _
-      | _, Call_receiver_annotation_inconsistent _ -> false
-      | Parameter_annotation_inconsistent (ann1, s1, n1, pn1, cl1, _),
-        Parameter_annotation_inconsistent (ann2, s2, n2, pn2, cl2, _) ->
-          ann1 = ann2 &&
-          string_equal s1 s2 &&
-          int_equal n1 n2 &&
-          Procname.equal pn1 pn2 &&
-          Location.equal cl1 cl2
-      | Parameter_annotation_inconsistent _, _
-      | _, Parameter_annotation_inconsistent _ -> false
-      | Return_annotation_inconsistent (ann1, pn1, _),
-        Return_annotation_inconsistent (ann2, pn2, _) ->
-          ann1 = ann2 && Procname.equal pn1 pn2
-      | Return_annotation_inconsistent _, _
-      | _, Return_annotation_inconsistent _ -> false
-      | Return_over_annotated pn1, Return_over_annotated pn2 ->
-          Procname.equal pn1 pn2
-      | Inconsistent_subclass_return_annotation (pn1, spn1),
-        Inconsistent_subclass_return_annotation (pn2, spn2) ->
-          if Procname.equal pn1 pn2 then true
-          else Procname.equal spn1 spn2
-      | Inconsistent_subclass_parameter_annotation (param_name_1, pos_1, pn_1, overriden_pn_1),
-        Inconsistent_subclass_parameter_annotation (param_name_2, pos_2, pn_2, overriden_pn_2) ->
-          string_equal param_name_1 param_name_2 &&
-          int_equal pos_1 pos_2 &&
-          Procname.equal pn_1 pn_2 &&
-          Procname.equal overriden_pn_1 overriden_pn_2
-      | Inconsistent_subclass_return_annotation _, _
-      | _, Inconsistent_subclass_return_annotation _ -> false
-      | Inconsistent_subclass_parameter_annotation _, _
-      | _, Inconsistent_subclass_parameter_annotation _ -> false
+    type t = err_instance * InstrRef.t option [@@deriving compare]
 
-    let equal (err_inst1, instr_ref_opt1) (err_inst2, instr_ref_opt2) =
-      err_instance_equal err_inst1 err_inst2 &&
-      opt_equal InstrRef.equal instr_ref_opt1 instr_ref_opt2
+    let equal x y = 0 = compare x y
 
     let err_instance_hash x =
       let string_hash s = Hashtbl.hash s in
@@ -308,24 +240,14 @@ type st_report_error =
 let report_error_now tenv
     (st_report_error : st_report_error) err_instance loc pdesc : unit =
   let pname = Procdesc.get_proc_name pdesc in
-  let demo_mode = true in
-  let do_print_base ew_string kind_s s =
+  let do_print ew_string kind_s s =
+    L.stdout "%a:%d " DB.source_file_pp loc.Location.file loc.Location.line;
     let mname = match pname with
       | Procname.Java pname_java ->
           Procname.java_get_method pname_java
       | _ ->
           Procname.to_simplified_string pname in
     L.stdout "%s %s in %s %s@." ew_string kind_s mname s in
-  let do_print ew_string kind_s s =
-    L.stdout "%s:%d " (DB.source_file_to_string loc.Location.file) loc.Location.line;
-    do_print_base ew_string kind_s s in
-  let do_print_demo ew_string kind_s s = (* demo mode print for Eclipse and ocaml plugin *)
-    let process_path s = filename_to_relative (Sys.getcwd ()) s in
-    L.stdout
-      "File %s, line %d, characters 0-10:\n"
-      (process_path (DB.source_file_to_string loc.Location.file))
-      loc.Location.line;
-    do_print_base ew_string kind_s s in
 
   let is_err, kind_s, description, advice, field_name, origin_loc = match err_instance with
     | Condition_redundant (b, s_opt, nonnull) ->
@@ -526,7 +448,7 @@ let report_error_now tenv
         None,
         None in
   let ew_string = if is_err then "Error" else "Warning" in
-  (if demo_mode then do_print_demo else do_print) ew_string kind_s description;
+  do_print ew_string kind_s description;
   let always_report = Strict.err_instance_get_strict tenv err_instance <> None in
   st_report_error
     pname

@@ -189,7 +189,7 @@ let mk_rule_lsls_ls tenv k1 k2 impl_ok1 impl_ok2 para =
   (find id_base, find id_next, find id_end)
   with Not_found -> assert false in
   let spooky_case _ =
-  (lseg_kind_equal Sil.Lseg_PE k_res)
+  (equal_lseg_kind Sil.Lseg_PE k_res)
   && (check_allocatedness p_leftover inst_end)
   && ((check_disequal p_start inst_base inst_next)
   || (check_disequal p_start inst_next inst_end)) in
@@ -469,7 +469,7 @@ let discover_para_candidates tenv p =
   let edges = ref [] in
   let add_edge edg = edges := edg :: !edges in
   let get_edges_strexp rec_flds root se =
-    let is_rec_fld fld = IList.exists (Ident.fieldname_equal fld) rec_flds in
+    let is_rec_fld fld = IList.exists (Ident.equal_fieldname fld) rec_flds in
     match se with
     | Sil.Eexp _ | Sil.Earray _ -> ()
     | Sil.Estruct (fsel, _) ->
@@ -505,7 +505,7 @@ let discover_para_dll_candidates tenv p =
   let edges = ref [] in
   let add_edge edg = (edges := edg :: !edges) in
   let get_edges_strexp rec_flds root se =
-    let is_rec_fld fld = IList.exists (Ident.fieldname_equal fld) rec_flds in
+    let is_rec_fld fld = IList.exists (Ident.equal_fieldname fld) rec_flds in
     match se with
     | Sil.Eexp _ | Sil.Earray _ -> ()
     | Sil.Estruct (fsel, _) ->
@@ -836,7 +836,7 @@ module IdMap = Map.Make (Ident) (** maps from identifiers *)
 module HpredSet =
   Set.Make(struct
     type t = Sil.hpred
-    let compare = Sil.hpred_compare ~inst:false
+    let compare = Sil.compare_hpred ~inst:false
   end)
 
 let hpred_entries hpred = match hpred with
@@ -904,9 +904,9 @@ let get_cycle root prop =
     match el with
     | [] -> path, false
     | (f, e):: el' ->
-        if Sil.strexp_equal e e_root then
+        if Sil.equal_strexp e e_root then
           (et_src, f, e):: path, true
-        else if IList.mem Sil.strexp_equal e visited then
+        else if IList.mem Sil.equal_strexp e visited then
           path, false
         else (
           let visited' = (fst et_src):: visited in
@@ -954,7 +954,7 @@ let get_var_retain_cycle prop_ =
   let sigma = prop_.Prop.sigma in
   let is_pvar v h =
     match h with
-    | Sil.Hpointsto (Exp.Lvar _, v', _) when Sil.strexp_equal v v' -> true
+    | Sil.Hpointsto (Exp.Lvar _, v', _) when Sil.equal_strexp v v' -> true
     | _ -> false in
   let is_hpred_block v h =
     match h, v with
@@ -1004,7 +1004,7 @@ let cycle_has_weak_or_unretained_or_assign_field tenv cycle =
   let get_item_annotation (t: Typ.t) fn =
     match t with
     | Tstruct name -> (
-        let equal_fn (fn', _, _) = Ident.fieldname_equal fn fn' in
+        let equal_fn (fn', _, _) = Ident.equal_fieldname fn fn' in
         match Tenv.lookup tenv name with
         | Some { fields; statics } -> (
             try trd3 (IList.find equal_fn (fields @ statics))
@@ -1194,8 +1194,8 @@ let check_junk ?original_prop pname tenv prop =
   let sigma_new = remove_junk false fav_sub_sigmafp prop.Prop.sigma in
   let sigma_fp_new = remove_junk true (Sil.fav_new ()) prop.Prop.sigma_fp in
   if
-    Prop.sigma_equal prop.Prop.sigma sigma_new
-    && Prop.sigma_equal prop.Prop.sigma_fp sigma_fp_new
+    Prop.equal_sigma prop.Prop.sigma sigma_new
+    && Prop.equal_sigma prop.Prop.sigma_fp sigma_fp_new
   then prop
   else Prop.normalize tenv (Prop.set prop ~sigma:sigma_new ~sigma_fp:sigma_fp_new)
 

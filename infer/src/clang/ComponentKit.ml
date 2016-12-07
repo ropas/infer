@@ -25,8 +25,8 @@ let is_in_main_file translation_unit_context an =
   | None ->
       false
   | Some file ->
-      DB.source_file_equal
-        (CLocation.source_file_from_path file)
+      DB.equal_source_file
+        (DB.source_file_from_abs_path file)
         translation_unit_context.CFrontend_config.source_file
 
 let is_ck_context (context: CLintersContext.context) an =
@@ -99,9 +99,9 @@ let mutable_local_vars_advice context an =
     let objc_whitelist = ["NSError"] in
     match get_referenced_type qual_type with
     | Some CXXRecordDecl (_, ndi, _, _, _, _, _, _) ->
-        IList.mem string_equal ndi.ni_name cpp_whitelist
+        IList.mem Core.Std.String.equal ndi.ni_name cpp_whitelist
     | Some ObjCInterfaceDecl (_, ndi, _, _, _) ->
-        IList.mem string_equal ndi.ni_name objc_whitelist
+        IList.mem Core.Std.String.equal ndi.ni_name objc_whitelist
     | _ -> false in
 
   match an with
@@ -170,7 +170,7 @@ let component_with_unconventional_superclass_advice context an =
           let has_conventional_superclass =
             let open CFrontend_config in
             match superclass_name with
-            | Some name when IList.mem string_equal name [
+            | Some name when IList.mem Core.Std.String.equal name [
                 ckcomponent_cl;
                 ckcomponentcontroller_cl;
                 "CKCompositeComponent";
@@ -305,3 +305,66 @@ let component_initializer_with_side_effects_advice
   | CTL.Stmt (CallExpr (_, called_func_stmt :: _, _))  ->
       _component_initializer_with_side_effects_advice context called_func_stmt
   | _ -> CTL.False, None (* only to be called in CallExpr *)
+
+(** Returns one issue per line of code, with the column set to 0.
+
+    This still needs to be in infer b/c only files that have a valid component
+    kit class impl should be analyzed. *)
+let component_file_line_count_info (context: CLintersContext.context) dec =
+  let condition = Config.compute_analytics && context.is_ck_translation_unit in
+  match dec with
+  | Clang_ast_t.TranslationUnitDecl _ when condition ->
+      let source_file =
+        context.translation_unit_context.CFrontend_config.source_file in
+      let line_count = DB.source_file_line_count source_file in
+      IList.map (fun i -> {
+            CIssue.issue = CIssue.Component_file_line_count;
+            CIssue.description = "Line count analytics";
+            CIssue.suggestion = None;
+            CIssue.loc = {
+              Location.line = i;
+              Location.col = 0;
+              Location.file = source_file
+            }
+          }
+        ) (IList.range 1 line_count)
+  | _ -> []
+
+(** Computes a component file's cyclomatic complexity.
+
+    Somewhat borrowed from
+    https://github.com/oclint/oclint/blob/5889b5ec168185513ba69ce83821ea1cc8e63fbe
+    /oclint-metrics/lib/CyclomaticComplexityMetric.cpp *)
+let component_file_cyclomatic_complexity_info (context: CLintersContext.context) an =
+  let is_cyclo_stmt stmt = match stmt with
+    | Clang_ast_t.IfStmt _
+    | Clang_ast_t.ForStmt _
+    | Clang_ast_t.ObjCForCollectionStmt _
+    | Clang_ast_t.CXXForRangeStmt _
+    | Clang_ast_t.WhileStmt _
+    | Clang_ast_t.DoStmt _
+    | Clang_ast_t.CaseStmt _
+    | Clang_ast_t.ObjCAtCatchStmt _
+    | Clang_ast_t.CXXCatchStmt _
+    | Clang_ast_t.ConditionalOperator _ -> true
+    | Clang_ast_t.BinaryOperator (_, _, _, boi) ->
+        IList.mem (=) boi.Clang_ast_t.boi_kind [`LAnd; `LOr]
+    | _ -> false in
+  let cyclo_loc_opt an = match an with
+    | CTL.Stmt stmt when (Config.compute_analytics
+                          && is_cyclo_stmt stmt
+                          && is_ck_context context an) ->
+        Some (CFrontend_checkers.location_from_stmt context stmt)
+    | CTL.Decl (Clang_ast_t.TranslationUnitDecl _ as d)
+      when Config.compute_analytics && context.is_ck_translation_unit ->
+        Some (CFrontend_checkers.location_from_decl context d)
+    | _ -> None in
+  match cyclo_loc_opt an with
+  | Some loc ->
+      CTL.True, Some {
+        CIssue.issue = CIssue.Component_file_cyclomatic_complexity;
+        CIssue.description = "Cyclomatic Complexity Incremental Marker";
+        CIssue.suggestion = None;
+        CIssue.loc = loc
+      }
+  | _ -> CTL.False, None

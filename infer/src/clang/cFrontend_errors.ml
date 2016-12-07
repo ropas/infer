@@ -19,13 +19,18 @@ let decl_checkers_list = [CFrontend_checkers.ctl_strong_delegate_warning;
                           ComponentKit.component_with_unconventional_superclass_advice;
                           ComponentKit.mutable_local_vars_advice;
                           ComponentKit.component_factory_function_advice;
+                          ComponentKit.component_file_cyclomatic_complexity_info;
                           ComponentKit.component_with_multiple_factory_methods_advice;]
 
 (* List of checkers on ivar access *)
 let stmt_checkers_list =  [CFrontend_checkers.ctl_direct_atomic_property_access_warning;
                            CFrontend_checkers.ctl_captured_cxx_ref_in_objc_block_warning;
                            CFrontend_checkers.ctl_bad_pointer_comparison_warning;
+                           ComponentKit.component_file_cyclomatic_complexity_info;
                            ComponentKit.component_initializer_with_side_effects_advice;]
+
+(* List of checkers on translation unit that potentially output multiple issues *)
+let translation_unit_checkers_list = [ComponentKit.component_file_line_count_info;]
 
 
 
@@ -76,3 +81,12 @@ let run_frontend_checkers_on_an (context: CLintersContext.context) an =
     | _ -> context in
   invoke_set_of_checkers_an an context';
   context'
+
+let run_translation_unit_checker (context: CLintersContext.context) dec =
+  IList.iter (fun checker ->
+      let issue_desc_list = checker context dec in
+      IList.iter (fun issue_desc ->
+          let key = Ast_utils.generate_key_decl dec in
+          log_frontend_issue context.CLintersContext.translation_unit_context
+            context.CLintersContext.current_method key issue_desc
+        ) issue_desc_list) translation_unit_checkers_list

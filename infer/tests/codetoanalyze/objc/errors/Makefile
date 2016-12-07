@@ -18,12 +18,11 @@ CLANG_OPTIONS = -x objective-c \
 
 CLEAN_EXTRA = infer-out-arc infer-out-all infer-out-all infer-out-arc \
               issues.exp.test.all issues.exp.test.arc issues.exp.test.default
-INFER_OPTIONS = --cxx  --check-duplicate-symbols --no-filtering --debug-exceptions
+INFER_OPTIONS = --cxx  --check-duplicate-symbols --no-filtering --debug-exceptions --project-root $(TESTS_DIR)
 INFERPRINT_OPTIONS = --issues-tests
 
 SOURCES_DEFAULT = \
   field_superclass/B.m \
-  memory_leaks_benchmark/FBViewExample.m \
   memory_leaks_benchmark/MemoryLeakRaii.m \
   memory_leaks_benchmark/NSMakeCollectableExample.m \
   memory_leaks_benchmark/NSStringInitWithBytesNoCopyExample.m \
@@ -33,6 +32,7 @@ SOURCES_DEFAULT = \
   npe/Npe_with_equal_names.m \
   npe/block.m \
   npe/skip_method_with_nil_object.m \
+	npe/Nsstring_length_no_npe.m \
   procdescs/MethodCall.m \
   property/main.c \
   resource_leaks/ResourceLeakExample.m \

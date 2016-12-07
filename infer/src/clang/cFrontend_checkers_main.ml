@@ -25,23 +25,12 @@ let parse_ctl_file filename =
     | Ctl_parser.Error ->
         Logging.err "%a: syntax error\n" print_position lexbuf;
         exit (-1) in
-  let parse_and_print lexbuf =  match parse_with_error lexbuf with
-    | Some l ->
-        IList.iter (fun { Ctl_parser_types.name = s; Ctl_parser_types.definitions = defs } ->
-            Logging.out "Parsed checker definition: %s\n" s;
-            IList.iter (fun d -> match d with
-                | Ctl_parser_types.CSet ("report_when", phi) ->
-                    Logging.out "    Report when:  \n    %a\n"
-                      CTL.Debug.pp_formula phi
-                | _ -> ()) defs
-          ) l;
-    | None -> () in
   match filename with
   | Some fn ->
       let inx = open_in fn in
       let lexbuf = Lexing.from_channel inx in
       lexbuf.lex_curr_p <- { lexbuf.lex_curr_p with pos_fname = fn };
-      parse_and_print lexbuf;
+      let _ = parse_with_error lexbuf in
       close_in inx
   | None ->
       Logging.out "No linters file specified. Nothing to parse.\n"
@@ -129,11 +118,13 @@ let do_frontend_checks trans_unit_ctx ast =
   try
     parse_ctl_file Config.linters_def_file;
     let source_file = trans_unit_ctx.CFrontend_config.source_file in
-    Logging.out "Start linting file %s@\n" (DB.source_file_to_string source_file);
+    Logging.out "Start linting file %a@\n" DB.source_file_pp source_file;
     match ast with
     | Clang_ast_t.TranslationUnitDecl(_, decl_list, _, _) ->
         let context =
           context_with_ck_set (CLintersContext.empty trans_unit_ctx) decl_list in
+        ignore (CFrontend_errors.run_translation_unit_checker context ast);
+        ignore (CFrontend_errors.run_frontend_checkers_on_an context (CTL.Decl ast));
         let is_decl_allowed decl =
           let decl_info = Clang_ast_proj.get_decl_tuple decl in
           CLocation.should_do_frontend_check trans_unit_ctx decl_info.Clang_ast_t.di_source_range in
@@ -141,7 +132,7 @@ let do_frontend_checks trans_unit_ctx ast =
         IList.iter (do_frontend_checks_decl context) allowed_decls;
         if (LintIssues.exists_issues ()) then
           store_issues source_file;
-        Logging.out "End linting file %s@\n" (DB.source_file_to_string source_file);
+        Logging.out "End linting file %a@\n" DB.source_file_pp source_file;
         CTL.save_dotty_when_in_debug_mode trans_unit_ctx.CFrontend_config.source_file;
     | _ -> assert false (* NOTE: Assumes that an AST alsways starts with a TranslationUnitDecl *)
   with
