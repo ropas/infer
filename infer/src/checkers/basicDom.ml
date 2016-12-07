@@ -85,7 +85,7 @@ struct
 
   let bot = initial
 
-  let of_pvar_reg pvar = singleton (Loc.of_pvar pvar)
+  let of_pvar pvar = singleton (Loc.of_pvar pvar)
   let of_id id = singleton (Loc.of_id id)
   let append_field ploc fn = fold (fun l -> add (Loc.append_field l fn)) ploc empty
 end

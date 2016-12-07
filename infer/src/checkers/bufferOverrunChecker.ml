@@ -353,20 +353,23 @@ struct
   let my_report_error : Tenv.t -> Procdesc.t -> Domain.ConditionSet.t -> unit 
   = fun _ _ conds -> 
     F.fprintf F.err_formatter "@.== Alarms ==@.";
-    let k = Domain.ConditionSet.fold (fun cond k ->
-        let safe = Domain.Condition.check cond in
-        (* report symbol-related alarms only in debug mode *)
-        if not safe then
-        (
-          let loc = Domain.Condition.get_location cond in
+    let k = 
+      Domain.ConditionSet.Map.fold (fun loc cond_set k ->
+        if Domain.ConditionSet.exists (fun cond -> not (Domain.Condition.check cond)) cond_set then
           let loc_str = Location.to_string loc in
-          let file_name = DB.source_file_to_string cond.loc.Location.file in
-          let proc_name = Domain.Condition.get_proc_name cond |> Procname.to_string in
-          F.fprintf F.err_formatter "@.%d. %s:%s: {%s} error: BUFFER-OVERRUN @. %s @." 
-            k file_name loc_str proc_name (Domain.Condition.to_string cond);
+          let file_name = DB.source_file_to_string loc.Location.file in
+          let sample = Domain.ConditionSet.choose cond_set in
+          let proc_name = Domain.Condition.get_proc_name sample |> Procname.to_string in
+          F.fprintf F.err_formatter "@.%d. %s:%s: {%s} error: BUFFER-OVERRUN @." 
+            k file_name loc_str proc_name;
+          Domain.ConditionSet.iter (fun cond ->
+            let safe = Domain.Condition.check cond in
+            (* report symbol-related alarms only in debug mode *)
+            if not safe then
+              F.fprintf F.err_formatter "  %s @." (Domain.Condition.to_string cond)
+          ) cond_set;
           k + 1
-        )
-        else k) conds 1
+        else k) (Domain.ConditionSet.group conds) 1
     in
     F.fprintf F.err_formatter "@.@.%d issues found@." (k-1)
 end
