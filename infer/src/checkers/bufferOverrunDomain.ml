@@ -76,11 +76,17 @@ struct
   let make : Procdesc.t -> string -> idx:Itv.t -> size:Itv.t -> Location.t -> t
   = fun proc_desc id ~idx ~size loc -> { proc_desc; idx; size; loc; id }
 
+  let filter : t -> bool
+  = fun c ->
+    c.idx = Itv.top || c.size = Itv.top 
+    || (try Itv.lb c.idx = Itv.Bound.MInf with _ -> false)
+    || (c.idx = Itv.nat && c.size = Itv.nat) 
+    
   let check : t -> bool
   = fun c ->
     if Config.ropas_debug <= 1 && (Itv.is_symbolic c.idx || Itv.is_symbolic c.size)
     then true
-    else if Config.filtering && (c.idx = Itv.top || c.size = Itv.top) then true
+    else if Config.filtering && filter c then true
     else
       let c = set_size_pos c in
       let not_overrun = Itv.lt_sem c.idx c.size in
