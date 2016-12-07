@@ -205,7 +205,7 @@ struct
           |> Domain.Mem.store_alias exp1 exp2
       | Prune (exp, loc, _, _) -> Semantics.prune exp loc mem
       | Call (ret, Const (Cfun callee_pname), params, loc, _) ->
-          (match Summary.read_summary tenv pdesc callee_pname with
+          (match Summary.read_summary pdesc callee_pname with
            | Some summary ->
                let callee = extras callee_pname in
                let ret_val =
@@ -311,7 +311,7 @@ struct
           | Sil.Store (exp, _, _, loc) -> add_condition pdesc node exp loc mem cond_set
           | Sil.Call (_, Const (Cfun callee_pname), params, loc, _) -> 
             begin
-              match Summary.read_summary tenv pdesc callee_pname with
+              match Summary.read_summary pdesc callee_pname with
               | Some summary ->
                   let callee = extras callee_pname in
                   instantiate_cond tenv callee params mem summary loc
@@ -409,7 +409,7 @@ struct
         post_opt
       end
     else
-      Summary.read_summary tenv proc_desc proc_name
+      Summary.read_summary proc_desc proc_name
 end 
 
 let checker ({ Callbacks.get_proc_desc; Callbacks.tenv; proc_desc } as callback) =

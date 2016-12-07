@@ -39,7 +39,7 @@ struct
     | Allocsite _, _ -> -1
     | _, Allocsite _ -> 1
     | Field (f1, n1), Field (f2, n2) ->
-        let i = Ident.fieldname_compare n1 n2 in
+        let i = Ident.compare_fieldname n1 n2 in
         if i <> 0 then i else compare f1 f2
 
   let rec pp fmt = function 
