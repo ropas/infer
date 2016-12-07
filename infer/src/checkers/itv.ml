@@ -442,9 +442,7 @@ struct
     | _, _ when is_zero y -> x
     | Linear (c1, x1), Linear (c2, x2) -> Linear (c1 + c2, SymLinear.plus x1 x2)
     | MinMax (Max, c1, _), Linear (c2, x2) 
-    | Linear (c2, x2), MinMax (Max, c1, _)
-      when SymLinear.is_zero x2 ->
-        Linear (c1 + c2, x2)
+    | Linear (c2, x2), MinMax (Max, c1, _) -> Linear (c1 + c2, x2)
     | _, _ -> MInf
 
   let plus_u : t -> t -> t
@@ -455,9 +453,7 @@ struct
     | _, _ when is_zero y -> x
     | Linear (c1, x1), Linear (c2, x2) -> Linear (c1 + c2, SymLinear.plus x1 x2)
     | MinMax (Min, c1, _), Linear (c2, x2) 
-    | Linear (c2, x2), MinMax (Min, c1, _)
-      when SymLinear.is_zero x2 ->
-        Linear (c1 + c2, x2)
+    | Linear (c2, x2), MinMax (Min, c1, _) -> Linear (c1 + c2, x2)
     | _, _ -> PInf
 
   let mult_const : t -> int -> t option

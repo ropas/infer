@@ -78,11 +78,11 @@ struct
 
   let check : t -> bool
   = fun c ->
-    let c = set_size_pos c in
-    if  Config.ropas_debug <= 1 
-    && (Itv.is_symbolic c.idx || Itv.is_symbolic c.size)
+    if Config.ropas_debug <= 1 && (Itv.is_symbolic c.idx || Itv.is_symbolic c.size)
     then true
+    else if Config.filtering && (c.idx = Itv.top || c.size = Itv.top) then true
     else
+      let c = set_size_pos c in
       let not_overrun = Itv.lt_sem c.idx c.size in
       let not_underrun = Itv.le_sem Itv.zero c.idx in
       (not_overrun = Itv.one) && (not_underrun = Itv.one)
@@ -107,12 +107,9 @@ struct
   include AbstractDomain.FiniteSet (PPSet)
 
   module Map = Map.Make (struct
-      type t = string * Location.t
-
+      type t = Location.t
       let compare : t -> t -> int
-      = fun (s1, l1) (s2, l2) ->
-        let i = String.compare s1 s2 in
-        if i <> 0 then i else Location.compare l1 l2
+      = fun l1 l2 -> Location.compare l1 l2
     end)
 
   let add_bo_safety
@@ -122,6 +119,12 @@ struct
 
   let subst : t -> Itv.Bound.t Itv.SubstMap.t -> t
   = fun x subst_map -> fold (fun e -> add (Condition.subst e subst_map)) x empty
+
+  let group : t -> t Map.t
+  = fun x ->
+    fold (fun cond map -> 
+        let old_set = try Map.find cond.loc map with _ -> empty in
+        Map.add cond.loc (add cond old_set) map) x Map.empty
 
   let pp_summary : F.formatter -> t -> unit
   = fun fmt x ->
