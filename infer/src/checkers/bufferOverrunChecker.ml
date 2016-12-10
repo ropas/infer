@@ -405,9 +405,9 @@ struct
     let report1 cond =
       let safe = Dom.Condition.check cond in
       let (caller_pname, loc) =
-        match Dom.Condition.get_callsite cond with
-        | Some (caller_pname, _, loc) -> (caller_pname, loc)
-        | None -> (pname, Dom.Condition.get_location cond)
+        match Dom.Condition.get_trace cond with
+        | Dom.Condition.Inter (caller_pname, _, loc) -> (caller_pname, loc)
+        | Dom.Condition.Intra pname -> (pname, Dom.Condition.get_location cond)
       in
       (* report symbol-related alarms only in debug mode *)
       if not safe && Procname.equal pname caller_pname then

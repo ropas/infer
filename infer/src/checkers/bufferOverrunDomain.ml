@@ -22,30 +22,30 @@ module L = Logging
 
 module Condition =
 struct
-  type callsite_t = (Procname.t * Procname.t * Location.t) option
-
-  let callsite_compare : callsite_t -> callsite_t -> int
-  = fun x y ->
-    match x, y with
-    | None, None -> 0
-    | Some _, None -> 1
-    | None, Some _ -> -1
-    | Some (caller1, callee1, l1), Some (caller2, callee2, l2) ->
-        let i = Procname.compare caller1 caller2 in
-        if i <> 0 then i else
-          let i = Procname.compare callee1 callee2 in
-          if i <> 0 then i else
-            Location.compare l1 l2
-
   type t =
     { idx : Itv.astate;
       size : Itv.astate;
       proc_name : Procname.t;
       loc : Location.t;
-      callsite : callsite_t;
+      trace : trace;
       id : string }
+  and trace = Intra of Procname.t
+            | Inter of Procname.t * Procname.t * Location.t
 
   and astate = t
+
+  let trace_compare : trace -> trace -> int
+  = fun x y ->
+    match x, y with
+    | Intra _, Inter _ -> 1
+    | Inter _, Intra _ -> -1
+    | Intra p1, Intra p2 -> Procname.compare p1 p2
+    | Inter (caller1, callee1, l1), Inter (caller2, callee2, l2) ->
+        let i = Procname.compare caller1 caller2 in
+        if i <> 0 then i else
+          let i = Procname.compare callee1 callee2 in
+          if i <> 0 then i else
+            Location.compare l1 l2
 
   let compare : t -> t -> int
   = fun x y ->
@@ -57,9 +57,10 @@ struct
         if i <> 0 then i else
           let i = Location.compare x.loc y.loc in
           if i <> 0 then i else
-            let i = callsite_compare x.callsite y.callsite in
+            let i = trace_compare x.trace y.trace in
             if i <> 0 then i else
               String.compare x.id y.id
+
 
   let set_size_pos : t -> t
   = fun c ->
@@ -87,12 +88,12 @@ struct
     if Config.ropas_debug <= 1 then 
       F.fprintf fmt "%a < %a at %a" Itv.pp c.idx Itv.pp c.size pp_location c
     else
-      match c.callsite with 
-        Some (_, pname, loc) ->
+      match c.trace with 
+        Inter (_, pname, loc) ->
           let pname = Procname.to_string pname in
           F.fprintf fmt "%a < %a at %a by call %s() at %s" 
             Itv.pp c.idx Itv.pp c.size pp_location c pname (string_of_location loc)
-      | None -> F.fprintf fmt "%a < %a at %a" Itv.pp c.idx Itv.pp c.size pp_location c
+      | Intra _ -> F.fprintf fmt "%a < %a at %a" Itv.pp c.idx Itv.pp c.size pp_location c
 
   let pp_element : F.formatter -> t -> unit
   = pp
@@ -100,15 +101,15 @@ struct
   let get_location : t -> Location.t
   = fun c -> c.loc
 
-  let get_callsite : t -> (Procname.t * Procname.t * Location.t) option
-  = fun c -> c.callsite
+  let get_trace : t -> trace
+  = fun c -> c.trace
 
   let get_proc_name : t -> Procname.t
   = fun c -> c.proc_name
 
   let make : Procname.t -> Location.t -> string -> idx:Itv.t -> size:Itv.t -> t
   = fun proc_name loc id ~idx ~size ->
-    { proc_name; idx; size; loc; id ; callsite = None }
+    { proc_name; idx; size; loc; id ; trace = Intra proc_name }
 
   let filter : t -> bool
   = fun c ->
@@ -127,14 +128,6 @@ struct
       let not_underrun = Itv.le_sem Itv.zero c.idx in
       (not_overrun = Itv.one) && (not_underrun = Itv.one)
 
-  let subst : t -> Itv.Bound.t Itv.SubstMap.t -> Procname.t -> Procname.t -> Location.t -> t
-  = fun c subst_map caller_pname callee_pname loc ->
-    if Itv.is_symbolic c.idx || Itv.is_symbolic c.size then 
-      { c with idx = Itv.subst c.idx subst_map;
-               size = Itv.subst c.size subst_map; 
-               callsite = Some (caller_pname, callee_pname, loc) }
-    else c
-
   let invalid : t -> bool
   = fun x -> Itv.invalid x.idx || Itv.invalid x.size
 
@@ -143,12 +136,20 @@ struct
     let c = set_size_pos c in
     "Offset : " ^ Itv.to_string c.idx ^ " Size : " ^ Itv.to_string c.size 
     ^ " @ " ^ string_of_location c.loc
-    ^ (match c.callsite with 
-         Some (_, pname, loc) ->
+    ^ (match c.trace with 
+         Inter (_, pname, loc) ->
           " by call "
            ^ Procname.to_string pname
            ^ "() at " ^ string_of_location loc 
-       | None -> "")
+       | Intra _ -> "")
+
+  let subst : t -> Itv.Bound.t Itv.SubstMap.t -> Procname.t -> Procname.t -> Location.t -> t
+  = fun c subst_map caller_pname callee_pname loc ->
+    if Itv.is_symbolic c.idx || Itv.is_symbolic c.size then 
+      { c with idx = Itv.subst c.idx subst_map;
+               size = Itv.subst c.size subst_map; 
+               trace = Inter (caller_pname, callee_pname, loc) }
+    else c
 end
 
 module ConditionSet =
