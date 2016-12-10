@@ -127,12 +127,9 @@ struct
     | Binop.LOr -> Val.lor_sem v1 v2
     | Binop.PtrFld -> raise Not_implemented
 
-  let get_allocsite : Procdesc.t -> CFG.node -> int -> int -> string
-  = fun pdesc node inst_num dimension ->
-    let proc_name =
-      (Procdesc.get_attributes pdesc).ProcAttributes.proc_name
-      |> Procname.to_string
-    in
+  let get_allocsite : Procname.t -> CFG.node -> int -> int -> string
+  = fun proc_name node inst_num dimension ->
+    let proc_name = Procname.to_string proc_name in
     let node_num = string_of_int (CFG.underlying_id node) in
     let inst_num = string_of_int inst_num in
     let dimension = string_of_int dimension in
@@ -140,7 +137,7 @@ struct
     |> Allocsite.make
 
   let eval_array_alloc
-    : Procdesc.t -> CFG.node -> Typ.t -> Itv.t -> Itv.t -> int -> int -> Val.t
+    : Procname.t -> CFG.node -> Typ.t -> Itv.t -> Itv.t -> int -> int -> Val.t
   = fun pdesc node typ offset size inst_num dimension ->
     let allocsite = get_allocsite pdesc node inst_num dimension in
     let stride = sizeof typ |> Itv.of_int in
