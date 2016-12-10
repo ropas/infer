@@ -392,6 +392,7 @@ struct
              Analyzer.extract_post (Analyzer.CFG.id (Analyzer.CFG.exit_node cfg)) inv_map)
       in
       let cond_set = Report.collect (ProcData.make pdesc tenv extras) inv_map in
+      Report.report_error tenv pdesc cond_set;
       match entry_mem, exit_mem with
       | Some _, Some _ 
           when (Procdesc.get_proc_name pdesc |> Procname.get_method) = "infer_print" -> 
@@ -430,11 +431,5 @@ let checker ({ Callbacks.get_proc_desc; Callbacks.tenv; proc_desc } as callback)
       F.fprintf F.err_formatter "@.@[<v 2>Summary of %a :@," Procname.pp proc_name;
       Domain.Summary.pp_summary F.err_formatter s;
       F.fprintf F.err_formatter "@]@.";
-(*      if Procname.to_string proc_name = "main" then
-      begin*)
-        if Config.ropas_report then
-          Report.my_report_error tenv proc_desc cond_set    
-        else
-          Report.report_error tenv proc_desc cond_set
-(*      end*)
+      if Config.ropas_report then Report.my_report_error tenv proc_desc cond_set
   | _ -> ()
