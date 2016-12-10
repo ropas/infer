@@ -27,12 +27,13 @@ struct
       size : Itv.astate;
       proc_desc : Procdesc.t;
       loc : Location.t;
+      callsite : (Procdesc.t * Procdesc.t * Location.t) option;
       id : string }
 
   and astate = t
 
   let compare : t -> t -> int
-  = fun x y ->
+  = fun x y -> (* TODO *)
     let i = Itv.compare x.idx y.idx in
     if i <> 0 then i else
       let i = Itv.compare x.size y.size in
@@ -50,16 +51,29 @@ struct
     in
     { c with size }
 
+  let string_of_location : Location.t -> string
+  = fun loc -> 
+    let fname = DB.source_file_to_string loc.Location.file in
+    let pos = Location.to_string loc in
+    F.fprintf F.str_formatter "%s:%s" fname pos;
+    F.flush_str_formatter ()
+   
   let pp_location : F.formatter -> t -> unit
   = fun fmt c ->
-    let fname = DB.source_file_to_string c.loc.Location.file in
-    let pos = Location.to_string c.loc in
-    F.fprintf fmt "%s:%s" fname pos
+    F.fprintf fmt "%s" (string_of_location c.loc)
 
   let pp : F.formatter -> t -> unit
   = fun fmt c ->
     let c = set_size_pos c in
-    F.fprintf fmt "%a < %a at %a" Itv.pp c.idx Itv.pp c.size pp_location c
+    if Config.ropas_debug <= 1 then 
+      F.fprintf fmt "%a < %a at %a" Itv.pp c.idx Itv.pp c.size pp_location c
+    else
+      match c.callsite with 
+        Some (_, pdesc, loc) -> 
+          let pname = Procdesc.get_proc_name pdesc |> Procname.to_string in
+          F.fprintf fmt "%a < %a at %a by call %s() at %s" 
+            Itv.pp c.idx Itv.pp c.size pp_location c pname (string_of_location loc)
+      | None -> F.fprintf fmt "%a < %a at %a" Itv.pp c.idx Itv.pp c.size pp_location c
 
   let pp_element : F.formatter -> t -> unit
   = pp
@@ -67,14 +81,17 @@ struct
   let get_location : t -> Location.t
   = fun c -> c.loc
 
+  let get_callsite : t -> (Procdesc.t * Procdesc.t * Location.t) option
+  = fun c -> c.callsite
+
   let get_proc_desc : t -> Procdesc.t
   = fun c -> c.proc_desc
 
   let get_proc_name : t -> Procname.t
   = fun c -> Procdesc.get_proc_name c.proc_desc
 
-  let make : Procdesc.t -> string -> idx:Itv.t -> size:Itv.t -> Location.t -> t
-  = fun proc_desc id ~idx ~size loc -> { proc_desc; idx; size; loc; id }
+  let make : Procdesc.t -> Location.t -> string -> idx:Itv.t -> size:Itv.t -> t
+  = fun proc_desc loc id ~idx ~size -> { proc_desc; idx; size; loc; id ; callsite = None }
 
   let filter : t -> bool
   = fun c ->
@@ -93,10 +110,13 @@ struct
       let not_underrun = Itv.le_sem Itv.zero c.idx in
       (not_overrun = Itv.one) && (not_underrun = Itv.one)
 
-  let subst : t -> Itv.Bound.t Itv.SubstMap.t -> t
-  = fun c subst_map ->
-    { c with idx = Itv.subst c.idx subst_map;
-             size = Itv.subst c.size subst_map; }
+  let subst : t -> Itv.Bound.t Itv.SubstMap.t -> Procdesc.t -> Procdesc.t -> Location.t -> t
+  = fun c subst_map caller_pdesc callee_pdesc loc ->
+    if Itv.is_symbolic c.idx || Itv.is_symbolic c.size then 
+      { c with idx = Itv.subst c.idx subst_map;
+               size = Itv.subst c.size subst_map; 
+               callsite = Some (caller_pdesc, callee_pdesc, loc) }
+    else c
 
   let invalid : t -> bool
   = fun x -> Itv.invalid x.idx || Itv.invalid x.size
@@ -104,7 +124,14 @@ struct
   let to_string : t -> string
   = fun c ->
     let c = set_size_pos c in
-    "Offset : " ^ Itv.to_string c.idx ^ " Size : " ^ Itv.to_string c.size
+    "Offset : " ^ Itv.to_string c.idx ^ " Size : " ^ Itv.to_string c.size 
+    ^ " @ " ^ string_of_location c.loc
+    ^ (match c.callsite with 
+         Some (_, pdesc, loc) -> 
+          " by call "
+           ^ (Procdesc.get_proc_name pdesc |> Procname.to_string)
+           ^ "() at " ^ string_of_location loc 
+       | None -> "")
 end
 
 module ConditionSet =
@@ -119,12 +146,13 @@ struct
     end)
 
   let add_bo_safety
-    : Procdesc.t -> string -> idx:Itv.t -> size:Itv.t -> Location.t -> t -> t
-  = fun pdesc id ~idx ~size loc cond ->
-    add (Condition.make pdesc id ~idx ~size loc) cond
+    : Procdesc.t -> Location.t -> string -> idx:Itv.t -> size:Itv.t -> t -> t
+  = fun pdesc loc id ~idx ~size cond ->
+    add (Condition.make pdesc loc id ~idx ~size) cond
 
-  let subst : t -> Itv.Bound.t Itv.SubstMap.t -> t
-  = fun x subst_map -> fold (fun e -> add (Condition.subst e subst_map)) x empty
+  let subst : t -> Itv.Bound.t Itv.SubstMap.t -> Procdesc.t -> Procdesc.t -> Location.t -> t
+  = fun x subst_map caller_pdesc callee_pdesc loc -> 
+    fold (fun e -> add (Condition.subst e subst_map caller_pdesc callee_pdesc loc)) x empty
 
   let group : t -> t Map.t
   = fun x ->

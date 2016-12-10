@@ -274,17 +274,17 @@ struct
               F.fprintf F.err_formatter "  idx: %a@," Itv.pp idx;
               F.fprintf F.err_formatter "@]@."));
         if size <> Itv.bot && idx <> Itv.bot then 
-           Domain.ConditionSet.add_bo_safety pdesc site ~size ~idx loc cond_set
+           Domain.ConditionSet.add_bo_safety pdesc loc site ~size ~idx cond_set
         else cond_set
     | None -> cond_set
 
-  let instantiate_cond tenv callee_pdesc params caller_mem summary loc =
+  let instantiate_cond tenv caller_pdesc callee_pdesc params caller_mem summary loc =
     let (callee_entry_mem, callee_cond) = 
       (Domain.Summary.get_input summary, Domain.Summary.get_cond_set summary) in
     match callee_pdesc with
     | Some pdesc ->
-        Semantics.get_subst_map tenv pdesc params caller_mem callee_entry_mem loc
-        |> Domain.ConditionSet.subst callee_cond
+        let subst_map = Semantics.get_subst_map tenv pdesc params caller_mem callee_entry_mem loc in
+        Domain.ConditionSet.subst callee_cond subst_map caller_pdesc pdesc loc
     | _ -> callee_cond
 
   let print_debug_info instr pre cond_set = 
@@ -314,7 +314,7 @@ struct
               match Summary.read_summary pdesc callee_pname with
               | Some summary ->
                   let callee = extras callee_pname in
-                  instantiate_cond tenv callee params mem summary loc
+                  instantiate_cond tenv pdesc callee params mem summary loc
                   |> Domain.ConditionSet.rm_invalid
                   |> Domain.ConditionSet.join cond_set
               | _ -> cond_set
@@ -336,19 +336,22 @@ struct
       | _ -> cond_set) Domain.ConditionSet.empty pdesc
 
   let report_error : Tenv.t -> Procdesc.t -> Domain.ConditionSet.t -> unit 
-  = fun tenv _ conds -> 
+  = fun tenv pdesc conds -> 
     Domain.ConditionSet.iter (fun cond ->
         let safe = Domain.Condition.check cond in
+        let (caller_pdesc, _, loc) = 
+          match Domain.Condition.get_callsite cond with 
+            Some (caller_pdesc, callee_pdesc, loc) -> (caller_pdesc, callee_pdesc, loc)
+          | None -> (pdesc, pdesc, Domain.Condition.get_location cond)
+        in
         (* report symbol-related alarms only in debug mode *)
-        if not safe then
-        (
+        if not safe && (Procdesc.get_proc_name pdesc = Procdesc.get_proc_name caller_pdesc) then
           Checkers.ST.report_error tenv
-            (Domain.Condition.get_proc_name cond)
-            (Domain.Condition.get_proc_desc cond)
+            (Procdesc.get_proc_name pdesc)
+            pdesc
             "BUFFER-OVERRUN CHECKER"
-            (Domain.Condition.get_location cond)
-            (Domain.Condition.to_string cond))
-        else ()) conds
+            loc
+            (Domain.Condition.to_string cond)) conds
 
   let my_report_error : Tenv.t -> Procdesc.t -> Domain.ConditionSet.t -> unit 
   = fun _ _ conds -> 
@@ -423,11 +426,11 @@ let checker ({ Callbacks.get_proc_desc; Callbacks.tenv; proc_desc } as callback)
       F.fprintf F.err_formatter "@.@[<v 2>Summary of %a :@," Procname.pp proc_name;
       Domain.Summary.pp_summary F.err_formatter s;
       F.fprintf F.err_formatter "@]@.";
-      if Procname.to_string proc_name = "main" then
-      begin
+(*      if Procname.to_string proc_name = "main" then
+      begin*)
         if Config.ropas_report then
           Report.my_report_error tenv proc_desc cond_set    
         else
           Report.report_error tenv proc_desc cond_set
-      end
+(*      end*)
   | _ -> ()
