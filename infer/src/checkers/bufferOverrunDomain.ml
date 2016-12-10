@@ -158,6 +158,7 @@ struct
 
   module Map = Map.Make (struct
       type t = Location.t
+
       let compare : t -> t -> int
       = fun l1 l2 -> Location.compare l1 l2
     end)
