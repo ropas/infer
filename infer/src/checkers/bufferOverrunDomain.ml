@@ -339,6 +339,9 @@ struct
 
   let normalize : t -> t
   = fun (i, l, a) -> (Itv.normalize i, l, ArrayBlk.normalize a)
+
+  let pp_summary : F.formatter -> t -> unit
+  = fun fmt (i, _, a) -> F.fprintf fmt "(%a, %a)" Itv.pp i ArrayBlk.pp a
 end
 
 module Stack =
@@ -389,7 +392,7 @@ struct
   = fun fmt mem ->
     let pp_not_logical_var k v =
       if Loc.is_logical_var k then () else
-        F.fprintf fmt "%a -> %a@," Loc.pp k Val.pp v
+        F.fprintf fmt "%a -> %a@," Loc.pp k Val.pp_summary v
     in
     iter pp_not_logical_var mem
 end
@@ -439,7 +442,7 @@ struct
 
   let pp_summary : F.formatter -> astate -> unit
   = fun fmt mem ->
-    let pp_map fmt (k, v) = F.fprintf fmt "%a -> %a" Loc.pp k Val.pp v in
+    let pp_map fmt (k, v) = F.fprintf fmt "%a -> %a" Loc.pp k Val.pp_summary v in
     F.fprintf fmt "@[<v 2>{ ";
     F.pp_print_list pp_map fmt (bindings mem);
     F.fprintf fmt " }@]"
@@ -620,12 +623,12 @@ struct
   let pp_symbol_map : F.formatter -> t -> unit
   = fun fmt s -> Mem.pp_summary fmt (get_input s)
 
-  let pp_result : F.formatter -> t -> unit
-  = fun fmt s -> F.fprintf fmt "Return value: %a" Val.pp (get_result s)
+  let pp_return : F.formatter -> t -> unit
+  = fun fmt s -> F.fprintf fmt "Return value: %a" Val.pp_summary (get_result s)
 
   let pp_summary : F.formatter -> t -> unit
   = fun fmt s ->
-    F.fprintf fmt "%a@,%a@,%a" pp_symbol_map s pp_result s
+    F.fprintf fmt "%a@,%a@,%a" pp_symbol_map s pp_return s
       ConditionSet.pp_summary (get_cond_set s)
 
   let pp : F.formatter -> t -> unit
