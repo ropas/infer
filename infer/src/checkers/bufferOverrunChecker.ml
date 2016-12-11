@@ -494,5 +494,6 @@ let checker : Callbacks.proc_callback_args -> unit
         Procname.pp proc_name;
       Dom.Summary.pp_summary F.err_formatter s;
       F.fprintf F.err_formatter "@]@.";
-      if Config.ropas_report then Report.ropas_report_error cond_set
+      if Config.ropas_report && Procname.to_string proc_name = "main" then 
+        Report.ropas_report_error cond_set
   | _ -> ()
