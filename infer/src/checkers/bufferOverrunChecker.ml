@@ -464,7 +464,7 @@ struct
       Analyzer.extract_post exit_id inv_map
     in
     let cond_set = Report.collect pdata inv_map in
-    Report.report_error tenv pdesc cond_set;
+    if not Config.ropas_report then Report.report_error tenv pdesc cond_set;
     if Procname.get_method pname = "infer_print" then None else
       match entry_mem, exit_mem with
       | Some entry_mem, Some exit_mem ->
