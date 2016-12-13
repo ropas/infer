@@ -119,21 +119,21 @@ struct
  
   let filter2 : t -> bool
   = fun c ->
-    (not (Itv.is_finite c.idx) || not (Itv.is_finite c.size))
-    &&
-    not ((Itv.Bound.is_not_infty (Itv.lb c.idx) &&
+    (not (Itv.is_finite c.idx) || not (Itv.is_finite c.size)) (* basically, alarms involving infinify are filtered *)
+    &&                                                        (* except the following cases :                      *)
+    not ((Itv.Bound.is_not_infty (Itv.lb c.idx) &&            (* idx non-infty lb < 0 *)
           Itv.Bound.lt (Itv.lb c.idx) Itv.Bound.zero)
          ||
-         (Itv.Bound.is_not_infty (Itv.lb c.idx) &&
+         (Itv.Bound.is_not_infty (Itv.lb c.idx) &&            (* idx non-infty lb > size lb *)
           (Itv.Bound.gt (Itv.lb c.idx) (Itv.lb c.size)))
          ||
-         (Itv.Bound.is_not_infty (Itv.lb c.idx) &&
+         (Itv.Bound.is_not_infty (Itv.lb c.idx) &&            (* idx non-infty lb > size ub *)
           (Itv.Bound.gt (Itv.lb c.idx) (Itv.ub c.size)))
          ||
-         (Itv.Bound.is_not_infty (Itv.ub c.idx) &&
+         (Itv.Bound.is_not_infty (Itv.ub c.idx) &&            (* idx non-infty ub > size lb *)
           (Itv.Bound.gt (Itv.ub c.idx) (Itv.lb c.size)))
          ||
-         (Itv.Bound.is_not_infty (Itv.ub c.idx) &&
+         (Itv.Bound.is_not_infty (Itv.ub c.idx) &&            (* idx non-infty ub > size ub *)
           (Itv.Bound.gt (Itv.ub c.idx) (Itv.ub c.size))))
 
   let check : t -> bool
