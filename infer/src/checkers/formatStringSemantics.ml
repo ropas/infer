@@ -267,7 +267,6 @@ struct
     Procdesc.get_formals pdesc
     |> IList.map (fun (name, typ) -> (Pvar.mk name proc_name, typ))
 
-
   let add_pair_ptr tenv add_pair_val caller_mem callee_mem typ v1 v2 pairs =
     let get_field_name (fn, _, _) = fn in
     let deref_ptr v mem = Dom.Mem.find_heap_set (Dom.Val.get_all_locs v) mem in

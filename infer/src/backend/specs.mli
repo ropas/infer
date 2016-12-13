@@ -134,7 +134,6 @@ type payload =
     quandary : QuandarySummary.t option;
     siof : SiofDomain.astate option;
     threadsafety : ThreadSafetyDomain.astate option;
-    buffer_overrun : BufferOverrunDomain.Summary.t option;
     format_string : FormatStringDomain.Summary.t option;
   }
 

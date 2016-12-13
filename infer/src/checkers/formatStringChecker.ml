@@ -206,7 +206,6 @@ struct
         let itv_subst_map =
           Sem.get_itv_subst tenv pdesc params caller_m callee_entry_m loc
         in
-        Dom.Mem.pp F.err_formatter callee_entry_m;
         let taint_subst_map =
           Sem.get_taint_subst tenv pdesc params caller_m callee_entry_m loc
         in
@@ -384,8 +383,8 @@ struct
            | _ -> cond_set)
       | _ -> cond_set
     in
-    let mem = TransferFunctions.exec_instr mem pdata node instr in
     print_debug_info instr mem cond_set;
+    let mem = TransferFunctions.exec_instr mem pdata node instr in
     (cond_set, mem)
 
   let collect_instrs

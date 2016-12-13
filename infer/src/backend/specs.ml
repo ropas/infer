@@ -321,7 +321,6 @@ type payload =
     quandary : QuandarySummary.t option;
     siof : SiofDomain.astate option;
     threadsafety : ThreadSafetyDomain.astate option;
-    buffer_overrun : BufferOverrunDomain.Summary.t option;
     format_string : FormatStringDomain.Summary.t option;
   }
 
@@ -447,7 +446,7 @@ let pp_summary_no_stats_specs fmt summary =
   F.fprintf fmt "%a@\n" pp_pair (describe_phase summary);
   F.fprintf fmt "Dependency_map: @[%a@]@\n" pp_dependency_map summary.dependency_map
 
-let pp_payload pe fmt { preposts; typestate; crashcontext_frame; quandary; siof; threadsafety; buffer_overrun } =
+let pp_payload pe fmt { preposts; typestate; crashcontext_frame; quandary; siof; threadsafety; format_string } =
   let pp_opt pp fmt = function
     | Some x -> pp fmt x
     | None -> () in
@@ -458,8 +457,7 @@ let pp_payload pe fmt { preposts; typestate; crashcontext_frame; quandary; siof;
     (pp_opt QuandarySummary.pp) quandary
     (pp_opt SiofDomain.pp) siof
     (pp_opt ThreadSafetyDomain.pp) threadsafety
-    (pp_opt BufferOverrunDomain.Summary.pp) buffer_overrun
-
+    (pp_opt FormatStringDomain.Summary.pp) format_string
 
 let pp_summary_text ~whole_seconds fmt summary =
   let err_log = summary.attributes.ProcAttributes.err_log in
@@ -762,7 +760,6 @@ let empty_payload =
     quandary = None;
     siof = None;
     threadsafety = None;
-    buffer_overrun = None;
     format_string = None;
   }
 
