@@ -19,36 +19,6 @@ module L = Logging
 
 let sym_size = ref 0
 
-module Symbol =
-struct
-  type t = Procname.t * int
-
-  let compare : t -> t -> int
-  = fun x y -> 
-    let c = Procname.compare (fst x) (fst y) in
-    if c <> 0 then c
-    else (snd x) - (snd y)
-
-  let eq : t -> t -> bool
-  = fun x y -> compare x y = 0
-
-  let get_new : Procname.t -> t
-  = fun pname ->
-    let i = !sym_size in
-    sym_size := !sym_size + 1;
-    (pname, i)
-
-  let make : Procname.t -> int -> t 
-  = fun pname i -> (pname, i)
-
-  let pp : F.formatter -> t -> unit
-  = fun fmt x -> 
-    if Config.ropas_debug = 0 then
-      F.fprintf fmt "s$%d" (snd x)
-    else
-      F.fprintf fmt "%s-s$%d" (fst x |> Procname.to_string) (snd x)
-end
-
 module SubstMap = Map.Make (Symbol)
 
 module SymLinear =
@@ -88,9 +58,6 @@ struct
 
   let le : t -> t -> bool
   = fun x y -> M.for_all (fun s v -> v <= find s y) x
-
-  let get_new : Procname.t -> t
-  = fun pname -> M.add (Symbol.get_new pname) 1 empty
 
   let make : Procname.t -> int -> t
   = fun pname i -> M.add (Symbol.make pname i) 1 empty
@@ -574,16 +541,10 @@ struct
   let of_int : int -> t
   = fun n -> (Bound.of_int n, Bound.of_int n)
 
-  let get_new_sym : Procname.t -> t
-  = fun pname ->
-    let lower = Bound.of_sym (SymLinear.get_new pname) in
-    let upper = Bound.of_sym (SymLinear.get_new pname) in
-    (lower, upper)
-  
   let make_sym : Procname.t -> int -> t
   = fun pname i -> 
     let lower = Bound.of_sym (SymLinear.make pname i) in
-    let upper = Bound.of_sym (SymLinear.make pname (i+1)) in
+    let upper = Bound.of_sym (SymLinear.make pname (i + 1)) in
     (lower, upper)
 
   let top : t
@@ -969,9 +930,6 @@ let plus : t -> t -> t
 
 let minus : t -> t -> t
 = lift2 ItvPure.minus
-
-let get_new_sym : Procname.t -> t
-= fun pname -> NonBottom (ItvPure.get_new_sym pname)
 
 let make_sym : Procname.t -> int -> t
 = fun pname i -> NonBottom (ItvPure.make_sym pname i)

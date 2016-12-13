@@ -53,7 +53,7 @@ let active_procedure_checkers () =
         Checkers.callback_print_access_to_globals, false;
         CppTaintAnalysis.checker, Config.quandary;
         Siof.checker, checkers_enabled;*)
-        BufferOverrunChecker.checker, checkers_enabled;
+        FormatStringChecker.checker, checkers_enabled;
       ] in
     IList.map (fun (x, y) -> (x, y, Some Config.Clang)) l in
 
