@@ -115,10 +115,10 @@ struct
   = fun c ->
     c.idx = Itv.top || c.size = Itv.top 
     || (try Itv.lb c.idx = Itv.Bound.MInf with _ -> false)
-    || (c.idx = Itv.nat && c.size = Itv.nat) 
+    || (Itv.eq c.idx Itv.nat && Itv.eq c.size Itv.nat) 
  
   let filter2 : t -> bool
-  = fun c -> Itv.is_finite c.idx && Itv.is_finite c.size
+  = fun c -> not (Itv.is_finite c.idx) || not (Itv.is_finite c.size)
    
   let check : t -> bool
   = fun c ->
