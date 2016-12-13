@@ -144,7 +144,7 @@ struct
          Inter (_, pname, loc) ->
           " by call "
            ^ Procname.to_string pname
-           ^ "() at " ^ string_of_location loc 
+           ^ "() " 
        | Intra _ -> "")
 
   let subst : t -> Itv.Bound.t Itv.SubstMap.t -> Procname.t -> Procname.t -> Location.t -> t
