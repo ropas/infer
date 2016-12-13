@@ -206,6 +206,7 @@ struct
         let itv_subst_map =
           Sem.get_itv_subst tenv pdesc params caller_m callee_entry_m loc
         in
+        Dom.Mem.pp F.err_formatter callee_entry_m;
         let taint_subst_map =
           Sem.get_taint_subst tenv pdesc params caller_m callee_entry_m loc
         in
@@ -261,7 +262,7 @@ struct
 
   let exec_instr
     : Dom.Mem.t -> extras ProcData.t -> CFG.node -> Sil.instr -> Dom.Mem.astate
-  = fun mem ({ pdesc; tenv; extras } as pdata) node instr ->
+  = fun mem ({ pdesc; tenv } as pdata) node instr ->
     let pname = Procdesc.get_proc_name pdesc in
     let try_decl_arr (mem, inst_num) (pvar, typ) =
       match typ with

@@ -77,3 +77,5 @@ let get_symbols cs =
     | None -> acc
   in
   fold add_symbols cs []
+
+let add_taint loc cs = add (FSTaint.PgmPoint loc) cs
