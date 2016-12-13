@@ -346,6 +346,9 @@ struct
     | MinMax (Min, c0, _), MinMax (Max, c1, _) -> c0 < c1
     | _, _ -> false
 
+  let gt : t -> t -> bool
+  = fun x y -> lt y x
+
   let eq : t -> t -> bool
   = fun x y ->
     if x = Bot && y = Bot then true else
@@ -515,6 +518,11 @@ struct
     | Linear (_, se) -> SymLinear.get_symbols se
     | MinMax (_, _, s) -> [s]
     | Bot -> assert false
+
+  let is_not_infty : t -> bool
+  = function
+    | MInf | PInf -> false
+    | _ -> true
 end
 
 module ItvPure =

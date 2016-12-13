@@ -118,8 +118,24 @@ struct
     || (Itv.eq c.idx Itv.nat && Itv.eq c.size Itv.nat) 
  
   let filter2 : t -> bool
-  = fun c -> not (Itv.is_finite c.idx) || not (Itv.is_finite c.size)
-   
+  = fun c ->
+    (not (Itv.is_finite c.idx) || not (Itv.is_finite c.size))
+    &&
+    not ((Itv.Bound.is_not_infty (Itv.lb c.idx) &&
+          Itv.Bound.lt (Itv.lb c.idx) Itv.Bound.zero)
+         ||
+         (Itv.Bound.is_not_infty (Itv.lb c.idx) &&
+          (Itv.Bound.gt (Itv.lb c.idx) (Itv.lb c.size)))
+         ||
+         (Itv.Bound.is_not_infty (Itv.lb c.idx) &&
+          (Itv.Bound.gt (Itv.lb c.idx) (Itv.ub c.size)))
+         ||
+         (Itv.Bound.is_not_infty (Itv.ub c.idx) &&
+          (Itv.Bound.gt (Itv.ub c.idx) (Itv.lb c.size)))
+         ||
+         (Itv.Bound.is_not_infty (Itv.ub c.idx) &&
+          (Itv.Bound.gt (Itv.ub c.idx) (Itv.ub c.size))))
+
   let check : t -> bool
   = fun c ->
     if Config.ropas_debug <= 1 && (Itv.is_symbolic c.idx || Itv.is_symbolic c.size)
@@ -130,7 +146,7 @@ struct
       let c = set_size_pos c in
       let not_overrun = Itv.lt_sem c.idx c.size in
       let not_underrun = Itv.le_sem Itv.zero c.idx in
-      (not_overrun = Itv.one) && (not_underrun = Itv.one)
+      (Itv.eq not_overrun Itv.one) && (Itv.eq not_underrun Itv.one)
 
   let invalid : t -> bool
   = fun x -> Itv.invalid x.idx || Itv.invalid x.size
