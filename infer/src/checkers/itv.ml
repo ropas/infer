@@ -537,6 +537,12 @@ struct
   let ub : t -> Bound.t
   = snd
 
+  let is_finite : t -> bool
+  = fun (l, u) -> 
+    match Bound.is_const l, Bound.is_const u with 
+      Some _, Some _ -> true
+    | _, _ -> false
+    
   let make : Bound.t -> Bound.t -> t
   = fun l u -> (l, u)
 
@@ -878,6 +884,11 @@ let of_int : int -> astate
 
 let is_bot : t -> bool
 = fun x -> x = Bottom
+
+let is_finite : t -> bool
+= function
+  | NonBottom x -> ItvPure.is_finite x
+  | Bottom -> false
 
 let zero : t
 = of_int 0

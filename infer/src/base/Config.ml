@@ -1342,6 +1342,10 @@ and ropas_debug =
   CLOpt.mk_int ~default:0 ~long:"ropas-debug"
     ~exes:CLOpt.[Toplevel] "Debug mode for ROPAS"
 
+and ropas_filtering =
+  CLOpt.mk_int ~default:2 ~long:"ropas-filtering"
+    ~exes:CLOpt.[Toplevel] "Alarm filtering for ROPAS"
+
 and ropas_report =
   CLOpt.mk_bool ~default:false ~long:"ropas-report"
     ~exes:CLOpt.[Toplevel] "Alarm printer by ROPAS"
@@ -1590,6 +1594,7 @@ and xcpretty = !xcpretty
 and xml_specs = !xml_specs
 and ropas_debug = !ropas_debug
 and ropas_report = !ropas_report
+and ropas_filtering = !ropas_filtering
 
 (** Configuration values derived from command-line options *)
 

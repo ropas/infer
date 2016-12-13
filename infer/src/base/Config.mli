@@ -282,6 +282,7 @@ val xcpretty : bool
 val xml_specs : bool                 
 val ropas_debug : int
 val ropas_report : bool
+val ropas_filtering : int
 
 (** Global variables *)
 

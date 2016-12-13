@@ -111,17 +111,21 @@ struct
   = fun proc_name loc id ~idx ~size ->
     { proc_name; idx; size; loc; id ; trace = Intra proc_name }
 
-  let filter : t -> bool
+  let filter1 : t -> bool
   = fun c ->
     c.idx = Itv.top || c.size = Itv.top 
     || (try Itv.lb c.idx = Itv.Bound.MInf with _ -> false)
     || (c.idx = Itv.nat && c.size = Itv.nat) 
-    
+ 
+  let filter2 : t -> bool
+  = fun c -> Itv.is_finite c.idx && Itv.is_finite c.size
+   
   let check : t -> bool
   = fun c ->
     if Config.ropas_debug <= 1 && (Itv.is_symbolic c.idx || Itv.is_symbolic c.size)
     then true
-    else if Config.filtering && filter c then true
+    else if Config.ropas_filtering >= 1 && filter1 c then true
+    else if Config.ropas_filtering >= 2 && filter2 c then true
     else
       let c = set_size_pos c in
       let not_overrun = Itv.lt_sem c.idx c.size in
