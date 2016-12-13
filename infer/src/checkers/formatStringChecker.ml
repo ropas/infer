@@ -19,23 +19,23 @@ open BasicDom
 
 module F = Format
 module L = Logging
-module Dom = BufferOverrunDomain
+module Dom = FormatStringDomain
 
 module Summary = Summary.Make (struct
     type summary = Dom.Summary.t
 
     let update_payload astate payload =
-      { payload with Specs.buffer_overrun = Some astate }
+      { payload with Specs.format_string = Some astate }
 
     let read_from_payload payload =
-      payload.Specs.buffer_overrun
+      payload.Specs.format_string
   end)
 
 module TransferFunctions (CFG : ProcCfg.S) =
 struct
   module CFG = CFG
   module Domain = Dom
-  module Semantics = BufferOverrunSemantics.Make (CFG)
+  module Semantics = FormatStringSemantics.Make (CFG)
   module Sem = Semantics
 
   type extras = Procname.t -> Procdesc.t option
@@ -131,18 +131,6 @@ struct
     : Procname.t -> Tenv.t -> CFG.node -> Loc.t -> Typ.t -> inst_num:int
       -> sym_num:int -> dimension:int -> Dom.Mem.astate -> Dom.Mem.astate * int
   = fun pname tenv node loc typ ~inst_num ~sym_num ~dimension mem ->
-    let offset = Itv.make_sym pname sym_num in
-    let size = Itv.make_sym pname (sym_num + 2) in
-    let arr =
-      Sem.eval_array_alloc pname node typ offset size inst_num dimension
-    in
-    let elem_val = Dom.Val.make_sym pname (sym_num + 4) in
-    let arr_loc = arr |> Dom.Val.get_array_blk |> ArrayBlk.get_pow_loc in
-    let mem =
-      mem
-      |> Dom.Mem.add_heap loc arr
-      |> Dom.Mem.strong_update_heap arr_loc elem_val
-    in
     let decl_fld (mem, sym_num) (fn, typ, _) =
       let loc =
         mem |> Dom.Mem.find_heap loc |> Dom.Val.get_all_locs |> PowLoc.choose
@@ -151,24 +139,40 @@ struct
       match typ with
       | Typ.Tint _
       | Typ.Tfloat _ ->
-          let v = Dom.Val.make_sym pname sym_num in
-          (Dom.Mem.add_heap field v mem, sym_num + 2)
+          let (v, sym_num) = Dom.Val.make_sym pname sym_num in
+          (Dom.Mem.add_heap field v mem, sym_num)
       | Typ.Tptr (typ, _) ->
           let offset = Itv.make_sym pname sym_num in
-          let size = Itv.make_sym pname (sym_num + 2) in
+          let sym_num = sym_num + 2 in (* TODO *)
+          let size = Itv.make_sym pname sym_num in
+          let sym_num = sym_num + 2 in (* TODO *)
           let v =
             Sem.eval_array_alloc pname node typ offset size inst_num dimension
           in
-          (Dom.Mem.add_heap field v mem, sym_num + 4)
+          (Dom.Mem.add_heap field v mem, sym_num)
       | _ -> (mem, sym_num)
+    in
+    let offset = Itv.make_sym pname sym_num in
+    let sym_num = sym_num + 2 in (* TODO *)
+    let size = Itv.make_sym pname sym_num in
+    let sym_num = sym_num + 2 in (* TODO *)
+    let arr =
+      Sem.eval_array_alloc pname node typ offset size inst_num dimension
+    in
+    let (elem_val, sym_num) = Dom.Val.make_sym pname sym_num in
+    let arr_loc = arr |> Dom.Val.get_array_blk |> ArrayBlk.get_pow_loc in
+    let mem =
+      mem
+      |> Dom.Mem.add_heap loc arr
+      |> Dom.Mem.strong_update_heap arr_loc elem_val
     in
     match typ with
     | Typ.Tstruct typename ->
         (match Tenv.lookup tenv typename with
          | Some str ->
-             IList.fold_left decl_fld (mem, sym_num + 6) str.StructTyp.fields
-         | _ -> (mem, sym_num + 6))
-    | _ -> (mem, sym_num + 6)
+             IList.fold_left decl_fld (mem, sym_num) str.StructTyp.fields
+         | _ -> (mem, sym_num))
+    | _ -> (mem, sym_num)
 
   let declare_symbolic_parameter
     : Procdesc.t -> Tenv.t -> CFG.node -> int -> Dom.Mem.t -> Dom.Mem.t
@@ -177,9 +181,9 @@ struct
     let add_formal (mem, inst_num, sym_num) (pvar, typ) =
       match typ with
       | Typ.Tint _ ->
-          let v = Dom.Val.make_sym pname sym_num in
+          let (v, sym_num) = Dom.Val.make_sym pname sym_num in
           let mem = Dom.Mem.add_heap (Loc.of_pvar pvar) v mem in
-          (mem, inst_num + 1, sym_num + 2)
+          (mem, inst_num + 1, sym_num)
       | Typ.Tptr (typ, _) ->
           let (mem, sym_num) =
             declare_symbolic_array pname tenv node (Loc.of_pvar pvar) typ
@@ -194,17 +198,20 @@ struct
   let instantiate_ret
     : Tenv.t -> Procdesc.t option -> Procname.t -> (Exp.t * Typ.t) list
       -> Dom.Mem.t -> Dom.Summary.t -> Location.t -> Dom.Val.astate
-  = fun tenv callee_pdesc callee_pname params caller_mem summary loc ->
-    let callee_entry_mem = Dom.Summary.get_input summary in
-    let callee_exit_mem = Dom.Summary.get_output summary in
+  = fun tenv callee_pdesc callee_pname params caller_m summary loc ->
+    let callee_entry_m = Dom.Summary.get_input summary in
+    let callee_exit_m = Dom.Summary.get_output summary in
     match callee_pdesc with
     | Some pdesc ->
-        let subst_map =
-          Sem.get_subst_map tenv pdesc params caller_mem callee_entry_mem loc
+        let itv_subst_map =
+          Sem.get_itv_subst tenv pdesc params caller_m callee_entry_m loc
+        in
+        let taint_subst_map =
+          Sem.get_taint_subst tenv pdesc params caller_m callee_entry_m loc
         in
         let ret_loc = Loc.of_pvar (Pvar.get_ret_pvar callee_pname) in
-        let ret_val = Dom.Mem.find_heap ret_loc callee_exit_mem in
-        Dom.Val.subst ret_val subst_map
+        let ret_val = Dom.Mem.find_heap ret_loc callee_exit_m in
+        Dom.Val.subst ret_val itv_subst_map taint_subst_map
         |> Dom.Val.normalize    (* normalize bottom *)
     | _ -> Dom.Val.bot
 
@@ -224,9 +231,37 @@ struct
         F.fprintf F.err_formatter "================================@.@."
       end
 
+  let call_sem
+      { ProcData.pdesc; tenv; extras } node loc callee_pname params ret mem =
+    let pname = Procdesc.get_proc_name pdesc in
+    match Summary.read_summary pdesc callee_pname with
+    | Some summary ->
+        let callee = extras callee_pname in
+        let ret_val =
+          instantiate_ret tenv callee callee_pname params mem summary loc
+        in
+        (match ret with
+         | Some (id, _) ->
+             Dom.Mem.add_stack (Loc.of_var (Var.of_id id)) ret_val mem
+         | _ -> mem)
+    | None -> handle_unknown_call pname ret callee_pname params node mem loc
+
+  let source_call_sem loc callee_pname ret mem =
+    match Procname.to_string callee_pname with
+    | "getenv" ->
+        (match ret with
+         | Some (id, _) ->
+             let ret_val = Dom.Mem.find_stack (Loc.of_var (Var.of_id id)) mem in
+             let l = Dom.Val.get_all_locs ret_val in
+             let v = Dom.Mem.find_heap_set l mem in
+             let v = Dom.Val.add_taint loc v in
+             Dom.Mem.weak_update_heap l v mem
+         | _ -> mem)
+    | _ -> mem
+
   let exec_instr
     : Dom.Mem.t -> extras ProcData.t -> CFG.node -> Sil.instr -> Dom.Mem.astate
-  = fun mem { pdesc; tenv; extras } node instr ->
+  = fun mem ({ pdesc; tenv; extras } as pdata) node instr ->
     let pname = Procdesc.get_proc_name pdesc in
     let try_decl_arr (mem, inst_num) (pvar, typ) =
       match typ with
@@ -251,18 +286,8 @@ struct
           |> Dom.Mem.store_alias exp1 exp2
       | Prune (exp, loc, _, _) -> Sem.prune exp loc mem
       | Call (ret, Const (Cfun callee_pname), params, loc, _) ->
-          (match Summary.read_summary pdesc callee_pname with
-           | Some summary ->
-               let callee = extras callee_pname in
-               let ret_val =
-                 instantiate_ret tenv callee callee_pname params mem summary loc
-               in
-               (match ret with
-                | Some (id, _) ->
-                    Dom.Mem.add_stack (Loc.of_var (Var.of_id id)) ret_val mem
-                | _ -> mem)
-           | None ->
-               handle_unknown_call pname ret callee_pname params node mem loc)
+          let mem = call_sem pdata node loc callee_pname params ret mem in
+          source_call_sem loc callee_pname ret mem
       | Declare_locals (locals, _) ->
           (* array allocation in stack e.g., int arr[10] *)
           let (mem, inst_num) = IList.fold_left try_decl_arr (mem, 1) locals in
@@ -283,61 +308,23 @@ module Analyzer =
 module Report =
 struct
   module CFG = ProcCfg.Normal
-  module Semantics = BufferOverrunSemantics.Make (CFG)
+  module Semantics = FormatStringSemantics.Make (CFG)
   module Sem = Semantics
   module TransferFunctions = TransferFunctions (CFG)
 
   type extras = Procname.t -> Procdesc.t option
 
-  let add_condition
-    : Procname.t -> CFG.node -> Exp.t -> Location.t -> Dom.Mem.astate
-      -> Dom.ConditionSet.t -> Dom.ConditionSet.t
-  = fun pname node exp loc mem cond_set ->
-    let array_access =
-      match exp with
-      | Exp.Var _ ->
-          let arr = Sem.eval exp mem loc |> Dom.Val.get_array_blk in
-          Some (arr, Itv.zero, true)
-      | Exp.Lindex (e1, e2)
-      | Exp.BinOp (Binop.PlusA, e1, e2) ->
-          let arr = Sem.eval e1 mem loc |> Dom.Val.get_array_blk in
-          let idx = Sem.eval e2 mem loc |> Dom.Val.get_itv in
-          Some (arr, idx, true)
-      | Exp.BinOp (Binop.MinusA, e1, e2) ->
-          let arr = Sem.eval e1 mem loc |> Dom.Val.get_array_blk in
-          let idx = Sem.eval e2 mem loc |> Dom.Val.get_itv in
-          Some (arr, idx, false)
-      | _ -> None
-    in
-    match array_access with
-    | Some (arr, idx, is_plus) ->
-        let site = Sem.get_allocsite pname node 0 0 in
-        let size = ArrayBlk.sizeof arr in
-        let offset = ArrayBlk.offsetof arr in
-        let idx = (if is_plus then Itv.plus else Itv.minus) offset idx in
-        (if Config.ropas_debug >= 2 then
-           (F.fprintf F.err_formatter "@[<v 2>Add condition :@,";
-            F.fprintf F.err_formatter "array: %a@," ArrayBlk.pp arr;
-            F.fprintf F.err_formatter "  idx: %a@," Itv.pp idx;
-            F.fprintf F.err_formatter "@]@."));
-        if size <> Itv.bot && idx <> Itv.bot then
-           Dom.ConditionSet.add_bo_safety pname loc site ~size ~idx cond_set
-        else cond_set
-    | None -> cond_set
-
   let instantiate_cond
-    : Tenv.t -> Procname.t -> Procdesc.t option -> (Exp.t * Typ.t) list
-      -> Dom.Mem.t -> Summary.summary -> Location.t -> Dom.ConditionSet.t
   = fun tenv caller_pname callee_pdesc params caller_mem summary loc ->
     let callee_entry_mem = Dom.Summary.get_input summary in
     let callee_cond = Dom.Summary.get_cond_set summary in
     match callee_pdesc with
     | Some pdesc ->
-        let subst_map =
-          Sem.get_subst_map tenv pdesc params caller_mem callee_entry_mem loc
+        let taint_subst =
+          Sem.get_taint_subst tenv pdesc params caller_mem callee_entry_mem loc
         in
         let pname = Procdesc.get_proc_name pdesc in
-        Dom.ConditionSet.subst callee_cond subst_map caller_pname pname loc
+        Dom.ConditionSet.subst callee_cond taint_subst caller_pname pname loc
     | _ -> callee_cond
 
   let print_debug_info : Sil.instr -> Dom.t -> Dom.ConditionSet.t -> unit
@@ -353,6 +340,32 @@ struct
        F.fprintf F.err_formatter "@]@.";
        F.fprintf F.err_formatter "================================@.@.")
 
+  module SinkMap = Map.Make (String)
+
+  let sink_funcs =
+    SinkMap.empty
+    |> SinkMap.add "printf" 0
+    |> SinkMap.add "sprintf" 1
+
+  let add_cond_n n pname loc params mem cond_set =
+    match IList.nth params n with
+    | (e, _) ->
+        let p = Sem.eval e mem loc in
+        let v = Dom.Mem.find_heap_set (Dom.Val.get_all_locs p) mem in
+        let t = Dom.Val.get_taint v in
+        (if Config.ropas_debug >= 2 then
+           (F.fprintf F.err_formatter "@[<v 2>Add condition :@,";
+            F.fprintf F.err_formatter "Pname: %s@," (Procname.to_string pname);
+            F.fprintf F.err_formatter "Sink: %a@," FSTaintSet.pp t;
+            F.fprintf F.err_formatter "@]@."));
+        Dom.ConditionSet.add_fs_safety pname loc t cond_set
+    | exception _ -> assert false
+
+  let add_conds pname loc params mem cond_set =
+    match SinkMap.find (Procname.to_string pname) sink_funcs with
+    | n -> add_cond_n n pname loc params mem cond_set
+    | exception Not_found -> cond_set
+
   let collect_instr
     : extras ProcData.t -> CFG.node -> Dom.ConditionSet.t * Dom.Mem.t
       -> Sil.instr -> Dom.ConditionSet.t * Dom.Mem.t
@@ -360,15 +373,12 @@ struct
     let pname = Procdesc.get_proc_name pdesc in
     let cond_set =
       match instr with
-      | Sil.Load (_, exp, _, loc)
-      | Sil.Store (exp, _, _, loc) ->
-          add_condition pname node exp loc mem cond_set
       | Sil.Call (_, Const (Cfun callee_pname), params, loc, _) ->
+          let cond_set = add_conds callee_pname loc params mem cond_set in
           (match Summary.read_summary pdesc callee_pname with
            | Some summary ->
                let callee = extras callee_pname in
                instantiate_cond tenv pname callee params mem summary loc
-               |> Dom.ConditionSet.rm_invalid
                |> Dom.ConditionSet.join cond_set
            | _ -> cond_set)
       | _ -> cond_set
@@ -411,37 +421,28 @@ struct
       in
       (* report symbol-related alarms only in debug mode *)
       if not safe && Procname.equal pname caller_pname then
-        let bo_kind = "BUFFER-OVERRUN CHECKER" in
+        let fs_kind = "FORMAT-STRING CHECKER" in
         let cond_str = Dom.Condition.to_string cond in
-        Checkers.ST.report_error tenv pname pdesc bo_kind loc cond_str
+        Checkers.ST.report_error tenv pname pdesc fs_kind loc cond_str
     in
     Dom.ConditionSet.iter report1 conds
 
-  let ropas_report_condset : Location.t -> Dom.ConditionSet.t -> int -> int
-  = fun loc cond_set k ->
-    let is_not_safe cond = not (Dom.Condition.check cond) in
-    let report_cond cond =
-      let safe = Dom.Condition.check cond in
-      (* report symbol-related alarms only in debug mode *)
-      if not safe then
-        F.fprintf F.err_formatter "  %s @." (Dom.Condition.to_string cond)
-    in
-    if Dom.ConditionSet.exists is_not_safe cond_set then
-      let loc_str = Location.to_string loc in
-      let file_name = DB.source_file_to_string loc.Location.file in
-      let sample = Dom.ConditionSet.choose cond_set in
-      let pname = Dom.Condition.get_proc_name sample |> Procname.to_string in
-      F.fprintf F.err_formatter "@.%d. %s:%s: {%s} error: BUFFER-OVERRUN @."
+  let ropas_report_condset : Dom.Condition.t -> int -> int
+  = fun cond k ->
+    if not (Dom.Condition.check cond) then
+      let loc_str = Location.to_string cond.loc in
+      let file_name = DB.source_file_to_string cond.loc.Location.file in
+      let pname = Dom.Condition.get_proc_name cond |> Procname.to_string in
+      F.fprintf F.err_formatter "@.%d. %s:%s: {%s} error: FORMAT-STRING @."
         k file_name loc_str pname;
-      Dom.ConditionSet.iter report_cond cond_set;
+      F.fprintf F.err_formatter "  %s @." (Dom.Condition.to_string cond);
       k + 1
     else k
 
   let ropas_report_error : Dom.ConditionSet.t -> unit
   = fun conds ->
     F.fprintf F.err_formatter "@.== Alarms ==@.";
-    let conds_group = Dom.ConditionSet.group conds in
-    let k = Dom.ConditionSet.Map.fold ropas_report_condset conds_group 1 in
+    let k = Dom.ConditionSet.fold ropas_report_condset conds 1 in
     F.fprintf F.err_formatter "@.@.%d issues found@." (k - 1)
 end
 
@@ -497,5 +498,3 @@ let checker : Callbacks.proc_callback_args -> unit
       if Config.ropas_report && Procname.to_string proc_name = "main" then 
         Report.ropas_report_error cond_set
   | _ -> ()
-
-open FormatStringChecker

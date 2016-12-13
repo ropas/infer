@@ -103,7 +103,7 @@ struct
     Format.fprintf fmt "offset : %a, size : %a"
       Itv.pp arr.offset Itv.pp arr.size
 
-  let get_symbols : t -> Itv.Symbol.t list
+  let get_symbols : t -> Symbol.t list
   = fun arr ->
     let s1 = Itv.get_symbols arr.offset in
     let s2 = Itv.get_symbols arr.size in
@@ -185,7 +185,7 @@ let get_pow_loc : astate -> PowLoc.t
 let subst : astate -> Itv.Bound.t Itv.SubstMap.t -> astate
 = fun a subst_map -> map (fun info -> ArrInfo.subst info subst_map) a
 
-let get_symbols : astate -> Itv.Symbol.t list
+let get_symbols : astate -> Symbol.t list
 = fun a ->
   IList.flatten (IList.map (fun (_, ai) -> ArrInfo.get_symbols ai) (bindings a))
 

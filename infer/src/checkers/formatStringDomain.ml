@@ -23,19 +23,17 @@ module L = Logging
 module Condition =
 struct
   type t =
-    { idx : Itv.astate;
-      size : Itv.astate;
+    { taint : FSTaintSet.t;
       proc_name : Procname.t;
       loc : Location.t;
-      trace : trace;
-      id : string }
+      trace : trace }
+
   and trace = Intra of Procname.t
             | Inter of Procname.t * Procname.t * Location.t
 
   and astate = t
 
-  let trace_compare : trace -> trace -> int
-  = fun x y ->
+  let trace_compare x y =
     match x, y with
     | Intra _, Inter _ -> 1
     | Inter _, Intra _ -> -1
@@ -47,29 +45,15 @@ struct
           if i <> 0 then i else
             Location.compare l1 l2
 
-  let compare : t -> t -> int
-  = fun x y ->
-    let i = Itv.compare x.idx y.idx in
+  let compare x y =
+    let i = FSTaintSet.compare x.taint y.taint in
     if i <> 0 then i else
-      let i = Itv.compare x.size y.size in
+      let i = Procname.compare x.proc_name y.proc_name in
       if i <> 0 then i else
-        let i = Procname.compare x.proc_name y.proc_name in
+        let i = Location.compare x.loc y.loc in
         if i <> 0 then i else
-          let i = Location.compare x.loc y.loc in
-          if i <> 0 then i else
-            let i = trace_compare x.trace y.trace in
-            if i <> 0 then i else
-              String.compare x.id y.id
+          trace_compare x.trace y.trace
 
-
-  let set_size_pos : t -> t
-  = fun c ->
-    let size =
-      if Itv.Bound.le (Itv.lb c.size) Itv.Bound.zero
-      then Itv.make Itv.Bound.zero (Itv.ub c.size)
-      else c.size
-    in
-    { c with size }
 
   let string_of_location : Location.t -> string
   = fun loc -> 
@@ -84,16 +68,16 @@ struct
 
   let pp : F.formatter -> t -> unit
   = fun fmt c ->
-    let c = set_size_pos c in
     if Config.ropas_debug <= 1 then 
-      F.fprintf fmt "%a < %a at %a" Itv.pp c.idx Itv.pp c.size pp_location c
+      F.fprintf fmt "%a at %a" FSTaintSet.pp c.taint pp_location c
     else
       match c.trace with 
-        Inter (_, pname, loc) ->
+      | Inter (_, pname, loc) ->
           let pname = Procname.to_string pname in
-          F.fprintf fmt "%a < %a at %a by call %s() at %s" 
-            Itv.pp c.idx Itv.pp c.size pp_location c pname (string_of_location loc)
-      | Intra _ -> F.fprintf fmt "%a < %a at %a" Itv.pp c.idx Itv.pp c.size pp_location c
+          F.fprintf fmt "%a at %a by call %s() at %s" 
+            FSTaintSet.pp c.taint pp_location c pname (string_of_location loc)
+      | Intra _ ->
+          F.fprintf fmt "%a at %a" FSTaintSet.pp c.taint pp_location c
 
   let pp_element : F.formatter -> t -> unit
   = pp
@@ -107,53 +91,20 @@ struct
   let get_proc_name : t -> Procname.t
   = fun c -> c.proc_name
 
-  let make : Procname.t -> Location.t -> string -> idx:Itv.t -> size:Itv.t -> t
-  = fun proc_name loc id ~idx ~size ->
-    { proc_name; idx; size; loc; id ; trace = Intra proc_name }
+  let make proc_name loc taint =
+    { proc_name; taint; loc; trace = Intra proc_name }
 
-  let filter1 : t -> bool
-  = fun c ->
-    c.idx = Itv.top || c.size = Itv.top 
-    || (try Itv.lb c.idx = Itv.Bound.MInf with _ -> false)
-    || (c.idx = Itv.nat && c.size = Itv.nat) 
- 
-  let filter2 : t -> bool
-  = fun c -> Itv.is_finite c.idx && Itv.is_finite c.size
-   
-  let check : t -> bool
-  = fun c ->
-    if Config.ropas_debug <= 1 && (Itv.is_symbolic c.idx || Itv.is_symbolic c.size)
-    then true
-    else if Config.ropas_filtering >= 1 && filter1 c then true
-    else if Config.ropas_filtering >= 2 && filter2 c then true
-    else
-      let c = set_size_pos c in
-      let not_overrun = Itv.lt_sem c.idx c.size in
-      let not_underrun = Itv.le_sem Itv.zero c.idx in
-      (not_overrun = Itv.one) && (not_underrun = Itv.one)
+  let check c = FSTaintSet.is_unsafe c.taint
 
-  let invalid : t -> bool
-  = fun x -> Itv.invalid x.idx || Itv.invalid x.size
-
-  let to_string : t -> string
-  = fun c ->
-    let c = set_size_pos c in
-    "Offset : " ^ Itv.to_string c.idx ^ " Size : " ^ Itv.to_string c.size 
-    ^ " @ " ^ string_of_location c.loc
-    ^ (match c.trace with 
-         Inter (_, pname, loc) ->
-          " by call "
-           ^ Procname.to_string pname
-           ^ "() at " ^ string_of_location loc 
-       | Intra _ -> "")
-
-  let subst : t -> Itv.Bound.t Itv.SubstMap.t -> Procname.t -> Procname.t -> Location.t -> t
-  = fun c subst_map caller_pname callee_pname loc ->
-    if Itv.is_symbolic c.idx || Itv.is_symbolic c.size then 
-      { c with idx = Itv.subst c.idx subst_map;
-               size = Itv.subst c.size subst_map; 
+  let subst c subst_map caller_pname callee_pname loc =
+    if FSTaintSet.has_symbol c.taint then 
+      { c with taint = FSTaintSet.subst c.taint subst_map;
                trace = Inter (caller_pname, callee_pname, loc) }
     else c
+
+  let to_string c =
+    pp F.str_formatter c;
+    F.flush_str_formatter ()
 end
 
 module ConditionSet =
@@ -161,27 +112,13 @@ struct
   module PPSet = PrettyPrintable.MakePPSet (Condition)
   include AbstractDomain.FiniteSet (PPSet)
 
-  module Map = Map.Make (struct
-      type t = Location.t
+  let map f s = fold (fun e -> add (f e)) s empty
 
-      let compare : t -> t -> int
-      = fun l1 l2 -> Location.compare l1 l2
-    end)
+  let add_fs_safety pname loc taint cond =
+    add (Condition.make pname loc taint) cond
 
-  let add_bo_safety
-    : Procname.t -> Location.t -> string -> idx:Itv.t -> size:Itv.t -> t -> t
-  = fun pname loc id ~idx ~size cond ->
-    add (Condition.make pname loc id ~idx ~size) cond
-
-  let subst : t -> Itv.Bound.t Itv.SubstMap.t -> Procname.t -> Procname.t -> Location.t -> t
-  = fun x subst_map caller_pname callee_pname loc ->
-    fold (fun e -> add (Condition.subst e subst_map caller_pname callee_pname loc)) x empty
-
-  let group : t -> t Map.t
-  = fun x ->
-    fold (fun cond map -> 
-        let old_set = try Map.find cond.loc map with _ -> empty in
-        Map.add cond.loc (add cond old_set) map) x Map.empty
+  let subst x subst_map caller callee loc =
+    map (fun c -> Condition.subst c subst_map caller callee loc) x
 
   let pp_summary : F.formatter -> t -> unit
   = fun fmt x ->
@@ -202,14 +139,11 @@ struct
     F.pp_print_list ~pp_sep pp_element fmt (elements x);
     F.fprintf fmt " }@]";
     F.fprintf fmt "@]"
-
-  let rm_invalid : t -> t
-  = fun x -> filter (fun c -> not (Condition.invalid c)) x
 end
 
 module Val =
 struct
-  include AbstractDomain.Pair3 (Itv) (PowLoc) (ArrayBlk)
+  include AbstractDomain.Pair4 (Itv) (FSTaintSet) (PowLoc) (ArrayBlk)
 
   type t = astate
 
@@ -222,110 +156,119 @@ struct
     | [a] -> a
     | a :: b -> join a (joins b)
 
-  let get_itv : t -> Itv.t
-  = fst3
+  let get_itv = fst
 
-  let get_pow_loc : t -> PowLoc.t
-  = snd3
+  let get_taint = snd
 
-  let get_array_blk : t -> ArrayBlk.astate
-  = trd3
+  let get_pow_loc = trd
+
+  let get_array_blk = frt
 
   let get_all_locs : t -> PowLoc.t
-  = fun (_, p, a) -> ArrayBlk.get_pow_loc a |> PowLoc.join p
+  = fun (_, _, p, a) -> ArrayBlk.get_pow_loc a |> PowLoc.join p
 
   let top_itv : t
-  = (Itv.top, PowLoc.bot, ArrayBlk.bot)
+  = (Itv.top, FSTaintSet.bot, PowLoc.bot, ArrayBlk.bot)
 
   let pos_itv : t
-  = (Itv.pos, PowLoc.bot, ArrayBlk.bot)
+  = (Itv.pos, FSTaintSet.bot, PowLoc.bot, ArrayBlk.bot)
 
   let nat_itv : t
-  = (Itv.nat, PowLoc.bot, ArrayBlk.bot)
+  = (Itv.nat, FSTaintSet.bot, PowLoc.bot, ArrayBlk.bot)
 
   let of_int : int -> t
-  = fun n -> (Itv.of_int n, PowLoc.bot, ArrayBlk.bot)
+  = fun n -> (Itv.of_int n, FSTaintSet.bot, PowLoc.bot, ArrayBlk.bot)
+
+  let of_taint t = (Itv.bot, t, PowLoc.bot, ArrayBlk.bot)
 
   let of_pow_loc : PowLoc.t -> t
-  = fun x -> (Itv.bot, x, ArrayBlk.bot)
+  = fun x -> (Itv.bot, FSTaintSet.bot, x, ArrayBlk.bot)
 
   let of_array_blk : ArrayBlk.astate -> t
-  = fun a -> (Itv.bot, PowLoc.bot, a)
+  = fun a -> (Itv.bot, FSTaintSet.bot, PowLoc.bot, a)
 
   let zero : t
   = of_int 0
 
-  let make_sym : Procname.t -> int -> t
-  = fun pname i -> (Itv.make_sym pname i, PowLoc.bot, ArrayBlk.bot)
+  let make_sym pname i =
+    let itv_v = Itv.make_sym pname i in
+    let i = i + 2 in          (* TODO: return i on Itv.make_sym *)
+    let (t_v, i) = FSTaintSet.make_sym pname i in
+    ((itv_v, t_v, PowLoc.bot, ArrayBlk.bot), i)
 
   let unknown_bit : t -> t
-  = fun (_, x, a) -> (Itv.top, x, a)
+  = fun (_, t, x, a) -> (Itv.top, t, x, a)
 
   let neg : t -> t
-  = fun (n, x, a) -> (Itv.neg n, x, a)
+  = fun (n, t, x, a) -> (Itv.neg n, t, x, a)
 
   let lnot : t -> t
-  = fun (n, x, a) -> (Itv.lnot n, x, a)
+  = fun (n, t, x, a) -> (Itv.lnot n, t, x, a)
 
-  let lift_itv_func : (Itv.t -> Itv.t -> Itv.t) -> t -> t -> t
-  = fun f (n1, _, _) (n2, _, _) -> (f n1 n2, PowLoc.bot, ArrayBlk.bot)
+  let lift_bop_func
+  = fun f (n1, t1, _, _) (n2, t2, _, _) ->
+    (f n1 n2, FSTaintSet.join t1 t2, PowLoc.bot, ArrayBlk.bot)
 
   let plus : t -> t -> t
-  = fun (n1, _, a1) (n2, _, _) ->
-    (Itv.plus n1 n2, PowLoc.bot, ArrayBlk.plus_offset a1 n2)
+  = fun (n1, t1, _, a1) (n2, t2, _, _) ->
+    let n = Itv.plus n1 n2 in
+    let t = FSTaintSet.join t1 t2 in
+    let a = ArrayBlk.plus_offset a1 n2 in
+    (n, t, PowLoc.bot, a)
 
   let minus : t -> t -> t
-  = fun (n1, _, a1) (n2, _, a2) ->
+  = fun (n1, t1, _, a1) (n2, t2, _, a2) ->
     let n = Itv.join (Itv.minus n1 n2) (ArrayBlk.diff a1 a2) in
+    let t = FSTaintSet.join t1 t2 in
     let a = ArrayBlk.minus_offset a1 n2 in
-    (n, PowLoc.bot, a)
+    (n, t, PowLoc.bot, a)
 
   let mult : t -> t -> t
-  = lift_itv_func Itv.mult
+  = lift_bop_func Itv.mult
 
   let div : t -> t -> t
-  = lift_itv_func Itv.div
+  = lift_bop_func Itv.div
 
   let mod_sem : t -> t -> t
-  = lift_itv_func Itv.mod_sem
+  = lift_bop_func Itv.mod_sem
 
   let shiftlt : t -> t -> t
-  = lift_itv_func Itv.shiftlt
+  = lift_bop_func Itv.shiftlt
 
   let shiftrt : t -> t -> t
-  = lift_itv_func Itv.shiftrt
+  = lift_bop_func Itv.shiftrt
 
   let lt_sem : t -> t -> t
-  = lift_itv_func Itv.lt_sem
+  = lift_bop_func Itv.lt_sem
 
   let gt_sem : t -> t -> t
-  = lift_itv_func Itv.gt_sem
+  = lift_bop_func Itv.gt_sem
 
   let le_sem : t -> t -> t
-  = lift_itv_func Itv.le_sem
+  = lift_bop_func Itv.le_sem
 
   let ge_sem : t -> t -> t
-  = lift_itv_func Itv.ge_sem
+  = lift_bop_func Itv.ge_sem
 
   let eq_sem : t -> t -> t
-  = lift_itv_func Itv.eq_sem
+  = lift_bop_func Itv.eq_sem
 
   let ne_sem : t -> t -> t
-  = lift_itv_func Itv.ne_sem
+  = lift_bop_func Itv.ne_sem
 
   let land_sem : t -> t -> t
-  = lift_itv_func Itv.land_sem
+  = lift_bop_func Itv.land_sem
 
   let lor_sem : t -> t -> t
-  = lift_itv_func Itv.lor_sem
+  = lift_bop_func Itv.lor_sem
 
   let lift_prune1 : (Itv.t -> Itv.t) -> t -> t
-  = fun f (n, x, a) -> (f n, x, a)
+  = fun f (n, t, x, a) -> (f n, t, x, a)
 
   let lift_prune2
     : (Itv.t -> Itv.t -> Itv.t)
       -> (ArrayBlk.astate -> ArrayBlk.astate -> ArrayBlk.astate) -> t -> t -> t
-  = fun f g (n1, x1, a1) (n2, _, a2) -> (f n1 n2, x1, g a1 a2)
+  = fun f g (n1, t1, x1, a1) (n2, _, _, a2) -> (f n1 n2, t1, x1, g a1 a2)
 
   let prune_zero : t -> t
   = lift_prune1 Itv.prune_zero
@@ -340,28 +283,39 @@ struct
   = lift_prune2 Itv.prune_ne ArrayBlk.prune_eq
 
   let plus_pi : t -> t -> t
-  = fun (_, _, a1) (n2, _, _) ->
-    (Itv.bot, PowLoc.bot, ArrayBlk.plus_offset a1 n2)
+  = fun (_, _, _, a1) (n2, _, _, _) ->
+    (Itv.bot, FSTaintSet.bot, PowLoc.bot, ArrayBlk.plus_offset a1 n2)
 
   let minus_pi : t -> t -> t
-  = fun (_, _, a1) (n2, _, _) ->
-    (Itv.bot, PowLoc.bot, ArrayBlk.minus_offset a1 n2)
+  = fun (_, _, _, a1) (n2, _, _, _) ->
+    (Itv.bot, FSTaintSet.bot, PowLoc.bot, ArrayBlk.minus_offset a1 n2)
 
   let minus_pp : t -> t -> t
-  = fun (_, _, a1) (_, _, a2) -> (ArrayBlk.diff a1 a2, PowLoc.bot, ArrayBlk.bot)
+  = fun (_, _, _, a1) (_, _, _, a2) ->
+    (ArrayBlk.diff a1 a2, FSTaintSet.bot, PowLoc.bot, ArrayBlk.bot)
 
-  let subst : t -> Itv.Bound.t Itv.SubstMap.t -> t
-  = fun (i, p, a) subst_map ->
-    (Itv.subst i subst_map, p, ArrayBlk.subst a subst_map)
+  let subst
+  = fun (i, t, p, a) itv_subst_map taint_subst_map ->
+    let i = Itv.subst i itv_subst_map in
+    let t = FSTaintSet.subst t taint_subst_map in
+    let a = ArrayBlk.subst a itv_subst_map in
+    (i, t, p, a)
 
   let get_symbols : t -> Symbol.t list
-  = fun (i, _, a) -> IList.append (Itv.get_symbols i) (ArrayBlk.get_symbols a)
+  = fun (i, t, _, a) ->
+    IList.flatten
+      [Itv.get_symbols i;
+       FSTaintSet.get_symbols t;
+       ArrayBlk.get_symbols a]
 
   let normalize : t -> t
-  = fun (i, l, a) -> (Itv.normalize i, l, ArrayBlk.normalize a)
+  = fun (i, t, l, a) -> (Itv.normalize i, t, l, ArrayBlk.normalize a)
 
   let pp_summary : F.formatter -> t -> unit
-  = fun fmt (i, _, a) -> F.fprintf fmt "(%a, %a)" Itv.pp i ArrayBlk.pp a
+  = fun fmt (i, t, _, a) ->
+    F.fprintf fmt "(%a, %a, %a)" Itv.pp i FSTaintSet.pp t ArrayBlk.pp a
+
+  let add_taint loc (i, t, p, a) = (i, FSTaintSet.add_taint loc t, p, a)
 end
 
 module Stack =
@@ -471,7 +425,7 @@ struct
   = fun mem ->
     IList.flatten (IList.map (fun (_, v) -> Val.get_symbols v) (bindings mem))
 
-  let get_result : astate -> Val.t
+  let get_return : astate -> Val.t
   = fun mem ->
     let mem = filter (fun l _ -> Loc.is_return l) mem in
     if is_empty mem then Val.bot else snd (choose mem)
@@ -600,8 +554,8 @@ struct
   let get_heap_symbols : t -> Symbol.t list
   = fun (_, m, _) -> Heap.get_symbols m
 
-  let get_result : t -> Val.t
-  = fun (_, m, _) -> Heap.get_result m
+  let get_return : t -> Val.t
+  = fun (_, m, _) -> Heap.get_return m
 
   let can_strong_update : PowLoc.t -> bool
   = fun ploc ->
@@ -630,8 +584,8 @@ struct
   let get_symbols : t -> Symbol.t list
   = fun s -> Mem.get_heap_symbols (get_input s)
 
-  let get_result : t -> Val.t
-  = fun s -> Mem.get_result (get_output s)
+  let get_return : t -> Val.t
+  = fun s -> Mem.get_return (get_output s)
 
   let pp_symbols : F.formatter -> t -> unit
   = fun fmt s ->
@@ -644,7 +598,7 @@ struct
   = fun fmt s -> Mem.pp_summary fmt (get_input s)
 
   let pp_return : F.formatter -> t -> unit
-  = fun fmt s -> F.fprintf fmt "Return value: %a" Val.pp_summary (get_result s)
+  = fun fmt s -> F.fprintf fmt "Return value: %a" Val.pp_summary (get_return s)
 
   let pp_summary : F.formatter -> t -> unit
   = fun fmt s ->
