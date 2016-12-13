@@ -157,7 +157,7 @@ struct
     "Offset : " ^ Itv.to_string c.idx ^ " Size : " ^ Itv.to_string c.size 
     ^ " @ " ^ string_of_location c.loc
     ^ (match c.trace with 
-         Inter (_, pname, loc) ->
+         Inter (_, pname, _) ->
           " by call "
            ^ Procname.to_string pname
            ^ "() " 
