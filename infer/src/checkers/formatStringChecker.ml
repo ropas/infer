@@ -100,6 +100,7 @@ struct
     | "malloc"
     | "__new_array" -> model_malloc pname ret params node mem
     | "realloc" -> model_realloc pname ret params node mem
+    | "getenv" -> model_malloc pname ret params node mem
     | "strlen"
     | "fgetc" -> model_natual_itv ret mem
     | "infer_print" -> model_infer_print params mem loc
@@ -231,6 +232,17 @@ struct
         F.fprintf F.err_formatter "================================@.@."
       end
 
+let rec update_all_ret_val ret_val visited_locs src_mem tgt_mem =
+  let pow_loc = PowLoc.diff (Dom.Val.get_all_locs ret_val) visited_locs in
+  let visited_locs = PowLoc.union pow_loc visited_locs in
+  if PowLoc.cardinal pow_loc = 0 then tgt_mem else
+    let new_val = Dom.Mem.find_heap_set pow_loc src_mem in
+    let tgt_mem = Dom.Mem.weak_update_heap pow_loc new_val tgt_mem in
+    update_all_ret_val new_val visited_locs src_mem tgt_mem
+
+
+
+
   let call_sem
       { ProcData.pdesc; tenv; extras } node loc callee_pname params ret mem =
     let pname = Procdesc.get_proc_name pdesc in
@@ -242,7 +254,9 @@ struct
         in
         (match ret with
          | Some (id, _) ->
-             Dom.Mem.add_stack (Loc.of_var (Var.of_id id)) ret_val mem
+             let src_m = Dom.Summary.get_output summary in
+             let mem' = Dom.Mem.add_stack (Loc.of_var (Var.of_id id)) ret_val mem in
+             update_all_ret_val ret_val PowLoc.empty src_m mem'
          | _ -> mem)
     | None -> handle_unknown_call pname ret callee_pname params node mem loc
 
@@ -495,6 +509,6 @@ let checker : Callbacks.proc_callback_args -> unit
         Procname.pp proc_name;
       Dom.Summary.pp_summary F.err_formatter s;
       F.fprintf F.err_formatter "@]@.";
-      if Config.ropas_report && Procname.to_string proc_name = "main" then 
+      if Config.ropas_report && Procname.to_string proc_name = "main" then
         Report.ropas_report_error cond_set
   | _ -> ()
