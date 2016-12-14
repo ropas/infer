@@ -95,6 +95,7 @@ struct
     { proc_name; taint; loc; trace = Intra proc_name }
 
   let check c = FSTaintSet.is_unsafe c.taint
+  let check c = not (FSTaintSet.is_unsafe c.taint)
 
   let subst c subst_map caller_pname callee_pname loc =
     if FSTaintSet.has_symbol c.taint then 
