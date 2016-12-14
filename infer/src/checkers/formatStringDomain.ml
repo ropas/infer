@@ -102,6 +102,14 @@ struct
       { c with taint = FSTaintSet.subst c.taint subst_map;
                trace = Inter (caller_pname, callee_pname, loc) }
     else c
+    match FSTaintSet.has_symbol c.taint, c.trace with
+    | true, Intra _ ->
+        { c with taint = FSTaintSet.subst c.taint subst_map;
+                 trace = Inter (caller_pname, callee_pname, loc) }
+    | true, Inter (_, callee_pname, loc) ->
+        { c with taint = FSTaintSet.subst c.taint subst_map;
+                 trace = Inter (caller_pname, callee_pname, loc) }
+    | false, _ -> c
 
   let to_string c =
     pp F.str_formatter c;
