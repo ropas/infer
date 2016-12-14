@@ -94,14 +94,9 @@ struct
   let make proc_name loc taint =
     { proc_name; taint; loc; trace = Intra proc_name }
 
-  let check c = FSTaintSet.is_unsafe c.taint
   let check c = not (FSTaintSet.is_unsafe c.taint)
 
   let subst c subst_map caller_pname callee_pname loc =
-    if FSTaintSet.has_symbol c.taint then 
-      { c with taint = FSTaintSet.subst c.taint subst_map;
-               trace = Inter (caller_pname, callee_pname, loc) }
-    else c
     match FSTaintSet.has_symbol c.taint, c.trace with
     | true, Intra _ ->
         { c with taint = FSTaintSet.subst c.taint subst_map;
