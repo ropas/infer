@@ -15,7 +15,9 @@ struct
 
   let pp_element fmt x =
     match x with
-    | PgmPoint x' -> Location.pp fmt x'
+    | PgmPoint x' ->
+        F.fprintf fmt "File: %a, line: %d, col: %d"
+          DB.source_file_pp x'.file x'.line x'.col;
     | TntSymb x' -> Symbol.pp fmt x'
 
   let is_pgm_point = function
