@@ -52,6 +52,8 @@ end
 
 include AbstractDomain.FiniteSet (FSTaintPPSet)
 
+let of_taint l = singleton (FSTaint.PgmPoint l)
+
 let is_unsafe cs = exists FSTaint.is_pgm_point cs
 
 let has_symbol cs = exists FSTaint.is_symbol cs
@@ -61,7 +63,7 @@ let subst cs subst_map =
     match c with
     | FSTaint.TntSymb s ->
         (try union acc (SubstMap.find s subst_map) with
-         | Not_found -> acc)
+         | Not_found -> add c acc)
     | _ -> add c acc
   in
   fold union_substed cs initial

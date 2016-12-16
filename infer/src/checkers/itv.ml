@@ -562,6 +562,9 @@ struct
   let one : t
   = of_int 1
 
+  let ones : t
+  = (Bound.of_int (-1), Bound.of_int 1)
+
   let true_sem : t
   = one
 
@@ -864,6 +867,9 @@ let zero : t
 
 let one : t
 = of_int 1
+
+let ones : t
+= NonBottom (Bound.of_int (-1), Bound.of_int 1)
 
 let pos : t
 = NonBottom ItvPure.pos

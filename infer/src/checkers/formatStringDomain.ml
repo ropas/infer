@@ -97,14 +97,10 @@ struct
   let check c = not (FSTaintSet.is_unsafe c.taint)
 
   let subst c subst_map caller_pname callee_pname loc =
-    match FSTaintSet.has_symbol c.taint, c.trace with
-    | true, Intra _ ->
-        { c with taint = FSTaintSet.subst c.taint subst_map;
-                 trace = Inter (caller_pname, callee_pname, loc) }
-    | true, Inter (_, callee_pname, loc) ->
-        { c with taint = FSTaintSet.subst c.taint subst_map;
-                 trace = Inter (caller_pname, callee_pname, loc) }
-    | false, _ -> c
+    if FSTaintSet.has_symbol c.taint then
+      { c with taint = FSTaintSet.subst c.taint subst_map;
+               trace = Inter (caller_pname, callee_pname, loc) }
+    else c
 
   let to_string c =
     pp F.str_formatter c;
@@ -169,7 +165,9 @@ struct
   let get_array_blk = frt
 
   let get_all_locs : t -> PowLoc.t
-  = fun (_, _, p, a) -> ArrayBlk.get_pow_loc a |> PowLoc.join p
+    = fun (_, _, p, a) -> ArrayBlk.get_pow_loc a |> PowLoc.join p
+
+  let make i t p a = (i, t, p, a)
 
   let top_itv : t
   = (Itv.top, FSTaintSet.bot, PowLoc.bot, ArrayBlk.bot)
@@ -180,10 +178,17 @@ struct
   let nat_itv : t
   = (Itv.nat, FSTaintSet.bot, PowLoc.bot, ArrayBlk.bot)
 
+  let of_itv_taint itv t =
+    (itv, t , PowLoc.bot, ArrayBlk.bot)
+    
+  let of_itv : Itv.t -> t
+  = fun itv -> (itv, FSTaintSet.bot, PowLoc.bot, ArrayBlk.bot)
+     
   let of_int : int -> t
   = fun n -> (Itv.of_int n, FSTaintSet.bot, PowLoc.bot, ArrayBlk.bot)
 
-  let of_taint t = (Itv.bot, t, PowLoc.bot, ArrayBlk.bot)
+  let of_taint_with_loc l =
+  (Itv.top, FSTaintSet.of_taint l, PowLoc.bot, ArrayBlk.bot)
 
   let of_pow_loc : PowLoc.t -> t
   = fun x -> (Itv.bot, FSTaintSet.bot, x, ArrayBlk.bot)
@@ -193,7 +198,7 @@ struct
 
   let zero : t
   = of_int 0
-
+ 
   let make_sym pname i =
     let itv_v = Itv.make_sym pname i in
     let i = i + 2 in          (* TODO: return i on Itv.make_sym *)
@@ -320,6 +325,14 @@ struct
     F.fprintf fmt "(%a, %a, %a)" Itv.pp i FSTaintSet.pp t ArrayBlk.pp a
 
   let add_taint loc (i, t, p, a) = (i, FSTaintSet.add_taint loc t, p, a)
+                                 
+  let extern_value allocsite loc =
+    let l = PowLoc.singleton (Loc.Allocsite allocsite) in
+    let t = (FSTaintSet.singleton (FSTaintSet.FSTaint.PgmPoint loc)) in
+    let array = ArrayBlk.extern allocsite in
+    (Itv.top, t, l, array)
+    
+    
 end
 
 module Stack =

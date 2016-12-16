@@ -267,29 +267,42 @@ struct
     Procdesc.get_formals pdesc
     |> IList.map (fun (name, typ) -> (Pvar.mk name proc_name, typ))
 
-  let add_pair_ptr tenv add_pair_val caller_mem callee_mem typ v1 v2 pairs =
-    let get_field_name (fn, _, _) = fn in
+let rec add_pair_ptr
+    tenv add_pair_val caller_mem callee_mem typ v1 v2 threshold pairs =
+  if threshold = 0 then pairs else
+    let get_field_name (fn, typ, _) = (fn, typ) in
     let deref_ptr v mem = Dom.Mem.find_heap_set (Dom.Val.get_all_locs v) mem in
-    let add_pair_field pairs fn =
+    let add_pair_field pairs (fn, typ) =
       let deref_field v fn mem =
         Dom.Mem.find_heap_set (PowLoc.append_field (Dom.Val.get_all_locs v) fn) mem
       in
       let v1' = deref_field v1 fn callee_mem in
       let v2' = deref_field v2 fn caller_mem in
-      add_pair_val v1' v2' pairs
+      let pairs = add_pair_val v1' v2' pairs in
+      add_pair_ptr
+        tenv add_pair_val caller_mem callee_mem typ v1' v2' (threshold-1) pairs 
     in
-    match typ with
-    | Typ.Tptr (Typ.Tstruct typename, _) ->
-        (match Tenv.lookup tenv typename with
-         | Some str ->
-             let fns = IList.map get_field_name str.StructTyp.fields in
-             IList.fold_left add_pair_field pairs fns
-         | _ -> pairs)
-    | Typ.Tptr (_ ,_) ->
-        let v1' = deref_ptr v1 callee_mem in
-        let v2' = deref_ptr v2 caller_mem in
-        add_pair_val v1' v2' pairs
-    | _ -> pairs
+    
+    let pairs = 
+      match typ with
+      | Typ.Tptr (Typ.Tstruct typename, _) ->
+          (match Tenv.lookup tenv typename with
+           | Some str ->
+               let fns = IList.map get_field_name str.StructTyp.fields in
+               IList.fold_left add_pair_field pairs fns
+           | _ -> pairs)
+      | Typ.Tptr (typ ,_) ->
+          let v1' = deref_ptr v1 callee_mem in
+          let v2' = deref_ptr v2 caller_mem in
+          let pairs = add_pair_val v1' v2' pairs in
+          add_pair_ptr
+            tenv add_pair_val caller_mem callee_mem typ v1' v2' (threshold-1) pairs
+      | Typ.Tint _ ->
+          add_pair_val v1 v2 pairs
+      | _ -> pairs
+    in
+    pairs
+      
 
   let get_itv_match
     : Tenv.t -> Dom.Val.t -> Dom.Val.t -> Typ.t -> Dom.Mem.astate -> Dom.Mem.astate
@@ -315,7 +328,7 @@ struct
     in
     []
     |> add_pair_val formal actual
-    |> add_pair_ptr tenv add_pair_val caller_mem callee_mem typ formal actual
+    |> add_pair_ptr tenv add_pair_val caller_mem callee_mem typ formal actual 5
 
   let get_taint_match tenv formal actual typ caller_mem callee_mem =
     let get_taint v = Dom.Val.get_taint v in
@@ -329,7 +342,7 @@ struct
     in
     []
     |> add_pair_val formal actual
-    |> add_pair_ptr tenv add_pair_val caller_mem callee_mem typ formal actual
+    |> add_pair_ptr tenv add_pair_val caller_mem callee_mem typ formal actual 5
 
   let itv_subst_map_of_pairs
     : (Itv.Bound.t * Itv.Bound.t) list -> Itv.Bound.t Itv.SubstMap.t
@@ -349,7 +362,7 @@ struct
     : Dom.Val.t -> ('a -> Dom.Val.t -> 'b -> 'b) -> 'a list -> Dom.Val.t list -> 'b -> 'b
   = fun default f xs ys acc ->
     match xs, ys with
-    | [x], _ -> f x (IList.fold_left Dom.Val.join Dom.Val.bot ys) acc
+    (* | [x], _ -> f x (IList.fold_left Dom.Val.join Dom.Val.bot ys) acc *)
     | [], _ -> acc
     | x :: xs', [] -> list_fold2_def default f xs' ys (f x default acc)
     | x :: xs', y :: ys' -> list_fold2_def default f xs' ys' (f x y acc)
@@ -372,6 +385,8 @@ struct
     |> itv_subst_map_of_pairs
 
   let get_taint_subst tenv callee_pdesc params caller_m callee_m loc =
-    get_subst get_taint_match tenv callee_pdesc params caller_m callee_m loc
-    |> FSTaintSet.SubstMap.of_pairs
+    let pairs =
+      get_subst get_taint_match tenv callee_pdesc params caller_m callee_m loc
+    in
+    FSTaintSet.SubstMap.of_pairs pairs
 end

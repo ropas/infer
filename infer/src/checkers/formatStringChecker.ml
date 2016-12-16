@@ -16,6 +16,7 @@
 
 open! Utils
 open BasicDom
+open FormatStringModel
 
 module F = Format
 module L = Logging
@@ -91,6 +92,180 @@ struct
         mem
     | _ -> mem
 
+  let eval_src src_typ loc mem arg_e =
+    let v = Sem.eval arg_e mem loc in
+    match src_typ with
+    | Value -> v
+    | Array -> Dom.Mem.find_heap_set (Dom.Val.get_all_locs v) mem
+
+  let rec collect_src_vals arg_exps arg_typs loc mem =
+    match arg_exps, arg_typs with
+    | [], _ | _, [] -> [] (* if src empty *)
+    | _, (Src (Variable, src_typ, _) :: []) ->
+        IList.map (eval_src src_typ loc mem) arg_exps
+    | _, (Src (Variable, _, _) :: _) ->
+        failwith "API encoding error (Varg not at the last position)"
+    | (arg_e :: arg_exps_left), (Src (Fixed, src_typ, _) :: arg_typs_left) ->
+        let src_v = eval_src src_typ loc mem arg_e in
+        src_v :: (collect_src_vals arg_exps_left arg_typs_left loc mem)
+    | (_ :: arg_exps_left), (_ :: arg_typs_left) ->
+        collect_src_vals arg_exps_left arg_typs_left loc mem
+
+  let rec collect_dst_vals arg_exps arg_typs loc mem =
+    match arg_exps, arg_typs with
+    | [], _ | _, [] -> []
+    | _, (Dst (Variable, _) :: []) ->
+        IList.map (fun e -> Sem.eval e mem loc) arg_exps
+    | _, (Dst (Variable, _) :: _) ->
+        failwith "API encoding error (Varg not at the last position)"
+    | (arg_e :: arg_exps_left), (Dst (Fixed, _) :: arg_typs_left) ->
+        let dst_v = Sem.eval arg_e mem loc in
+        dst_v :: (collect_dst_vals arg_exps_left arg_typs_left loc mem)
+    | (_ :: arg_exps_left), (_ :: arg_typs_left) ->
+        collect_dst_vals arg_exps_left arg_typs_left loc mem
+
+  let rec collect_buf_vals arg_exps arg_typs loc mem =
+    match arg_exps, arg_typs with
+    | [], _ | _, [] -> []
+    | _, (Buf (Variable, _) :: []) ->
+        IList.map (fun e -> Sem.eval e mem loc) arg_exps
+    | _, (Buf (Variable, _) :: _) ->
+        failwith "API encoding error (Varg not at the last position)"
+    | (arg_e :: arg_exps_left), (Buf (Fixed, _) :: arg_typs_left) ->
+        let buf_v = Sem.eval arg_e mem loc in
+        buf_v :: (collect_buf_vals arg_exps_left arg_typs_left loc mem)
+    | (_ :: arg_exps_left), (_ :: arg_typs_left) ->
+        collect_buf_vals arg_exps_left arg_typs_left loc mem
+
+  let rec collect_size_vals arg_exps arg_typs node mem =
+    match arg_exps, arg_typs with
+    | [], _ | _, [] -> []
+    | (arg_e :: arg_exps_left), (Size :: arg_typs_left) ->
+        let size_v = Sem.eval arg_e mem node in
+        size_v :: (collect_size_vals arg_exps_left arg_typs_left node mem)
+    | (_ :: arg_exps_left), (_ :: arg_typs_left) ->
+        collect_size_vals arg_exps_left arg_typs_left node mem
+
+  let process_dst loc src_vals mem dst_e =
+    let src_v = IList.fold_left Dom.Val.join Dom.Val.bot src_vals in
+    let dst_loc = Dom.Val.get_all_locs (Sem.eval dst_e mem loc) in
+    Dom.Mem.update_mem dst_loc src_v mem
+
+  let process_buf loc mem dst_e =
+    let buf_loc = Dom.Val.get_all_locs (Sem.eval dst_e mem loc) in
+    let input_v = Dom.Val.of_taint_with_loc loc in
+    Dom.Mem.update_mem buf_loc input_v mem
+
+  let process_struct_ptr node pname (inst_num, dim) loc mem ptr_e =
+    let struct_loc = Dom.Val.get_all_locs (Sem.eval ptr_e mem loc) in
+    let allocsite = Sem.get_allocsite pname node inst_num dim in
+    let ext_v = Dom.Val.extern_value allocsite loc in
+    let ext_loc = Dom.Val.get_all_locs ext_v in
+    let mem = Dom.Mem.update_mem struct_loc ext_v mem in
+    Dom.Mem.update_mem ext_loc ext_v mem
+
+
+  let rec process_args pname allocinfo loc node arg_exps arg_typs src_vals mem =
+    let va_src_flag =
+      IList.exists (function | Src (Variable, _, _) -> true | _ -> false) arg_typs
+    in
+    match arg_exps, arg_typs with
+    | [], _ | _ , [] -> mem
+    | _, (Dst (Variable, _) :: []) ->
+        assert (va_src_flag || IList.length src_vals > 0);
+        IList.fold_left (process_dst loc src_vals) mem arg_exps
+    | _, (Dst (Variable, _) :: _) ->
+        failwith "API encoding error (Varg not at the last position)"
+    | (arg_e :: arg_exps_left), (Dst (Fixed, _) :: arg_typs_left) ->
+        assert (va_src_flag || IList.length src_vals > 0);
+        let mem = process_dst loc src_vals mem arg_e in
+        process_args pname allocinfo loc node arg_exps_left arg_typs_left src_vals mem
+    | _, (Buf (Variable, _) :: []) ->
+        IList.fold_left (process_buf loc) mem arg_exps
+    | _, (Buf (Variable, _) :: _) ->
+        failwith "itvSetm.ml : API encoding error (Varg not at the last position)"
+    | (arg_e :: arg_exps_left), (Buf (Fixed, _) :: arg_typs_left) ->
+        let mem = process_buf loc mem arg_e in
+        process_args pname allocinfo loc node arg_exps_left arg_typs_left src_vals mem
+    | (arg_e :: arg_exps_left), (StructPtr :: arg_typs_left) ->
+        (* position node pname inst_num loc (mem, global) ptr_e *)
+        let mem = process_struct_ptr node pname allocinfo loc mem arg_e in
+        process_args pname allocinfo loc node arg_exps_left arg_typs_left src_vals mem
+    | (_ :: arg_exps_left), (Src _ :: arg_typs_left)
+    | (_ :: arg_exps_left), (Size :: arg_typs_left)
+    | (_ :: arg_exps_left), (Skip :: arg_typs_left) ->
+        process_args pname allocinfo loc node arg_exps_left arg_typs_left src_vals mem
+
+  let gen_block pname (inst_num, dim) node init_v mem =
+    let allocsite = Sem.get_allocsite pname node inst_num dim in
+    let offset = Itv.of_int 0 in
+    let sz = Itv.top in
+    let st = Itv.of_int 1 in
+    let pow_loc = PowLoc.singleton (Loc.Allocsite allocsite) in
+    let array = ArrayBlk.make allocsite offset sz st in
+    let block_v = Dom.Val.make Itv.bot FSTaintSet.bot pow_loc array in
+    (Dom.Mem.update_mem pow_loc init_v mem, block_v)
+
+  let produce_ret pname allocinfo loc node ret_typ va_src_flag
+      src_vals dst_vals buf_vals size_vals mem =
+    match ret_typ with
+    | Const v -> (mem, v)
+    | TaintInput -> (* User input value (top itv & taintness) *)
+        (mem, Dom.Val.of_taint_with_loc loc)
+    | SrcArg -> (* Src argument returned *)
+        assert (IList.length src_vals = 1);
+        (mem, IList.hd src_vals)
+    | SizeArg -> (* Integer between 0 ~ Size argument returned *)
+        assert (IList.length size_vals = 1);
+        (mem, IList.hd size_vals)
+    | TopWithSrcTaint -> (* Top itv & taintness of Src argument returned *)
+        assert (va_src_flag || IList.length src_vals > 0);
+        let src_v = IList.fold_left Dom.Val.join Dom.Val.bot src_vals in
+        let src_taint = Dom.Val.get_taint src_v in
+        (mem, Dom.Val.of_itv_taint Itv.top src_taint )
+    | DstArg -> (* Dst argument returned *)
+        assert (IList.length dst_vals = 1);
+        (mem, IList.hd dst_vals)
+    | BufArg -> (* Buf argument returned *)
+        assert (IList.length buf_vals = 1);
+        (mem, IList.hd buf_vals)
+    | AllocConst v -> (* New block, filled with given abstract val. *)
+        gen_block pname allocinfo node v mem
+    | AllocDst -> (* New block, filled with Src argument *)
+        assert (va_src_flag || IList.length src_vals > 0);
+        let src_v = IList.fold_left Dom.Val.join Dom.Val.bot src_vals in
+        gen_block pname allocinfo node src_v mem
+    | AllocBuf -> (* New block, filled with user input *)
+        gen_block pname allocinfo node
+          (Dom.Val.of_taint_with_loc loc) mem
+    | AllocStruct -> (* Newly allocated struct *)
+        let (inst_num, dim) = allocinfo in
+        let allocsite = Sem.get_allocsite pname node inst_num dim in
+        let ext_v = Dom.Val.extern_value allocsite loc in
+        gen_block pname allocinfo node ext_v mem
+
+  let handle_api pname allocinfo loc node (ret, exps) mem api_type =
+    let arg_typs = api_type.arg_typs in
+    let ret_typ = api_type.ret_typ in
+    let src_vals = collect_src_vals exps arg_typs loc mem in
+    let dst_vals = collect_dst_vals exps arg_typs loc mem in
+    let buf_vals = collect_buf_vals exps arg_typs loc mem in
+    let size_vals = collect_size_vals exps arg_typs loc mem in
+    let mem =
+      process_args pname allocinfo loc node exps arg_typs src_vals mem
+    in
+    match ret with
+    | Some (id, _) ->
+        let va_src_flag =
+          IList.exists (function | Src (Variable, _, _) -> true | _ -> false) arg_typs
+        in
+        let (mem, ret_v) =
+          produce_ret pname allocinfo loc node ret_typ
+            va_src_flag src_vals dst_vals buf_vals size_vals mem in
+
+        Dom.Mem.add_stack (Loc.of_var (Var.of_id id)) ret_v mem
+    | None -> mem
+
   let handle_unknown_call
     : Procname.t -> (Ident.t * Typ.t) option -> Procname.t
       -> (Exp.t * Typ.t) list -> CFG.node -> Dom.Mem.t -> Location.t
@@ -100,10 +275,13 @@ struct
     | "malloc"
     | "__new_array" -> model_malloc pname ret params node mem
     | "realloc" -> model_realloc pname ret params node mem
-    | "getenv" -> model_malloc pname ret params node mem
     | "strlen"
     | "fgetc" -> model_natual_itv ret mem
     | "infer_print" -> model_infer_print params mem loc
+    | fname when ApiMap.mem fname api_map ->
+        let api_type = ApiMap.find fname api_map in
+        (*  pname inst_num position loc node (ret, exps) (mem, global) mode api_type *)
+        handle_api pname (0, 0) loc node (ret, fst (IList.split params)) mem api_type
     | _ -> model_unknown_itv ret mem
 
   let rec declare_array
@@ -128,10 +306,9 @@ struct
           ~dimension:(dimension + 1) mem
     | _ -> mem
 
-  let declare_symbolic_array
-    : Procname.t -> Tenv.t -> CFG.node -> Loc.t -> Typ.t -> inst_num:int
-      -> sym_num:int -> dimension:int -> Dom.Mem.astate -> Dom.Mem.astate * int
-  = fun pname tenv node loc typ ~inst_num ~sym_num ~dimension mem ->
+  let rec declare_symbolic_array
+      pname tenv node loc typ ~inst_num ~sym_num ~dim mem threshold =
+    if threshold = 0 then (mem, sym_num) else
     let decl_fld (mem, sym_num) (fn, typ, _) =
       let loc =
         mem |> Dom.Mem.find_heap loc |> Dom.Val.get_all_locs |> PowLoc.choose
@@ -143,14 +320,8 @@ struct
           let (v, sym_num) = Dom.Val.make_sym pname sym_num in
           (Dom.Mem.add_heap field v mem, sym_num)
       | Typ.Tptr (typ, _) ->
-          let offset = Itv.make_sym pname sym_num in
-          let sym_num = sym_num + 2 in (* TODO *)
-          let size = Itv.make_sym pname sym_num in
-          let sym_num = sym_num + 2 in (* TODO *)
-          let v =
-            Sem.eval_array_alloc pname node typ offset size inst_num dimension
-          in
-          (Dom.Mem.add_heap field v mem, sym_num)
+          declare_symbolic_array
+            pname tenv node field typ ~inst_num ~sym_num ~dim:(dim+1) mem (threshold-1)
       | _ -> (mem, sym_num)
     in
     let offset = Itv.make_sym pname sym_num in
@@ -158,26 +329,36 @@ struct
     let size = Itv.make_sym pname sym_num in
     let sym_num = sym_num + 2 in (* TODO *)
     let arr =
-      Sem.eval_array_alloc pname node typ offset size inst_num dimension
+      Sem.eval_array_alloc pname node typ offset size inst_num dim
     in
-    let (elem_val, sym_num) = Dom.Val.make_sym pname sym_num in
-    let arr_loc = arr |> Dom.Val.get_array_blk |> ArrayBlk.get_pow_loc in
-    let mem =
-      mem
-      |> Dom.Mem.add_heap loc arr
-      |> Dom.Mem.strong_update_heap arr_loc elem_val
+    let mem = Dom.Mem.add_heap loc arr mem in
+    let (mem, sym_num) =
+      match typ with
+      | Typ.Tstruct typename ->
+          (match Tenv.lookup tenv typename with
+           | Some str ->
+               IList.fold_left decl_fld (mem, sym_num) str.StructTyp.fields
+           | _ -> (mem, sym_num))
+      | Typ.Tint _ ->
+          let (elem_val, sym_num) = Dom.Val.make_sym pname sym_num in
+          let arr_loc = arr |> Dom.Val.get_array_blk |> ArrayBlk.get_pow_loc in
+          let mem = Dom.Mem.strong_update_heap arr_loc elem_val mem in
+          (mem, sym_num)
+      | Typ.Tptr (typ, _) ->
+          let v = Dom.Mem.find_heap loc mem in
+          let loc =
+            let locs = Dom.Val.get_all_locs v in
+            assert(PowLoc.cardinal locs = 1);
+            PowLoc.choose locs
+          in
+          declare_symbolic_array
+            pname tenv node loc typ ~inst_num ~sym_num ~dim:(dim+1) mem (threshold-1)
+      | _ -> (mem, sym_num)
     in
-    match typ with
-    | Typ.Tstruct typename ->
-        (match Tenv.lookup tenv typename with
-         | Some str ->
-             IList.fold_left decl_fld (mem, sym_num) str.StructTyp.fields
-         | _ -> (mem, sym_num))
-    | _ -> (mem, sym_num)
+    (mem, sym_num)
 
-  let declare_symbolic_parameter
-    : Procdesc.t -> Tenv.t -> CFG.node -> int -> Dom.Mem.t -> Dom.Mem.t
-  = fun pdesc tenv node inst_num mem ->
+
+  let declare_symbolic_parameter pdesc tenv node inst_num mem threshold =
     let pname = Procdesc.get_proc_name pdesc in
     let add_formal (mem, inst_num, sym_num) (pvar, typ) =
       match typ with
@@ -188,7 +369,7 @@ struct
       | Typ.Tptr (typ, _) ->
           let (mem, sym_num) =
             declare_symbolic_array pname tenv node (Loc.of_pvar pvar) typ
-              ~inst_num ~sym_num ~dimension:1 mem
+              ~inst_num ~sym_num ~dim:1 mem threshold
           in
           (mem, inst_num + 1, sym_num)
       | _ -> (mem, inst_num, sym_num) (* TODO: add other cases if necessary *)
@@ -232,15 +413,13 @@ struct
         F.fprintf F.err_formatter "================================@.@."
       end
 
-let rec update_all_ret_val ret_val visited_locs src_mem tgt_mem =
-  let pow_loc = PowLoc.diff (Dom.Val.get_all_locs ret_val) visited_locs in
-  let visited_locs = PowLoc.union pow_loc visited_locs in
-  if PowLoc.cardinal pow_loc = 0 then tgt_mem else
-    let new_val = Dom.Mem.find_heap_set pow_loc src_mem in
-    let tgt_mem = Dom.Mem.weak_update_heap pow_loc new_val tgt_mem in
-    update_all_ret_val new_val visited_locs src_mem tgt_mem
-
-
+  let rec update_all_ret_val ret_val visited_locs src_mem tgt_mem =
+    let pow_loc = PowLoc.diff (Dom.Val.get_all_locs ret_val) visited_locs in
+    let visited_locs = PowLoc.union pow_loc visited_locs in
+    if PowLoc.cardinal pow_loc = 0 then tgt_mem else
+      let new_val = Dom.Mem.find_heap_set pow_loc src_mem in
+      let tgt_mem = Dom.Mem.update_mem pow_loc new_val tgt_mem in
+      update_all_ret_val new_val visited_locs src_mem tgt_mem
 
 
   let call_sem
@@ -259,19 +438,6 @@ let rec update_all_ret_val ret_val visited_locs src_mem tgt_mem =
              update_all_ret_val ret_val PowLoc.empty src_m mem'
          | _ -> mem)
     | None -> handle_unknown_call pname ret callee_pname params node mem loc
-
-  let source_call_sem loc callee_pname ret mem =
-    match Procname.to_string callee_pname with
-    | "getenv" ->
-        (match ret with
-         | Some (id, _) ->
-             let ret_val = Dom.Mem.find_stack (Loc.of_var (Var.of_id id)) mem in
-             let l = Dom.Val.get_all_locs ret_val in
-             let v = Dom.Mem.find_heap_set l mem in
-             let v = Dom.Val.add_taint loc v in
-             Dom.Mem.weak_update_heap l v mem
-         | _ -> mem)
-    | _ -> mem
 
   let exec_instr
     : Dom.Mem.t -> extras ProcData.t -> CFG.node -> Sil.instr -> Dom.Mem.astate
@@ -300,12 +466,14 @@ let rec update_all_ret_val ret_val visited_locs src_mem tgt_mem =
           |> Dom.Mem.store_alias exp1 exp2
       | Prune (exp, loc, _, _) -> Sem.prune exp loc mem
       | Call (ret, Const (Cfun callee_pname), params, loc, _) ->
-          let mem = call_sem pdata node loc callee_pname params ret mem in
-          source_call_sem loc callee_pname ret mem
+          call_sem pdata node loc callee_pname params ret mem
       | Declare_locals (locals, _) ->
           (* array allocation in stack e.g., int arr[10] *)
-          let (mem, inst_num) = IList.fold_left try_decl_arr (mem, 1) locals in
-          declare_symbolic_parameter pdesc tenv node inst_num mem
+          let (mem, inst_num) =
+            IList.fold_left try_decl_arr (mem, 1) locals
+          in
+          declare_symbolic_parameter pdesc tenv node inst_num mem 3
+      (* TODO IF main argc, argv strong update look formals *)
       | Call _
       | Remove_temps _
       | Abstract _
@@ -359,7 +527,22 @@ struct
   let sink_funcs =
     SinkMap.empty
     |> SinkMap.add "printf" 0
+    |> SinkMap.add "vprintf" 0
     |> SinkMap.add "sprintf" 1
+    |> SinkMap.add "fprintf" 1
+    |> SinkMap.add "vfprintf" 1
+    |> SinkMap.add "vsprintf" 1
+    |> SinkMap.add "vasprintf" 1
+    |> SinkMap.add "__asprintf" 1
+    |> SinkMap.add "asprintf" 1
+    |> SinkMap.add "vdprintf" 1
+    |> SinkMap.add "dprintf" 1
+    |> SinkMap.add "obstack_printf" 1
+    |> SinkMap.add "obstack_vprintf" 1
+    |> SinkMap.add "easprintf" 1
+    |> SinkMap.add "evasprintf" 1
+    |> SinkMap.add "snprintf" 2
+    |> SinkMap.add "vsnprintf" 2
 
   let add_cond_n n pname loc params mem cond_set =
     match IList.nth params n with
@@ -375,9 +558,9 @@ struct
         Dom.ConditionSet.add_fs_safety pname loc t cond_set
     | exception _ -> assert false
 
-  let add_conds pname loc params mem cond_set =
-    match SinkMap.find (Procname.to_string pname) sink_funcs with
-    | n -> add_cond_n n pname loc params mem cond_set
+  let add_conds caller callee loc params mem cond_set =
+    match SinkMap.find (Procname.to_string callee) sink_funcs with
+    | n -> add_cond_n n caller loc params mem cond_set
     | exception Not_found -> cond_set
 
   let collect_instr
@@ -388,7 +571,7 @@ struct
     let cond_set =
       match instr with
       | Sil.Call (_, Const (Cfun callee_pname), params, loc, _) ->
-          let cond_set = add_conds callee_pname loc params mem cond_set in
+          let cond_set = add_conds pname callee_pname loc params mem cond_set in
           (match Summary.read_summary pdesc callee_pname with
            | Some summary ->
                let callee = extras callee_pname in
@@ -423,10 +606,9 @@ struct
     let add_node1 acc node = collect_node pdata inv_map acc node in
     Procdesc.fold_nodes add_node1 Dom.ConditionSet.empty pdesc
 
-  let report_error : Tenv.t -> Procdesc.t -> Dom.ConditionSet.t -> unit
-  = fun tenv pdesc conds ->
+  let report_error tenv pdesc conds =
     let pname = Procdesc.get_proc_name pdesc in
-    let report1 cond =
+    let report1 cond acc =
       let safe = Dom.Condition.check cond in
       let (caller_pname, loc) =
         match Dom.Condition.get_trace cond with
@@ -435,11 +617,15 @@ struct
       in
       (* report symbol-related alarms only in debug mode *)
       if not safe && Procname.equal pname caller_pname then
+        (F.fprintf F.err_formatter "report error!";
         let fs_kind = "FORMAT-STRING CHECKER" in
         let cond_str = Dom.Condition.to_string cond in
-        Checkers.ST.report_error tenv pname pdesc fs_kind loc cond_str
+        Checkers.ST.report_error tenv pname pdesc fs_kind loc cond_str;
+        Dom.ConditionSet.remove cond acc)
+      else acc
+
     in
-    Dom.ConditionSet.iter report1 conds
+    Dom.ConditionSet.fold report1 conds conds
 
   let ropas_report_condset : Dom.Condition.t -> int -> int
   = fun cond k ->
@@ -479,7 +665,10 @@ struct
       Analyzer.extract_post exit_id inv_map
     in
     let cond_set = Report.collect pdata inv_map in
-    if not Config.ropas_report then Report.report_error tenv pdesc cond_set;
+    let cond_set =
+      if not Config.ropas_report then Report.report_error tenv pdesc cond_set
+      else cond_set
+    in
     if Procname.get_method pname = "infer_print" then None else
       match entry_mem, exit_mem with
       | Some entry_mem, Some exit_mem ->
