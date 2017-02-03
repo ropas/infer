@@ -19,8 +19,7 @@ open BasicDom
 
 module F = Format
 module L = Logging
-module Domain = FormatStringDomain
-module Dom = Domain
+module Dom = IntOvfDomain
 
 module Make (CFG : ProcCfg.S) =
 struct
@@ -145,31 +144,7 @@ struct
     |> Dom.Val.of_array_blk
 
   let prune_unop : Exp.t -> Dom.Mem.astate -> Dom.Mem.astate
-  = fun e mem ->
-    match e with
-    | Exp.Var x ->
-        (match Dom.Mem.find_alias x mem with
-         | Some x' ->
-             let lv = Loc.of_pvar x' in
-             let v = Dom.Mem.find_heap lv mem in
-             let v' = Dom.Val.prune_zero v in
-             Dom.Mem.update_mem (PowLoc.singleton lv) v' mem
-         | None -> mem)
-    | Exp.UnOp (Unop.LNot, Exp.Var x, _) ->
-        (match Dom.Mem.find_alias x mem with
-         | Some x' ->
-             let lv = Loc.of_pvar x' in
-             let v = Dom.Mem.find_heap lv mem in
-             let itv_v =
-               if Itv.is_bot (Dom.Val.get_itv v) then Itv.bot else
-                 Dom.Val.get_itv Dom.Val.zero
-             in
-             let v' =
-               (itv_v, Dom.Val.get_taint v, Dom.Val.get_pow_loc v, Dom.Val.get_array_blk v)
-             in
-             Dom.Mem.update_mem (PowLoc.singleton lv) v' mem
-         | None -> mem)
-    | _ -> mem
+  = fun _ mem -> mem
 
   let prune_binop_left : Exp.t -> Location.t -> Dom.Mem.astate -> Dom.Mem.astate
   = fun e loc mem ->
@@ -267,100 +242,57 @@ struct
     Procdesc.get_formals pdesc
     |> IList.map (fun (name, typ) -> (Pvar.mk name proc_name, typ))
 
-let rec add_pair_ptr
-    tenv add_pair_val caller_mem callee_mem typ v1 v2 threshold pairs =
-  if threshold = 0 then pairs else
+  let rec add_pair_ptr
+      tenv add_pair_val caller_m callee_m typ v1 v2 threshold acc =
+
     let get_field_name (fn, typ, _) = (fn, typ) in
     let deref_ptr v mem = Dom.Mem.find_heap_set (Dom.Val.get_all_locs v) mem in
-    let add_pair_field pairs (fn, typ) =
+    let add_pair_field acc (fn, typ) =
       let deref_field v fn mem =
         Dom.Mem.find_heap_set (PowLoc.append_field (Dom.Val.get_all_locs v) fn) mem
       in
-      let v1' = deref_field v1 fn callee_mem in
-      let v2' = deref_field v2 fn caller_mem in
-      let pairs = add_pair_val v1' v2' pairs in
+      let v1' = deref_field v1 fn callee_m in
+      let v2' = deref_field v2 fn caller_m in
+      let acc = add_pair_val v1' v2' acc in
       add_pair_ptr
-        tenv add_pair_val caller_mem callee_mem typ v1' v2' (threshold-1) pairs 
+        tenv add_pair_val caller_m callee_m typ v1' v2' (threshold-1) acc 
     in
-    
-    let pairs = 
+
+    if threshold = 0 then acc else
       match typ with
       | Typ.Tptr (Typ.Tstruct typename, _) ->
           (match Tenv.lookup tenv typename with
            | Some str ->
                let fns = IList.map get_field_name str.StructTyp.fields in
-               IList.fold_left add_pair_field pairs fns
-           | _ -> pairs)
+               IList.fold_left add_pair_field acc fns
+           | _ -> acc)
       | Typ.Tptr (typ ,_) ->
-          let v1' = deref_ptr v1 callee_mem in
-          let v2' = deref_ptr v2 caller_mem in
-          let pairs = add_pair_val v1' v2' pairs in
+          let v1' = deref_ptr v1 callee_m in
+          let v2' = deref_ptr v2 caller_m in
+          let acc = add_pair_val v1' v2' acc in
           add_pair_ptr
-            tenv add_pair_val caller_mem callee_mem typ v1' v2' (threshold-1) pairs
+            tenv add_pair_val caller_m callee_m typ v1' v2' (threshold-1) acc
       | Typ.Tint _ ->
-          add_pair_val v1 v2 pairs
-      | _ -> pairs
-    in
-    pairs
-      
+          add_pair_val v1 v2 acc
+      | _ -> acc
+        
+  let add_pair_taint_val v1 v2 acc =
+    let t1 = Dom.Val.get_taint v1 in
+    let t2 = Dom.Val.get_taint v2 in
+    assert (TaintSet.cardinal t1 <= 1);
+    match TaintSet.choose t1 with
+    | t -> (t, t2) :: acc
+    | exception Not_found -> acc
 
-  let get_itv_match
-    : Tenv.t -> Dom.Val.t -> Dom.Val.t -> Typ.t -> Dom.Mem.astate -> Dom.Mem.astate
-      -> (Itv.Bound.t * Itv.Bound.t) list
-  = fun tenv formal actual typ caller_mem callee_mem ->
-    let get_itv v = Dom.Val.get_itv v in
-    let get_offset v = v |> Dom.Val.get_array_blk |> ArrayBlk.offsetof in
-    let get_size v = v |> Dom.Val.get_array_blk |> ArrayBlk.sizeof in
-    let add_pair_itv itv1 itv2 l =
-      let open Itv in
-      if itv1 <> bot && itv2 <> bot then
-        (lb itv1, lb itv2) :: (ub itv1, ub itv2) :: l
-      else if itv1 <> bot && itv2 = bot then
-        (lb itv1, Bound.Bot) :: (ub itv1, Bound.Bot) :: l
-      else
-        l
-    in
-    let add_pair_val v1 v2 pairs =
-      pairs
-      |> add_pair_itv (get_itv v1) (get_itv v2)
-      |> add_pair_itv (get_offset v1) (get_offset v2)
-      |> add_pair_itv (get_size v1) (get_size v2)
-    in
-    []
-    |> add_pair_val formal actual
-    |> add_pair_ptr tenv add_pair_val caller_mem callee_mem typ formal actual 5
+  let add_pair_ovf_val v1 v2 acc =
+    let o1 = Dom.Val.get_ovf v1 in
+    let o2 = Dom.Val.get_ovf v2 in
+    assert (OvfSet.cardinal o1 <= 1);
+    match OvfSet.choose o1 with
+    | o -> (o, o2) :: acc
+    | exception Not_found -> acc
 
-  let get_taint_match tenv formal actual typ caller_mem callee_mem =
-    let get_taint v = Dom.Val.get_taint v in
-    let add_pair_val v1 v2 acc =
-      let t1 = get_taint v1 in
-      let t2 = get_taint v2 in
-      assert (FSTaintSet.cardinal t1 <= 1);
-      match FSTaintSet.choose t1 with
-      | t -> (t, t2) :: acc
-      | exception Not_found -> acc
-    in
-    []
-    |> add_pair_val formal actual
-    |> add_pair_ptr tenv add_pair_val caller_mem callee_mem typ formal actual 5
-
-  let itv_subst_map_of_pairs
-    : (Itv.Bound.t * Itv.Bound.t) list -> Itv.Bound.t Itv.SubstMap.t
-  = fun pairs ->
-    let add_pair map (formal, actual) =
-      match formal with
-      | Itv.Bound.Linear (0, se1) when Itv.SymLinear.cardinal se1 > 0 ->
-          let (symbol, coeff) = Itv.SymLinear.choose se1 in
-          if coeff = 1
-          then Itv.SubstMap.add symbol actual map
-          else assert false 
-      | _ -> assert false
-    in
-    IList.fold_left add_pair Itv.SubstMap.empty pairs
-
-  let rec list_fold2_def
-    : Dom.Val.t -> ('a -> Dom.Val.t -> 'b -> 'b) -> 'a list -> Dom.Val.t list -> 'b -> 'b
-  = fun default f xs ys acc ->
+  let rec list_fold2_def = fun default f xs ys acc ->
     match xs, ys with
     (* | [x], _ -> f x (IList.fold_left Dom.Val.join Dom.Val.bot ys) acc *)
     | [], _ -> acc
@@ -368,11 +300,12 @@ let rec add_pair_ptr
     | x :: xs', y :: ys' -> list_fold2_def default f xs' ys' (f x y acc)
 
   let get_subst
-      get_matching tenv callee_pdesc params caller_m callee_m loc =
+      add_pair_val tenv callee_pdesc params caller_m callee_m loc =
     let add_pair (formal, typ) actual acc =
       let formal = Dom.Mem.find_heap (Loc.of_pvar formal) callee_m in
       let new_matching =
-        get_matching tenv formal actual typ caller_m callee_m
+        add_pair_val formal actual []
+        |> add_pair_ptr tenv add_pair_val caller_m callee_m typ formal actual 5
       in
       IList.append new_matching acc
     in
@@ -380,13 +313,11 @@ let rec add_pair_ptr
     let actuals = IList.map (fun (a, _) -> eval a caller_m loc) params in
     list_fold2_def Dom.Val.bot add_pair formals actuals []
 
-  let get_itv_subst tenv callee_pdesc params caller_m callee_m loc =
-    get_subst get_itv_match tenv callee_pdesc params caller_m callee_m loc
-    |> itv_subst_map_of_pairs
+  let get_ovf_subst tenv callee_pdesc params caller_m callee_m loc =
+    get_subst add_pair_ovf_val tenv callee_pdesc params caller_m callee_m loc
+    |> OvfSet.SubstMap.of_pairs
 
   let get_taint_subst tenv callee_pdesc params caller_m callee_m loc =
-    let pairs =
-      get_subst get_taint_match tenv callee_pdesc params caller_m callee_m loc
-    in
-    FSTaintSet.SubstMap.of_pairs pairs
+    get_subst add_pair_taint_val tenv callee_pdesc params caller_m callee_m loc
+    |> TaintSet.SubstMap.of_pairs
 end

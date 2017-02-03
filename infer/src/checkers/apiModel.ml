@@ -1,4 +1,4 @@
-module Dom = FormatStringDomain
+module Dom = IntOvfDomain
 (* Represent the argument of API functions *)
 type arg_typ =
   (* boolean is to mark if this argument should generate buffer access query *)
@@ -55,7 +55,7 @@ let buf_q = Buf (Fixed, true)
 let buf_va_q = Buf (Variable, true)
 
 (* Fixed return values *)
-let ones = Const (Dom.Val.of_itv Itv.ones)
+let ones = Const Dom.Val.top_itv
 let int_v = Const Dom.Val.top_itv
 let tainted_v = TaintInput
 let int_arr = AllocConst Dom.Val.top_itv

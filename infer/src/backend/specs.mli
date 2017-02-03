@@ -134,7 +134,7 @@ type payload =
     quandary : QuandarySummary.t option;
     siof : SiofDomain.astate option;
     threadsafety : ThreadSafetyDomain.astate option;
-    format_string : FormatStringDomain.Summary.t option;
+    format_string : IntOvfDomain.Summary.t option;
   }
 
 (** Procedure summary *)

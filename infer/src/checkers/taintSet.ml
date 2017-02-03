@@ -1,6 +1,6 @@
 module F = Format
 
-module FSTaint =
+module Taint =
 struct
   type t =
     | PgmPoint of Location.t
@@ -35,7 +35,7 @@ struct
     | _ -> None
 end
 
-module FSTaintPPSet = PrettyPrintable.MakePPSet (FSTaint)
+module TaintPPSet = PrettyPrintable.MakePPSet (Taint)
 
 module SubstMap =
 struct
@@ -44,24 +44,24 @@ struct
   let of_pairs pairs =
     let add acc (k, v) =
       match k with
-      | FSTaint.TntSymb s -> add s v acc
+      | Taint.TntSymb s -> add s v acc
       | _ -> assert false
     in
     IList.fold_left add empty pairs
 end
 
-include AbstractDomain.FiniteSet (FSTaintPPSet)
+include AbstractDomain.FiniteSet (TaintPPSet)
 
-let of_taint l = singleton (FSTaint.PgmPoint l)
+let of_taint l = singleton (Taint.PgmPoint l)
 
-let is_unsafe cs = exists FSTaint.is_pgm_point cs
+let is_unsafe cs = exists Taint.is_pgm_point cs
 
-let has_symbol cs = exists FSTaint.is_symbol cs
+let has_symbol cs = exists Taint.is_symbol cs
 
 let subst cs subst_map =
   let union_substed c acc =
     match c with
-    | FSTaint.TntSymb s ->
+    | Taint.TntSymb s ->
         (try union acc (SubstMap.find s subst_map) with
          | Not_found -> add c acc)
     | _ -> add c acc
@@ -71,15 +71,13 @@ let subst cs subst_map =
 let bot = empty
 
 let make_sym pname i =
-  let (v, i) = FSTaint.make_sym pname i in
+  let (v, i) = Taint.make_sym pname i in
   (singleton v, i)
 
 let get_symbols cs =
   let add_symbols c acc =
-    match FSTaint.get_symbols c with
+    match Taint.get_symbols c with
     | Some s -> s :: acc
     | None -> acc
   in
   fold add_symbols cs []
-
-let add_taint loc cs = add (FSTaint.PgmPoint loc) cs

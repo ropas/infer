@@ -321,7 +321,7 @@ type payload =
     quandary : QuandarySummary.t option;
     siof : SiofDomain.astate option;
     threadsafety : ThreadSafetyDomain.astate option;
-    format_string : FormatStringDomain.Summary.t option;
+    format_string : IntOvfDomain.Summary.t option;
   }
 
 type summary =
@@ -457,7 +457,7 @@ let pp_payload pe fmt { preposts; typestate; crashcontext_frame; quandary; siof;
     (pp_opt QuandarySummary.pp) quandary
     (pp_opt SiofDomain.pp) siof
     (pp_opt ThreadSafetyDomain.pp) threadsafety
-    (pp_opt FormatStringDomain.Summary.pp) format_string
+    (pp_opt IntOvfDomain.Summary.pp) format_string
 
 let pp_summary_text ~whole_seconds fmt summary =
   let err_log = summary.attributes.ProcAttributes.err_log in

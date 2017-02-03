@@ -23,7 +23,7 @@ module L = Logging
 module Condition =
 struct
   type t =
-    { taint : FSTaintSet.t;
+    { ovf : OvfSet.t;
       proc_name : Procname.t;
       loc : Location.t;
       trace : trace }
@@ -46,7 +46,7 @@ struct
             Location.compare l1 l2
 
   let compare x y =
-    let i = FSTaintSet.compare x.taint y.taint in
+    let i = OvfSet.compare x.ovf y.ovf in
     if i <> 0 then i else
       let i = Procname.compare x.proc_name y.proc_name in
       if i <> 0 then i else
@@ -69,15 +69,15 @@ struct
   let pp : F.formatter -> t -> unit
   = fun fmt c ->
     if Config.ropas_debug <= 1 then 
-      F.fprintf fmt "%a at %a" FSTaintSet.pp c.taint pp_location c
+      F.fprintf fmt "%a at %a" OvfSet.pp c.ovf pp_location c
     else
       match c.trace with 
       | Inter (_, pname, loc) ->
           let pname = Procname.to_string pname in
           F.fprintf fmt "%a at %a by call %s() at %s" 
-            FSTaintSet.pp c.taint pp_location c pname (string_of_location loc)
+            OvfSet.pp c.ovf pp_location c pname (string_of_location loc)
       | Intra _ ->
-          F.fprintf fmt "%a at %a" FSTaintSet.pp c.taint pp_location c
+          F.fprintf fmt "%a at %a" OvfSet.pp c.ovf pp_location c
 
   let pp_element : F.formatter -> t -> unit
   = pp
@@ -91,14 +91,14 @@ struct
   let get_proc_name : t -> Procname.t
   = fun c -> c.proc_name
 
-  let make proc_name loc taint =
-    { proc_name; taint; loc; trace = Intra proc_name }
+  let make proc_name loc ovf =
+    { proc_name; ovf; loc; trace = Intra proc_name }
 
-  let check c = not (FSTaintSet.is_unsafe c.taint)
+  let check c = not (OvfSet.is_unsafe c.ovf)
 
-  let subst c subst_map caller_pname callee_pname loc =
-    if FSTaintSet.has_symbol c.taint then
-      { c with taint = FSTaintSet.subst c.taint subst_map;
+  let subst c ovf_subst taint_subst caller_pname callee_pname loc =
+    if OvfSet.has_symbol c.ovf then
+      { c with ovf = OvfSet.subst c.ovf ovf_subst taint_subst;
                trace = Inter (caller_pname, callee_pname, loc) }
     else c
 
@@ -114,11 +114,11 @@ struct
 
   let map f s = fold (fun e -> add (f e)) s empty
 
-  let add_fs_safety pname loc taint cond =
-    add (Condition.make pname loc taint) cond
+  let add_int_ovf_safety pname loc ovf cond =
+    add (Condition.make pname loc ovf) cond
 
-  let subst x subst_map caller callee loc =
-    map (fun c -> Condition.subst c subst_map caller callee loc) x
+  let subst x ovf_subst taint_subst caller callee loc =
+    map (fun c -> Condition.subst c ovf_subst taint_subst caller callee loc) x
 
   let pp_summary : F.formatter -> t -> unit
   = fun fmt x ->
@@ -143,7 +143,7 @@ end
 
 module Val =
 struct
-  include AbstractDomain.Pair4 (Itv) (FSTaintSet) (PowLoc) (ArrayBlk)
+  include AbstractDomain.Pair4 (OvfSet) (TaintSet) (PowLoc) (ArrayBlk)
 
   type t = astate
 
@@ -156,7 +156,7 @@ struct
     | [a] -> a
     | a :: b -> join a (joins b)
 
-  let get_itv = fst
+  let get_ovf = fst
 
   let get_taint = snd
 
@@ -170,114 +170,120 @@ struct
   let make i t p a = (i, t, p, a)
 
   let top_itv : t
-  = (Itv.top, FSTaintSet.bot, PowLoc.bot, ArrayBlk.bot)
+  = (OvfSet.bot, TaintSet.bot, PowLoc.bot, ArrayBlk.bot)
 
   let pos_itv : t
-  = (Itv.pos, FSTaintSet.bot, PowLoc.bot, ArrayBlk.bot)
+  = (OvfSet.bot, TaintSet.bot, PowLoc.bot, ArrayBlk.bot)
 
   let nat_itv : t
-  = (Itv.nat, FSTaintSet.bot, PowLoc.bot, ArrayBlk.bot)
+  = (OvfSet.bot, TaintSet.bot, PowLoc.bot, ArrayBlk.bot)
 
-  let of_itv_taint itv t =
-    (itv, t , PowLoc.bot, ArrayBlk.bot)
+  let of_taint t =
+    (OvfSet.bot, t , PowLoc.bot, ArrayBlk.bot)
     
-  let of_itv : Itv.t -> t
-  = fun itv -> (itv, FSTaintSet.bot, PowLoc.bot, ArrayBlk.bot)
+  let of_ovf : Itv.t -> t
+  = fun _ -> (OvfSet.bot, TaintSet.bot, PowLoc.bot, ArrayBlk.bot)
      
   let of_int : int -> t
-  = fun n -> (Itv.of_int n, FSTaintSet.bot, PowLoc.bot, ArrayBlk.bot)
+  = fun _ -> (OvfSet.bot, TaintSet.bot, PowLoc.bot, ArrayBlk.bot)
 
   let of_taint_with_loc l =
-  (Itv.top, FSTaintSet.of_taint l, PowLoc.bot, ArrayBlk.bot)
+    (OvfSet.bot, TaintSet.of_taint l, PowLoc.bot, ArrayBlk.bot)
 
   let of_pow_loc : PowLoc.t -> t
-  = fun x -> (Itv.bot, FSTaintSet.bot, x, ArrayBlk.bot)
+  = fun x -> (OvfSet.bot, TaintSet.bot, x, ArrayBlk.bot)
 
   let of_array_blk : ArrayBlk.astate -> t
-  = fun a -> (Itv.bot, FSTaintSet.bot, PowLoc.bot, a)
+  = fun a -> (OvfSet.bot, TaintSet.bot, PowLoc.bot, a)
 
   let zero : t
   = of_int 0
  
   let make_sym pname i =
-    let itv_v = Itv.make_sym pname i in
-    let i = i + 2 in          (* TODO: return i on Itv.make_sym *)
-    let (t_v, i) = FSTaintSet.make_sym pname i in
-    ((itv_v, t_v, PowLoc.bot, ArrayBlk.bot), i)
+    let (ovf, i) = OvfSet.make_sym pname i in
+    let (t, i) = TaintSet.make_sym pname i in
+    ((ovf, t, PowLoc.bot, ArrayBlk.bot), i)
 
   let unknown_bit : t -> t
-  = fun (_, t, x, a) -> (Itv.top, t, x, a)
+  = fun x -> x
 
   let neg : t -> t
-  = fun (n, t, x, a) -> (Itv.neg n, t, x, a)
+  = fun x -> x
 
   let lnot : t -> t
-  = fun (n, t, x, a) -> (Itv.lnot n, t, x, a)
+  = fun x -> x
 
-  let lift_bop_func
-  = fun f (n1, t1, _, _) (n2, t2, _, _) ->
-    (f n1 n2, FSTaintSet.join t1 t2, PowLoc.bot, ArrayBlk.bot)
+  let lift_bop
+  = fun (o1, t1, _, _) (o2, t2, _, _) ->
+    (OvfSet.join o1 o2, TaintSet.join t1 t2, PowLoc.bot, ArrayBlk.bot)
+
+  let calc_ovf o1 o2 t1 t2 = 
+    let t = TaintSet.join t1 t2 in
+    let o = OvfSet.join o1 o2 in
+    let o = TaintSet.fold (fun t acc -> OvfSet.add (IfTainted t) acc) t o in
+    (o, t)
+
+  let lift_bop_ovf 
+  = fun (o1, t1, _, _) (o2, t2, _, _) ->
+    let (o, t) = calc_ovf o1 o2 t1 t2 in
+    (o, t, PowLoc.bot, ArrayBlk.bot)
 
   let plus : t -> t -> t
-  = fun (n1, t1, _, a1) (n2, t2, _, _) ->
-    let n = Itv.plus n1 n2 in
-    let t = FSTaintSet.join t1 t2 in
-    let a = ArrayBlk.plus_offset a1 n2 in
-    (n, t, PowLoc.bot, a)
+  = fun (o1, t1, _, a1) (o2, t2, _, _) ->
+    let (o, t) = calc_ovf o1 o2 t1 t2 in
+    (o, t, PowLoc.bot, a1)
 
   let minus : t -> t -> t
-  = fun (n1, t1, _, a1) (n2, t2, _, a2) ->
-    let n = Itv.join (Itv.minus n1 n2) (ArrayBlk.diff a1 a2) in
-    let t = FSTaintSet.join t1 t2 in
-    let a = ArrayBlk.minus_offset a1 n2 in
-    (n, t, PowLoc.bot, a)
+  = fun (o1, t1, _, a1) (o2, t2, _, _) ->
+    let (o, t) = calc_ovf o1 o2 t1 t2 in
+    (o, t, PowLoc.bot, a1)
 
   let mult : t -> t -> t
-  = lift_bop_func Itv.mult
+  = lift_bop_ovf
 
   let div : t -> t -> t
-  = lift_bop_func Itv.div
+  = lift_bop
 
   let mod_sem : t -> t -> t
-  = lift_bop_func Itv.mod_sem
+  = lift_bop
 
   let shiftlt : t -> t -> t
-  = lift_bop_func Itv.shiftlt
+  = lift_bop
 
   let shiftrt : t -> t -> t
-  = lift_bop_func Itv.shiftrt
+  = lift_bop
 
   let lt_sem : t -> t -> t
-  = lift_bop_func Itv.lt_sem
+  = lift_bop
 
   let gt_sem : t -> t -> t
-  = lift_bop_func Itv.gt_sem
+  = lift_bop
 
   let le_sem : t -> t -> t
-  = lift_bop_func Itv.le_sem
+  = lift_bop
 
   let ge_sem : t -> t -> t
-  = lift_bop_func Itv.ge_sem
+  = lift_bop
 
   let eq_sem : t -> t -> t
-  = lift_bop_func Itv.eq_sem
+  = lift_bop
 
   let ne_sem : t -> t -> t
-  = lift_bop_func Itv.ne_sem
+  = lift_bop
 
   let land_sem : t -> t -> t
-  = lift_bop_func Itv.land_sem
+  = lift_bop
 
   let lor_sem : t -> t -> t
-  = lift_bop_func Itv.lor_sem
+  = lift_bop
 
   let lift_prune1 : (Itv.t -> Itv.t) -> t -> t
-  = fun f (n, t, x, a) -> (f n, t, x, a)
+  = fun _ (o, t, x, a) -> (o, t, x, a)
 
   let lift_prune2
     : (Itv.t -> Itv.t -> Itv.t)
       -> (ArrayBlk.astate -> ArrayBlk.astate -> ArrayBlk.astate) -> t -> t -> t
-  = fun f g (n1, t1, x1, a1) (n2, _, _, a2) -> (f n1 n2, t1, x1, g a1 a2)
+  = fun _ _ x _ -> x
 
   let prune_zero : t -> t
   = lift_prune1 Itv.prune_zero
@@ -292,46 +298,43 @@ struct
   = lift_prune2 Itv.prune_ne ArrayBlk.prune_eq
 
   let plus_pi : t -> t -> t
-  = fun (_, _, _, a1) (n2, _, _, _) ->
-    (Itv.bot, FSTaintSet.bot, PowLoc.bot, ArrayBlk.plus_offset a1 n2)
+  = fun (_, _, _, a1) (_, _, _, _) ->
+    (OvfSet.bot, TaintSet.bot, PowLoc.bot, a1)
 
   let minus_pi : t -> t -> t
-  = fun (_, _, _, a1) (n2, _, _, _) ->
-    (Itv.bot, FSTaintSet.bot, PowLoc.bot, ArrayBlk.minus_offset a1 n2)
+  = fun (_, _, _, a1) (_, _, _, _) ->
+    (OvfSet.bot, TaintSet.bot, PowLoc.bot, a1)
 
   let minus_pp : t -> t -> t
-  = fun (_, _, _, a1) (_, _, _, a2) ->
-    (ArrayBlk.diff a1 a2, FSTaintSet.bot, PowLoc.bot, ArrayBlk.bot)
+  = fun (_, _, _, a1) (_, _, _, _) ->
+    (OvfSet.bot, TaintSet.bot, PowLoc.bot, a1)
 
   let subst
-  = fun (i, t, p, a) itv_subst_map taint_subst_map ->
-    let i = Itv.subst i itv_subst_map in
-    let t = FSTaintSet.subst t taint_subst_map in
-    let a = ArrayBlk.subst a itv_subst_map in
-    (i, t, p, a)
+  = fun (o, t, p, a) ovf_subst_map taint_subst_map ->
+    let o = OvfSet.subst o ovf_subst_map taint_subst_map in
+    let t = TaintSet.subst t taint_subst_map in
+    (o, t, p, a)
 
   let get_symbols : t -> Symbol.t list
   = fun (i, t, _, a) ->
     IList.flatten
-      [Itv.get_symbols i;
-       FSTaintSet.get_symbols t;
+      [OvfSet.get_symbols i;
+       TaintSet.get_symbols t;
        ArrayBlk.get_symbols a]
 
-  let normalize : t -> t
-  = fun (i, t, l, a) -> (Itv.normalize i, t, l, ArrayBlk.normalize a)
+  let normalize : t -> t 
+  = fun x -> x
 
   let pp_summary : F.formatter -> t -> unit
-  = fun fmt (i, t, _, a) ->
-    F.fprintf fmt "(%a, %a, %a)" Itv.pp i FSTaintSet.pp t ArrayBlk.pp a
+  = fun fmt (o, t, _, a) ->
+    F.fprintf fmt "(%a, %a, %a)" OvfSet.pp o TaintSet.pp t ArrayBlk.pp a
 
-  let add_taint loc (i, t, p, a) = (i, FSTaintSet.add_taint loc t, p, a)
-                                 
   let extern_value allocsite loc =
+    let o = OvfSet.bot in
     let l = PowLoc.singleton (Loc.Allocsite allocsite) in
-    let t = (FSTaintSet.singleton (FSTaintSet.FSTaint.PgmPoint loc)) in
-    let array = ArrayBlk.extern allocsite in
-    (Itv.top, t, l, array)
-    
+    let t = (TaintSet.singleton (TaintSet.Taint.PgmPoint loc)) in
+    let a = ArrayBlk.extern allocsite in
+    (o, t, l, a)
     
 end
 

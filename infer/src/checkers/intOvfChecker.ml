@@ -16,11 +16,11 @@
 
 open! Utils
 open BasicDom
-open FormatStringModel
+open ApiModel
 
 module F = Format
 module L = Logging
-module Dom = FormatStringDomain
+module Dom = IntOvfDomain
 
 module Summary = Summary.Make (struct
     type summary = Dom.Summary.t
@@ -36,7 +36,7 @@ module TransferFunctions (CFG : ProcCfg.S) =
 struct
   module CFG = CFG
   module Domain = Dom
-  module Semantics = FormatStringSemantics.Make (CFG)
+  module Semantics = IntOvfSemantics.Make (CFG)
   module Sem = Semantics
 
   type extras = Procname.t -> Procdesc.t option
@@ -55,8 +55,8 @@ struct
   = fun pname ret params node mem ->
     match ret with
     | Some (id, _) ->
-        let (typ, size) = get_malloc_info (IList.hd params |> fst) in
-        let size = Sem.eval size mem (CFG.loc node) |> Dom.Val.get_itv in
+        let (typ, _) = get_malloc_info (IList.hd params |> fst) in
+        let size = Itv.top in
         let v = Sem.eval_array_alloc pname node typ Itv.zero size 0 1 in
         Dom.Mem.add_stack (Loc.of_id id) v mem
     | _ -> mem
@@ -203,7 +203,7 @@ struct
     let st = Itv.of_int 1 in
     let pow_loc = PowLoc.singleton (Loc.Allocsite allocsite) in
     let array = ArrayBlk.make allocsite offset sz st in
-    let block_v = Dom.Val.make Itv.bot FSTaintSet.bot pow_loc array in
+    let block_v = Dom.Val.make OvfSet.bot TaintSet.bot pow_loc array in
     (Dom.Mem.update_mem pow_loc init_v mem, block_v)
 
   let produce_ret pname allocinfo loc node ret_typ va_src_flag
@@ -222,7 +222,7 @@ struct
         assert (va_src_flag || IList.length src_vals > 0);
         let src_v = IList.fold_left Dom.Val.join Dom.Val.bot src_vals in
         let src_taint = Dom.Val.get_taint src_v in
-        (mem, Dom.Val.of_itv_taint Itv.top src_taint )
+        (mem, Dom.Val.of_taint src_taint)
     | DstArg -> (* Dst argument returned *)
         assert (IList.length dst_vals = 1);
         (mem, IList.hd dst_vals)
@@ -385,15 +385,15 @@ struct
     let callee_exit_m = Dom.Summary.get_output summary in
     match callee_pdesc with
     | Some pdesc ->
-        let itv_subst_map =
-          Sem.get_itv_subst tenv pdesc params caller_m callee_entry_m loc
+        let ovf_subst_map =
+          Sem.get_ovf_subst tenv pdesc params caller_m callee_entry_m loc
         in
         let taint_subst_map =
           Sem.get_taint_subst tenv pdesc params caller_m callee_entry_m loc
         in
         let ret_loc = Loc.of_pvar (Pvar.get_ret_pvar callee_pname) in
         let ret_val = Dom.Mem.find_heap ret_loc callee_exit_m in
-        Dom.Val.subst ret_val itv_subst_map taint_subst_map
+        Dom.Val.subst ret_val ovf_subst_map taint_subst_map
         |> Dom.Val.normalize    (* normalize bottom *)
     | _ -> Dom.Val.bot
 
@@ -490,7 +490,7 @@ module Analyzer =
 module Report =
 struct
   module CFG = ProcCfg.Normal
-  module Semantics = FormatStringSemantics.Make (CFG)
+  module Semantics = IntOvfSemantics.Make (CFG)
   module Sem = Semantics
   module TransferFunctions = TransferFunctions (CFG)
 
@@ -502,11 +502,15 @@ struct
     let callee_cond = Dom.Summary.get_cond_set summary in
     match callee_pdesc with
     | Some pdesc ->
-        let taint_subst =
-          Sem.get_taint_subst tenv pdesc params caller_mem callee_entry_mem loc
-        in
-        let pname = Procdesc.get_proc_name pdesc in
-        Dom.ConditionSet.subst callee_cond taint_subst caller_pname pname loc
+      let taint_subst : TaintSet.astate TaintSet.SubstMap.t =
+        Sem.get_taint_subst tenv pdesc params caller_mem callee_entry_mem loc
+      in
+      let ovf_subst =
+        Sem.get_ovf_subst tenv pdesc params caller_mem callee_entry_mem loc
+      in
+      let pname = Procdesc.get_proc_name pdesc in
+      Dom.ConditionSet.subst 
+        callee_cond ovf_subst taint_subst caller_pname pname loc
     | _ -> callee_cond
 
   let print_debug_info : Sil.instr -> Dom.t -> Dom.ConditionSet.t -> unit
@@ -526,36 +530,23 @@ struct
 
   let sink_funcs =
     SinkMap.empty
-    |> SinkMap.add "printf" 0
-    |> SinkMap.add "vprintf" 0
-    |> SinkMap.add "sprintf" 1
-    |> SinkMap.add "fprintf" 1
-    |> SinkMap.add "vfprintf" 1
-    |> SinkMap.add "vsprintf" 1
-    |> SinkMap.add "vasprintf" 1
-    |> SinkMap.add "__asprintf" 1
-    |> SinkMap.add "asprintf" 1
-    |> SinkMap.add "vdprintf" 1
-    |> SinkMap.add "dprintf" 1
-    |> SinkMap.add "obstack_printf" 1
-    |> SinkMap.add "obstack_vprintf" 1
-    |> SinkMap.add "easprintf" 1
-    |> SinkMap.add "evasprintf" 1
-    |> SinkMap.add "snprintf" 2
-    |> SinkMap.add "vsnprintf" 2
+    |> SinkMap.add "malloc" 0
+    |> SinkMap.add "__new_array" 0
+    |> SinkMap.add "realloc" 0 
+    |> SinkMap.add "calloc" 1 
 
   let add_cond_n n pname loc params mem cond_set =
     match IList.nth params n with
     | (e, _) ->
         let p = Sem.eval e mem loc in
         let v = Dom.Mem.find_heap_set (Dom.Val.get_all_locs p) mem in
-        let t = Dom.Val.get_taint v in
+        let o = Dom.Val.get_ovf v in
         (if Config.ropas_debug >= 2 then
            (F.fprintf F.err_formatter "@[<v 2>Add condition :@,";
             F.fprintf F.err_formatter "Pname: %s@," (Procname.to_string pname);
-            F.fprintf F.err_formatter "Sink: %a@," FSTaintSet.pp t;
+            F.fprintf F.err_formatter "Sink: %a@," OvfSet.pp o;
             F.fprintf F.err_formatter "@]@."));
-        Dom.ConditionSet.add_fs_safety pname loc t cond_set
+        Dom.ConditionSet.add_int_ovf_safety pname loc o cond_set
     | exception _ -> assert false
 
   let add_conds caller callee loc params mem cond_set =
